@@ -1,0 +1,59 @@
+{
+  "name": "mauth-theme-core",
+  "version": "0.1.0",
+  "description": "多主题 / 多版式机制的纯内核（零运行时依赖）：目录名与默认值的白名单常量、主题包契约类型、明暗 mode 与色系 tone、CSS 变量 token 的安全校验、设备维度 URL 参数读取。不碰 DOM / 构建器 / 路由，可在任意前端（Vue / React / Node / SSR）复用。",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "src",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "sideEffects": false,
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "npm run build && node --test",
+    "prepack": "npm run build"
+  },
+  "keywords": [
+    "theme",
+    "design-token",
+    "css-variables",
+    "multi-theme",
+    "multi-layout",
+    "dark-mode",
+    "theme-switch",
+    "vue",
+    "react",
+    "zero-dependency",
+    "typescript"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yijiu2025/theme.git"
+  },
+  "homepage": "https://github.com/yijiu2025/theme#readme",
+  "bugs": {
+    "url": "https://github.com/yijiu2025/theme/issues"
+  },
+  "author": "qirly",
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^6.0.3"
+  }
+}

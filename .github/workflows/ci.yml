@@ -1,0 +1,32 @@
+name: CI
+
+# 主题内核是零运行时依赖的纯 TS：CI 只做三件事 —— 类型闸门、构建产物可被 Node 原生加载、
+# 以及针对**产物**跑行为测试（这同时验了 NodeNext 的相对说明符写法没被改坏）。
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [20, 22]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+
+      - name: Install
+        run: npm install
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Build + test
+        run: npm test
