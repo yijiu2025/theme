@@ -2,9 +2,12 @@
 
 本包遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)：0.x 阶段的次要版本允许重命名与结构调整（公开出口是显式具名导出，改名即 semver-minor）。
 
-> **命名沿革**：本包初版的 npm 名是 `mauth-theme-core`，2026-09-27 改为 **`multitheme`**（语义 = 多主题 × 多版式）。
-> 旧名的两个版本 `0.1.0` / `0.1.1` 均已标记 **deprecated** 并保留可安装，不再更新 ——
-> 两者代码完全一致，只有包名不同。
+> **命名沿革**：2026-09-27 当天两度改名，最终定为 **`skinsuite`**：
+>   ① 初版发布名 `mauth-theme-core@0.1.0`（前缀取自宿主的 `mauth-*` 主题层，对外没有意义）；
+>   ② 改 `multitheme` 时被 npm 拒绝（403：与已存在的 `multi-theme` 过于相似，官方建议改 scope）；
+>   ③ 定名 `skinsuite`（"皮肤 / 配色套件"，对应这套机制里 `?skin=` 那一层）。
+>   旧名 `mauth-theme-core` 的 `0.1.0` / `0.1.1` 均已标记 **deprecated** 并保留可安装，不再更新 ——
+>   它们的代码与 `skinsuite@0.1.0` 完全一致，只有包名不同。
 
 ## 0.1.0 — 2026-09-27
 

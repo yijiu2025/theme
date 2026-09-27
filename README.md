@@ -1,11 +1,11 @@
-# multitheme
+# skinsuite
 
 多主题 / 多版式机制的**纯内核**：把「主题包 → 设备 → 页面 → 配色」这套机制里**与业务、与框架都无关**的那一半抽成一个零运行时依赖的 npm 包。
 
-> **English TL;DR** — `multitheme` is the framework-agnostic core of a multi-theme / multi-layout system: whitelisted constants, theme-package contract types, *mode* (light/dark/system) vs *tone* (light/dark color family), safe CSS-variable token validation, and device-scoped URL parameter resolution. Zero runtime dependencies, no DOM, no bundler APIs, no router — usable from Vue, React, plain Node or SSR. Everything DOM/bundler/store related is intentionally **your** adapter layer (see [What this package deliberately does not do](#什么不在这个包里)).
+> **English TL;DR** — `skinsuite` is the framework-agnostic core of a multi-theme / multi-layout system: whitelisted constants, theme-package contract types, *mode* (light/dark/system) vs *tone* (light/dark color family), safe CSS-variable token validation, and device-scoped URL parameter resolution. Zero runtime dependencies, no DOM, no bundler APIs, no router — usable from Vue, React, plain Node or SSR. Everything DOM/bundler/store related is intentionally **your** adapter layer (see [What this package deliberately does not do](#什么不在这个包里)).
 
 ```bash
-npm install multitheme
+npm install skinsuite
 ```
 
 ---
@@ -32,7 +32,7 @@ npm install multitheme
 ### 1. 安全地接受外部下发的 CSS 变量
 
 ```js
-import { sanitizeOverrides } from 'multitheme';
+import { sanitizeOverrides } from 'skinsuite';
 
 // 后端配置 / 父应用 postMessage 同步 / URL 参数 —— 一律视为不可信输入
 const { tokens, rejected } = sanitizeOverrides(payload);
@@ -48,7 +48,7 @@ if (rejected.length) reportToSentry('theme: illegal token', rejected);
 ### 2. 按设备读取 URL 参数
 
 ```js
-import { readDeviceParam } from 'multitheme';
+import { readDeviceParam } from 'skinsuite';
 
 // /login?view=default&view.mobile=compact
 readDeviceParam(route.query, 'view', 'mobile'); // 'compact'  设备专属优先
@@ -84,7 +84,7 @@ themes/<主题包>/<设备>/<页面>/colors/<配色>/
 
 ## API
 
-唯一公开出口是包根 `multitheme`，采用**显式具名导出**（不用 `export *`）—— 下面这张表就是包的承诺，表里没有的名字不该被依赖。
+唯一公开出口是包根 `skinsuite`，采用**显式具名导出**（不用 `export *`）—— 下面这张表就是包的承诺，表里没有的名字不该被依赖。
 
 ### 常量与兜底口径
 
@@ -97,7 +97,7 @@ import {
   DEFAULT_THEME_COLOR,
   DEFAULT_THEME_DARK_COLOR,
   BASE_VIEW_ID
-} from 'multitheme';
+} from 'skinsuite';
 ```
 
 | 导出 | 值 | 用途 |
@@ -113,7 +113,7 @@ import {
 ### 明暗 `mode`
 
 ```js
-import { MODE_CYCLE, MODE_LABELS, isThemeMode, normalizeMode } from 'multitheme';
+import { MODE_CYCLE, MODE_LABELS, isThemeMode, normalizeMode } from 'skinsuite';
 ```
 
 - `ThemeMode = 'system' | 'light' | 'dark'` —— 含 `system`，旧版只有布尔值时"切过就回不来"
@@ -123,7 +123,7 @@ import { MODE_CYCLE, MODE_LABELS, isThemeMode, normalizeMode } from 'multitheme'
 ### 色系 `tone`
 
 ```js
-import { THEME_TONES, TONE_LABELS, isThemeTone, normalizeTone } from 'multitheme';
+import { THEME_TONES, TONE_LABELS, isThemeTone, normalizeTone } from 'skinsuite';
 ```
 
 - `ThemeTone = 'light' | 'dark'` —— **没有** `system`：系别是配色自带的属性，不存在"跟随系统"
@@ -137,8 +137,8 @@ import {
   isSafeTokenValue,
   isSafeTokenEntry,
   sanitizeOverrides
-} from 'multitheme';
-import type { ThemeTokenOverrides, SanitizeResult, ThemeTokenLayers } from 'multitheme';
+} from 'skinsuite';
+import type { ThemeTokenOverrides, SanitizeResult, ThemeTokenLayers } from 'skinsuite';
 ```
 
 - token 名必须是 `--mauth-<小写短横线>`（避免误伤 `--background` 这类全局变量）
@@ -156,7 +156,7 @@ import type {
   MauthThemePackage,
   MauthThemeColor,
   MauthThemeRecord
-} from 'multitheme';
+} from 'skinsuite';
 ```
 
 主题包定义、配色定义，以及注册表里一条已解析好的记录。它们的文档注释就是规格说明（我们会保持注释与实现一致）。
@@ -164,8 +164,8 @@ import type {
 ### 设备维度参数
 
 ```js
-import { DEVICE_SCOPED_PARAMS, readDeviceParam } from 'multitheme';
-import type { DeviceScopedParam } from 'multitheme';
+import { DEVICE_SCOPED_PARAMS, readDeviceParam } from 'skinsuite';
+import type { DeviceScopedParam } from 'skinsuite';
 
 readDeviceParam(query, name, device);
 // `query['<name>.<device>']` → `query[name]` → undefined
@@ -189,16 +189,16 @@ readDeviceParam(query, name, device);
 | 设备取值集合 | `mobile` / `standard` / `mini` 是**某个 app** 的词汇表，不是机制的一部分 |
 | 业务资产（`themes/**`） | 版式实现与配色数据是"你的页面长什么样"，随应用走 |
 
-配套的宿主 Vue 适配层（store + DOM 注入 + glob 适配器）计划单发一个包 `multitheme-vue`，见 [Roadmap](#roadmap)。
+配套的宿主 Vue 适配层（store + DOM 注入 + glob 适配器）计划单发一个包 `skinsuite-vue`，见 [Roadmap](#roadmap)。
 
 ### 在自有项目里接入（Vite 示例）
 
-安装后无需任何别名配置：包自带类型声明，`import { … } from 'multitheme'` 直接可用。
+安装后无需任何别名配置：包自带类型声明，`import { … } from 'skinsuite'` 直接可用。
 真正要你写的是**一层薄适配**——把本包的纯函数接到你的平台上：
 
 ```ts
 // src/theme/index.ts —— 你的适配层
-import { THEME_ID_RE, sanitizeOverrides } from 'multitheme';
+import { THEME_ID_RE, sanitizeOverrides } from 'skinsuite';
 
 // ① 主题包：构建期扫出来（Vite 专有，留在宿主）
 const packages = import.meta.glob('./themes/*/index.ts', { eager: true });
@@ -250,7 +250,7 @@ CSS 自定义属性是能**直接改变渲染**的输入。未经校验就 `setP
 | Stage 2 | 版式注册表工厂 + 版式选择器（四档链：`?view.<设备>` → `?view` → 包声明 → 环境变量 → 当前包） | 计划中 |
 | Stage 3 | 配色注册表与回退链（`createColorRegistry` 等） | 计划中 |
 | Stage 4 | store 的纯逻辑（URL 意图归一、明暗联动规则）；DOM 与存储拆成适配器 | 计划中 |
-| Stage 5 | 配套 Vue 适配层 `multitheme-vue` | 计划中 |
+| Stage 5 | 配套 Vue 适配层 `skinsuite-vue` | 计划中 |
 
 在 1.0 之前（0.x），次要版本可能包含重命名 —— 公开出口是显式具名导出，改名即 semver-minor。
 

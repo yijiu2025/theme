@@ -6,7 +6,7 @@
  * 留在 `runtime.ts` 的是注入动作（`applyThemeLayers` 等），它反过来 import 本文件。
  *
  * ⚠️ 本文件**零依赖、零副作用**：不读 DOM、不 import 任何模块，是一串纯函数 + 常量。
- *    这是 `multitheme` 能被任意前端（webpack / 单测 / SSR 预备）复用的前提。
+ *    这是 `skinsuite` 能被任意前端（webpack / 单测 / SSR 预备）复用的前提。
  *
  * === 为什么必须校验 ===
  * CSS 自定义属性是能直接改变渲染的输入。未校验就 `setProperty` 等于把 CSS 注入的
