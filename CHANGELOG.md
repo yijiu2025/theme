@@ -2,6 +2,10 @@
 
 本包遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)：0.x 阶段的次要版本允许重命名与结构调整（公开出口是显式具名导出，改名即 semver-minor）。
 
+> **命名沿革**：本包初版的 npm 名是 `mauth-theme-core`，2026-09-27 改为 **`multitheme`**（语义 = 多主题 × 多版式）。
+> 旧名的两个版本 `0.1.0` / `0.1.1` 均已标记 **deprecated** 并保留可安装，不再更新 ——
+> 两者代码完全一致，只有包名不同。
+
 ## 0.1.0 — 2026-09-27
 
 首个公开发布。内容 = 主题机制里的**纯叶子层**（抽包 Stage 1），从宿主 [`oauth21`](https://github.com/yijiu2025/CoreFlow) 的 `src/theme/` 原样迁出，宿主侧改为零逻辑转发壳。

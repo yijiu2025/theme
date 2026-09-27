@@ -1,11 +1,11 @@
-# mauth-theme-core
+# multitheme
 
 多主题 / 多版式机制的**纯内核**：把「主题包 → 设备 → 页面 → 配色」这套机制里**与业务、与框架都无关**的那一半抽成一个零运行时依赖的 npm 包。
 
-> **English TL;DR** — `mauth-theme-core` is the framework-agnostic core of a multi-theme / multi-layout system: whitelisted constants, theme-package contract types, *mode* (light/dark/system) vs *tone* (light/dark color family), safe CSS-variable token validation, and device-scoped URL parameter resolution. Zero runtime dependencies, no DOM, no bundler APIs, no router — usable from Vue, React, plain Node or SSR. Everything DOM/bundler/store related is intentionally **your** adapter layer (see [What this package deliberately does not do](#什么不在这个包里)).
+> **English TL;DR** — `multitheme` is the framework-agnostic core of a multi-theme / multi-layout system: whitelisted constants, theme-package contract types, *mode* (light/dark/system) vs *tone* (light/dark color family), safe CSS-variable token validation, and device-scoped URL parameter resolution. Zero runtime dependencies, no DOM, no bundler APIs, no router — usable from Vue, React, plain Node or SSR. Everything DOM/bundler/store related is intentionally **your** adapter layer (see [What this package deliberately does not do](#什么不在这个包里)).
 
 ```bash
-npm install mauth-theme-core
+npm install multitheme
 ```
 
 ---
@@ -17,7 +17,7 @@ npm install mauth-theme-core
 | 机制 | 手写时的典型事故 |
 | --- | --- |
 | 目录名 / id 白名单 | 主题目录名直接拼进 `data-*` 属性与 CSS 选择器，一个大写字母就是静默不生效 |
-| 明暗（`mode`）与色系（`tone`）的联动 | 「开夜间」切不到深色配色、深此时久 verso —— 因为把两个维度混成一个布尔值 |
+| 明暗（`mode`）与色系（`tone`）的联动 | 两个维度被混成一个布尔值 →「开夜间」切不到深色配色，或者切过去就再也回不来 |
 | CSS 变量（token）的安全校验 | 后端/父页面下发的值直接 `setProperty`，等于把 CSS 注入和外发请求的口子交出去 |
 | 设备维度的 URL 参数 | `?view.mobile=compact&view.standard=default` 各端各一套的取值链，抄一份就漂移一份 |
 
@@ -32,7 +32,7 @@ npm install mauth-theme-core
 ### 1. 安全地接受外部下发的 CSS 变量
 
 ```js
-import { sanitizeOverrides } from 'mauth-theme-core';
+import { sanitizeOverrides } from 'multitheme';
 
 // 后端配置 / 父应用 postMessage 同步 / URL 参数 —— 一律视为不可信输入
 const { tokens, rejected } = sanitizeOverrides(payload);
@@ -48,7 +48,7 @@ if (rejected.length) reportToSentry('theme: illegal token', rejected);
 ### 2. 按设备读取 URL 参数
 
 ```js
-import { readDeviceParam } from 'mauth-theme-core';
+import { readDeviceParam } from 'multitheme';
 
 // /login?view=default&view.mobile=compact
 readDeviceParam(route.query, 'view', 'mobile'); // 'compact'  设备专属优先
@@ -69,7 +69,7 @@ themes/<主题包>/<设备>/<页面>/colors/<配色>/
        └──────────────────────────────── 一个主题包 = 一种版式
 ```
 
-四条固定口径（它们决定了中所有 API 的形状）：
+四条固定口径（它们决定了下面所有 API 的形状）：
 
 | 维度 | 谁定义 | 说明 |
 | --- | --- | --- |
@@ -84,7 +84,7 @@ themes/<主题包>/<设备>/<页面>/colors/<配色>/
 
 ## API
 
-唯一公开出口是包根 `mauth-theme-core`，采用**显式具名导出**（不用 `export *`）—— 下面这张表就是包的承诺，表里没有的名字不该被依赖。
+唯一公开出口是包根 `multitheme`，采用**显式具名导出**（不用 `export *`）—— 下面这张表就是包的承诺，表里没有的名字不该被依赖。
 
 ### 常量与兜底口径
 
@@ -97,7 +97,7 @@ import {
   DEFAULT_THEME_COLOR,
   DEFAULT_THEME_DARK_COLOR,
   BASE_VIEW_ID
-} from 'mauth-theme-core';
+} from 'multitheme';
 ```
 
 | 导出 | 值 | 用途 |
@@ -108,12 +108,12 @@ import {
 | `DEFAULT_THEME_COLOR` | `'white'` | **默认配色**（显式值，不是"字母序第一"—— 那样加一个 `amber` 就会静默改掉默认外观） |
 | `DEFAULT_THEME_DARK_COLOR` | `'black'` | 暗系配对值，与上一行成对使用 |
 | `DEFAULT_THEME_ID` | `'default'` | 空记录（注册表还没产出任何记录）的**占位** id，**不是**默认配色 |
-| `BASE_VIEW_ID` | `'base'` | 版式注册表工厂的**逻辑** id；永远不会作为配色键里的一出现 |
+| `BASE_VIEW_ID` | `'base'` | 版式注册表工厂的**逻辑** id；它永远不该出现在配色键里 |
 
 ### 明暗 `mode`
 
 ```js
-import { MODE_CYCLE, MODE_LABELS, isThemeMode, normalizeMode } from 'mauth-theme-core';
+import { MODE_CYCLE, MODE_LABELS, isThemeMode, normalizeMode } from 'multitheme';
 ```
 
 - `ThemeMode = 'system' | 'light' | 'dark'` —— 含 `system`，旧版只有布尔值时"切过就回不来"
@@ -123,7 +123,7 @@ import { MODE_CYCLE, MODE_LABELS, isThemeMode, normalizeMode } from 'mauth-theme
 ### 色系 `tone`
 
 ```js
-import { THEME_TONES, TONE_LABELS, isThemeTone, normalizeTone } from 'mauth-theme-core';
+import { THEME_TONES, TONE_LABELS, isThemeTone, normalizeTone } from 'multitheme';
 ```
 
 - `ThemeTone = 'light' | 'dark'` —— **没有** `system`：系别是配色自带的属性，不存在"跟随系统"
@@ -137,8 +137,8 @@ import {
   isSafeTokenValue,
   isSafeTokenEntry,
   sanitizeOverrides
-} from 'mauth-theme-core';
-import type { ThemeTokenOverrides, SanitizeResult, ThemeTokenLayers } from 'mauth-theme-core';
+} from 'multitheme';
+import type { ThemeTokenOverrides, SanitizeResult, ThemeTokenLayers } from 'multitheme';
 ```
 
 - token 名必须是 `--mauth-<小写短横线>`（避免误伤 `--background` 这类全局变量）
@@ -156,16 +156,16 @@ import type {
   MauthThemePackage,
   MauthThemeColor,
   MauthThemeRecord
-} from 'mauth-theme-core';
+} from 'multitheme';
 ```
 
-主题包定义、配色定义、 registry 里一条已解析好的记录。它们的文档注释就是规格说明（我们会保持注释与实现一致）。
+主题包定义、配色定义，以及注册表里一条已解析好的记录。它们的文档注释就是规格说明（我们会保持注释与实现一致）。
 
 ### 设备维度参数
 
 ```js
-import { DEVICE_SCOPED_PARAMS, readDeviceParam } from 'mauth-theme-core';
-import type { DeviceScopedParam } from 'mauth-theme-core';
+import { DEVICE_SCOPED_PARAMS, readDeviceParam } from 'multitheme';
+import type { DeviceScopedParam } from 'multitheme';
 
 readDeviceParam(query, name, device);
 // `query['<name>.<device>']` → `query[name]` → undefined
@@ -185,34 +185,32 @@ readDeviceParam(query, name, device);
 | --- | --- |
 | `import.meta.glob` / `import.meta.env` | 构建器专有（webpack 用 `require.context`，测试环境喂数组），同一份内核才能适配多种来源 |
 | `document` / `localStorage` / `matchMedia` | DOM 与存储；SSR 与单测需要一个替代实现 |
-| Pinia store / 路由 | 应用自己的世界观；路由 president gyro 尤其如此 |
+| Pinia store / 路由 | 应用自己的世界观 —— 路由尤其如此（路径语义、`meta` 约定） |
 | 设备取值集合 | `mobile` / `standard` / `mini` 是**某个 app** 的词汇表，不是机制的一部分 |
 | 业务资产（`themes/**`） | 版式实现与配色数据是"你的页面长什么样"，随应用走 |
 
-配套의宿主 Vue 适配层（store + DOM 注入 + glob 适配器）计划单发一个包 `mauth-theme-vue`，见 [Roadmap](#roadmap)。
+配套的宿主 Vue 适配层（store + DOM 注入 + glob 适配器）计划单发一个包 `multitheme-vue`，见 [Roadmap](#roadmap)。
 
 ### 在自有项目里接入（Vite 示例）
 
-```js
-// vite.config.js —— 用别名让 consumption 走源码或包都可以
-resolve: { alias: { 'mauth-theme-core': 'mauth-theme-core' } }
-```
+安装后无需任何别名配置：包自带类型声明，`import { … } from 'multitheme'` 直接可用。
+真正要你写的是**一层薄适配**——把本包的纯函数接到你的平台上：
 
 ```ts
-// src/theme/index.ts —— 你的适配层：把本包的纯函数接到你的平台上
-import { THEME_ID_RE, sanitizeOverrides } from 'mauth-theme-core';
+// src/theme/index.ts —— 你的适配层
+import { THEME_ID_RE, sanitizeOverrides } from 'multitheme';
 
 // ① 主题包：构建期扫出来（Vite 专有，留在宿主）
 const packages = import.meta.glob('./themes/*/index.ts', { eager: true });
 
-// ② 注入 vue：值走本包的白名单，DOM 写入是你自己的活
+// ② 写入 DOM：值走本包的白名单，写到哪一层是你自己的活
 export function applyTokens(el: HTMLElement, overrides?: Record<string, string>) {
   const { tokens } = sanitizeOverrides(overrides);
   for (const [k, v] of Object.entries(tokens)) el.style.setProperty(k, v);
 }
 ```
 
-要点：**注入的位置由你定，校验的规则由本包给**。这样几条可以复用到任何宿主：名称白名单、明暗/系别归一、token 安全、设备维度取值链。
+要点：**注入的位置由你定，校验的规则由本包给**。这几件事因此能被复用到任何宿主：名称白名单、明暗 / 系别归一、token 安全、设备维度取值链。
 
 ---
 
@@ -252,7 +250,7 @@ CSS 自定义属性是能**直接改变渲染**的输入。未经校验就 `setP
 | Stage 2 | 版式注册表工厂 + 版式选择器（四档链：`?view.<设备>` → `?view` → 包声明 → 环境变量 → 当前包） | 计划中 |
 | Stage 3 | 配色注册表与回退链（`createColorRegistry` 等） | 计划中 |
 | Stage 4 | store 的纯逻辑（URL 意图归一、明暗联动规则）；DOM 与存储拆成适配器 | 计划中 |
-| Stage 5 | 配套 Vue 适配层 `mauth-theme-vue` | 计划中 |
+| Stage 5 | 配套 Vue 适配层 `multitheme-vue` | 计划中 |
 
 在 1.0 之前（0.x），次要版本可能包含重命名 —— 公开出口是显式具名导出，改名即 semver-minor。
 
