@@ -1,0 +1,68 @@
+name: 功能建议
+description: 提一个新功能或改进建议（新常量 / 新契约 / 新校验维度…）
+labels: ['enhancement']
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: 背景问题
+      description: 你想解决什么问题？没有这个功能时现在怎么绕？
+      placeholder: |
+        例：宿主应用 B 需要按「色系 + 设备」两维查默认 token，现在要自己维护一张映射表。
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: 期望方案
+      description: 你期望的导出名 / 签名 / 行为长什么样；注意显式具名导出的约定
+      placeholder: |
+        例：新增 getDefaultTokens(tone, device)，对白名单外的入参返回空对象而非抛错。
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: 备选方案
+      description: 考虑过的其他做法（如在宿主侧封装），以及为什么更差
+    validations:
+      required: false
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: 影响面
+      options:
+        - 常量白名单（目录名 / 默认值）
+        - 契约类型（types.ts）
+        - 明暗 mode 判定
+        - 色系 tone
+        - token 安全校验
+        - 设备维度 URL 参数
+        - 构建 / 产物
+        - 文档
+        - 其他
+    validations:
+      required: true
+
+  - type: dropdown
+    id: compat
+    attributes:
+      label: 兼容性影响
+      description: 本仓按 SemVer 发版，破坏性变更触发 major
+      options:
+        - 纯新增，不破坏
+        - 修改现有行为（可能破坏下游）
+        - 不确定
+    validations:
+      required: true
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: 附加材料
+      description: 参考设计、下游用例、相关 issue / PR 链接
+    validations:
+      required: false
