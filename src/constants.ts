@@ -8,7 +8,7 @@
  *
  * ⚠️ 本文件**零依赖**（不 import 任何东西），也不碰 DOM / 构建器 / 路由：
  *    这是 `skinsuite` 能被任意前端复用的前提（见
- *    docs/frontend/theme-package-extraction.md 的「〇、一条原则」）。
+ *    docs/standards/theme-package-extraction.md 的「〇、一条原则」）。
  *
  * @author yijiu2025
  */

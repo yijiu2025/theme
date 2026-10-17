@@ -1,16 +1,37 @@
 name: CI
 
-# 主题内核是零运行时依赖的纯 TS：CI 只做三件事 —— 类型闸门、构建产物可被 Node 原生加载、
-# 以及针对**产物**跑行为测试（这同时验了 NodeNext 的相对说明符写法没被改坏）。
+# ============================================================================
+# 门禁入口（theme / skinsuite —— 零运行时依赖的纯 TS 主题内核）
+#
+# 本文件是**唯一入口**（家族 CI 规范见 fullstack-rules → ci-conventions.md）：
+#   · 库仓自建门禁，不走前端家族共享门禁 ci-quality.yml（本仓是 npm 库，
+#     无 lint 框架、无 lock 复现需求，安装口径 `npm install` 现算树）；
+#   · 顺序口径仍按家族规范：类型 →（无规范层，本仓零依赖纯 TS 由 tsc 兜）→ 单测 → 构建；
+#   · Node 矩阵 [20, 22] 是**刻意**偏离家族统一 22 的一处：本仓 engines >= 18
+#     且对外发布，要在两条 LTS 上验产物可加载，避免单版本绿灯误导下游。
+#
+# CI 只做三件事：类型闸门、构建产物可被 Node 原生加载、针对**产物**跑行为
+# 测试（同时验 NodeNext 的相对说明符写法没被改坏）。
+# ============================================================================
 on:
   push:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
 
 jobs:
   verify:
+    name: 类型 / 单测 / 构建
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
@@ -22,11 +43,11 @@ jobs:
         with:
           node-version: ${{ matrix.node }}
 
-      - name: Install
+      - name: Install（库仓口径：现算依赖树）
         run: npm install
 
       - name: Type check
         run: npm run typecheck
 
-      - name: Build + test
+      - name: Build + test（构建产物行为测试）
         run: npm test

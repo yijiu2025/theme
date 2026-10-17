@@ -1,0 +1,111 @@
+name: 缺陷报告
+description: 报告一个可复现的问题（常量 / 契约类型 / mode / tone / token 校验 / 设备参数 / 产物）
+labels: ['bug']
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: 问题描述
+      description: 发生了什么，期望发生了什么
+      placeholder: |
+        例：tone 传入 'Dark'（大写 D）时 isDark 判定为 false，与「大小写不敏感」的契约不符。
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: 复现代码
+      description: 最小可复现片段（npm 版给 import 语句 + 调用；源码直供给文件路径）
+      placeholder: |
+        import { isDark } from 'skinsuite';
+        console.log(isDark('Dark')); // 期望 true，实际 false
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: 影响面
+      options:
+        - 常量白名单（目录名 / 默认值）
+        - 契约类型（types.ts）
+        - 明暗 mode 判定
+        - 色系 tone
+        - token 安全校验
+        - 设备维度 URL 参数
+        - 构建产物（dist/ 与 src/ 行为分歧）
+        - 类型定义（d.ts）
+        - 文档
+        - 其他
+    validations:
+      required: true
+
+  - type: dropdown
+    id: form
+    attributes:
+      label: 使用形态
+      description: 两种消费路径的排查路径不同，monorepo 内还要看 alias 是否指向源码
+      options:
+        - npm 发布版（node_modules）
+        - monorepo 源码直供（packages/ alias）
+        - CI 环境
+        - 不确定
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: 版本 / 提交
+      description: release 版本号或 commit sha（不确定就写「main 最新」）
+      placeholder: 0.1.0 或 58f92e3
+    validations:
+      required: true
+
+  - type: input
+    id: node
+    attributes:
+      label: Node 版本
+      description: engines >= 18；产物行为可能与 Node 版本相关
+      placeholder: 22.11.0
+    validations:
+      required: true
+
+  - type: dropdown
+    id: runtime
+    attributes:
+      label: 运行环境
+    options:
+      - Node（ESM）
+      - Vue 应用
+      - React 应用
+      - SSR
+      - 纯类型使用（tsc）
+      - 其他
+    validations:
+      required: true
+
+  - type: textarea
+    id: tried
+    attributes:
+      label: 已尝试过什么
+      description: 排除项写清楚，节省双方时间
+      placeholder: 换了 Node 版本、对比了 dist 与 src 的直接调用、查了 CHANGELOG…
+
+  - type: checkboxes
+    id: desensitize
+    attributes:
+      label: 脱敏检查
+      description: 复现代码与日志里的敏感信息处理
+      options:
+        - label: 已确认不含真实 token、密钥等敏感信息
+          required: true
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: 附加材料
+      description: 报错栈 / 相关 issue 链接，贴上来即可
+    validations:
+      required: false

@@ -11,7 +11,7 @@
  *   • **构建器耦合**（`import.meta.glob` / `import.meta.env`）→ 由宿主适配器提供
  *   • **路由**（vue-router）→ 应用自己的世界观
  *   • **业务资产**（`themes/**` 的版式与配色实现）→ 随应用走
- * 见 `docs/frontend/theme-package-extraction.md` 的「〇、一条原则」与「五、四个注入点契约」。
+ * 见 `docs/standards/theme-package-extraction.md` 的「〇、一条原则」与「五、四个注入点契约」。
  *
  * === 为什么用显式具名导出，而不是 `export *` ===
  * 立项文档 §四 有一张"公开 API 面"的表，本文件就是那张表的**落地**：表里没有的名字
