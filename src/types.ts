@@ -60,6 +60,7 @@
  */
 import type { ThemeTone } from './tone.js';
 import type { ThemeTokenOverrides } from './tokens.js';
+import type { ResolvedThemeManifest } from './manifest.js';
 
 /**
  * 设备维度取值：**由宿主的设备清单决定**（内核不绑定某个应用的设备集合）
@@ -223,4 +224,21 @@ export interface MauthThemeRecord {
   views: Record<string, string> | undefined;
   /** 该主题附加样式的惰性加载器；无 theme.scss 时为 undefined */
   loadStyle: (() => Promise<string>) | undefined;
+}
+
+/* ---------------------------------------------------------------------------
+ * 虚拟模块 `virtual:theme` 的形态（类型声明见 `src/vite/theme.d.ts`，随
+ * `skinsuite/vite` 一起发布，宿主不必自写）
+ * ------------------------------------------------------------------------- */
+
+/** 构建插件 `themeAssets()` 扫出的主题资产 + 清单（虚拟模块 `virtual:theme` 的形态） */
+export interface VirtualThemeModule {
+  /** 包定义：`./<包>/index.ts` */
+  packages: Record<string, { default: MauthThemePackage }>;
+  /** 配色元信息 + tokens：`./<包>/<设备>/<页面>/colors/<配色>/index.ts` */
+  colors: Record<string, { default: MauthThemeColor }>;
+  /** 附加样式（惰性，取编译后的 CSS 字符串）：`.../theme.scss` */
+  styles: Record<string, () => Promise<string>>;
+  /** 主题域清单；目录里没有 `theme.config.ts` 时为 null */
+  manifest: ResolvedThemeManifest | null;
 }

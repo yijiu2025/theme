@@ -37,7 +37,12 @@ export {
   DEFAULT_THEME_PAGE,
   DEFAULT_THEME_COLOR,
   DEFAULT_THEME_DARK_COLOR,
-  BASE_VIEW_ID
+  BASE_VIEW_ID,
+  THEME_DIR_LEVELS,
+  THEME_COLORS_SEGMENT,
+  THEME_COLOR_DEF_FILE,
+  THEME_COLOR_STYLE_FILE,
+  THEME_PACKAGE_DEF_FILE
 } from './constants.js';
 
 export { THEME_TONES, TONE_LABELS, isThemeTone, normalizeTone } from './tone.js';
@@ -61,5 +66,68 @@ export type {
   MauthThemeRecord
 } from './types.js';
 
+export { buildThemeRegistry, installThemeRegistry } from './registry.js';
+export type { ThemeAssetModules } from './registry.js';
+export {
+  listThemes,
+  listThemePackages,
+  listThemeGroups,
+  listColorsOf,
+  toneOfColor,
+  toneOfAnyScope,
+  listColorIdsOfTone,
+  resolveThemeId,
+  getThemeRecord,
+  getThemePackage,
+  getDefaultThemeId,
+  isKnownTheme,
+  listColorPages,
+  listColorViews
+} from './registry.js';
+
 export { DEVICE_SCOPED_PARAMS, readDeviceParam } from './views/params.js';
 export type { DeviceScopedParam } from './views/params.js';
+
+export {
+  asDeviceId,
+  containersOf,
+  deviceContext,
+  deviceLabel,
+  pickDeviceId
+} from './views/device.js';
+export type { DeviceDef, DeviceMatchContext } from './views/device.js';
+
+/**
+ * 设备注册表工厂：一份 `DeviceDef[]` 清单 → 全套已绑定的判定机制。
+ * 宿主不再逐个转发判定函数，只写清单、调一次工厂。
+ */
+export { createDeviceRegistry } from './views/device-registry.js';
+export type { DeviceRegistry, DeviceRegistryOptions } from './views/device-registry.js';
+
+/**
+ * 外部下发的主题配置：**只归一形状，不碰网络**
+ *
+ * 取数（超时 / 重试 / cookie 策略）属于宿主，故不在此。
+ */
+export { normalizeRemoteThemeConfig } from './remote-config.js';
+export type { RemoteThemeConfig } from './remote-config.js';
+
+/**
+ * 主题域清单（主题目录里那份 `theme.config.ts` 的契约）：调试开关 + 路由投影
+ *
+ * 它是**主题域自带**的配置（跟主题包一起走）；「主题目录在哪」不在这里 ——
+ * 那是宿主的部署事实，由宿主的 env 提供，换目录不必改代码也不必改这个包。
+ */
+export {
+  defineThemeManifest,
+  isThemeDebugVisible,
+  resolveThemeManifest,
+  resolveThemePage
+} from './manifest.js';
+export type {
+  ResolvedThemeDebug,
+  ResolvedThemeManifest,
+  ThemeDebugMode,
+  ThemeManifest,
+  ThemeRouteRule
+} from './manifest.js';

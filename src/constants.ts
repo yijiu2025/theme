@@ -98,3 +98,55 @@ export const DEFAULT_THEME_DARK_COLOR = 'black';
  * 保留它只是为了版式工厂的默认值；新增代码不要拿它当配色查找的 view 参数。
  */
 export const BASE_VIEW_ID = 'base';
+
+/**
+ * 主题包目录的**结构契约** —— 「目录长什么样」的唯一来源
+ *
+ * === 为什么要有它（2026-10-17）===
+ * 目录骨架原先是一份**隐式约定**，散在三个形态各异的实现里：
+ *   • 构建插件的 `scan()`：嵌套 for 循环 + 写死的 `'colors'` 字符串
+ *   • 注册表的 `colorFromKey()`：正则 `\./([^/]+)/([^/]+)/([^/]+)/colors/([^/]+)/…`
+ *   • `types.ts` 的注释 ASCII 树
+ * 三处各自维护对同一件事的认知。改目录结构（比如配色下再分 `tone` 层、或
+ * `colors` 改名）时，只要漏改一处，就出现**静默扫不到主题**这种无从归因的脱节
+ * （扫描是"读不到就跳过"，不报错）——与「设备词汇表散落四处」是同一类坑。
+ *
+ * 现在收敛成下面这一组常量：**段序列 + 固定字面段 + 叶子文件名**。构建插件扫描
+ * 目录、注册表解析键，都从这里派生，不再各自手写。
+ *
+ * === 它**只**承诺「结构形态」，不承诺「取值集合」===
+ * 段里 `pkg` / `device` / `page` / `colorId` 的**合法取值**（有哪些设备、有哪些包）
+ * 是宿主的词汇表，内核不绑定（设备集合在宿主 `devices.ts`，包集合由文件系统决定）。
+ * 这里只承诺"有这么几段、顺序如此、其中 `colors` 是固定字面段"。
+ *
+ * === 目录形态（唯一形态，2026-09-26 收窄后）===
+ * ```
+ * themes/<包>/<设备>/<页面>/colors/<配色>/{index.ts, theme.scss}
+ * ```
+ * 配色与版式**同级**，「版式」不是一层目录（变体版式请新建主题包）。
+ * 曾支持的 6 段变体形态（`<页面>/<版式>/colors/`）已删除。
+ */
+
+/** 配色键里的**固定字面段**：`colors` 是目录结构的一部分，不是取值段 */
+export const THEME_COLORS_SEGMENT = 'colors';
+
+/** 配色定义文件（`<配色>/index.ts`）与附加样式（`<配色>/theme.scss`）的文件名 */
+export const THEME_COLOR_DEF_FILE = 'index.ts';
+export const THEME_COLOR_STYLE_FILE = 'theme.scss';
+
+/** 主题包定义入口（`<包>/index.ts`）的文件名 */
+export const THEME_PACKAGE_DEF_FILE = 'index.ts';
+
+/**
+ * 主题包目录的**取值目录段**（`themes/` 之下、从包到配色叶子的真实目录层）
+ *
+ * 与 `THEME_COLORS_SEGMENT`（固定字面段）、`THEME_COLOR_DEF_FILE` /
+ * `THEME_COLOR_STYLE_FILE`（叶子文件名）共同构成「目录长什么样」的完整契约。
+ * 顺序即目录深度：`['pkg','device','page','colorId']` 对应
+ * `themes/<pkg>/<device>/<page>/colors/<colorId>/`。
+ *
+ * 构建插件的 `scan()` 用它做**递归下降**（每段一层目录），注册表的 `colorFromKey()`
+ * 用它拼正则（键 = `./` + 这些段，`page` 与 `colorId` 之间插入 `THEME_COLORS_SEGMENT`）。
+ * 改目录结构（配色下再分层、`colors` 改名）只动这一处。
+ */
+export const THEME_DIR_LEVELS = ['pkg', 'device', 'page', 'colorId'] as const;
