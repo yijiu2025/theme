@@ -288,6 +288,22 @@ npm test            # 先构建，再用 node:test 跑 dist 产物
 
 ⚠️ `src/` 里的相对 import **必须带 `.js` 后缀**：包以 `moduleResolution: NodeNext` 编译，TS 会把 `.js` 映射回 `.ts` 源码，而产物里的相对说明符是原样保留的 —— 不带后缀浏览器与 Node 的原生 ESM 都解析不到。
 
+### 关于 exports：类型统一指向 `src/`，运行时才分 `dist/`
+
+```jsonc
+".":      { "types": "./src/index.ts", "import": "./dist/index.js" },
+"./vue":  { "types": "./src/vue/index.ts", "import": "./src/vue/index.ts" },
+"./vite": { "types": "./src/vite/index.ts", "import": "./src/vite/index.ts" }
+```
+
+`./vue` / `./vite` 含 `.vue` 与构建期代码，**只能以源码形态发布**（`tsc` 编不出 SFC）。
+于是根入口的类型也必须指向 `src/index.ts`：若它指向 `dist/index.d.ts`，同一个类型在
+一个程序里会有**两个身份**（dist 的 d.ts 与 vue 层引用的 src），composite 项目做声明
+产出时直接红 —— `TS2883: The inferred type of 'X' cannot be named without a reference
+to '...' from '../../node_modules/skinsuite/src/types'`。
+
+`dist/` 仍然保留（`.js` + `.d.ts` + sourcemap），运行时走它，纯 JS 消费者不受影响。
+
 ---
 
 ## License

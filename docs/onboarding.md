@@ -235,15 +235,22 @@ VITE_THEME_DIR=src/theme
 
 缺省就是 `src/theme`，可不写。**换目录只改这一个变量，不动代码。**
 
-### 5.2 tsconfig / env 类型（可选）
+### 5.2 tsconfig / env 类型（必做一行）
 
-`skinsuite/vite` 自带 `virtual:theme` 的类型声明，宿主通过引入 `skinsuite/vite` 即可获得，
-一般无需自写。若你的 `vue-tsc` 报找不到 `virtual:theme`，确认 `vite.config.ts` 已被 tsconfig
-纳入检查范围，或补一句：
+`skinsuite/vite` 自带 `virtual:theme` 的类型声明（`src/vite/theme.d.ts`），但**类型声明只有在
+被纳入 TS 程序时才有意义**。在你项目的 `src/vite-env.d.ts` 里加一行：
 
 ```ts
-/// <reference types="skinsuite/vite" />
+/// <reference types="vite/client" />
+import "skinsuite/vite";   // 让 theme.d.ts 的 declare module 'virtual:theme' 进程序
 ```
+
+🔴 **不要写 `/// <reference types="skinsuite/vite" />`**——`reference types` 解析不到包的
+**子路径**入口，症状是 `vue-tsc -b` 报 `Cannot find module or type declarations for side-effect
+import of 'virtual:theme'`（TS2882），而 `vite build` / 浏览器全正常，很容易误判成「只是编辑器问题」。
+
+`import` 写在 `.d.ts` 里是**纯类型侧**的：不产生任何运行时代码，也不会把插件打进产物，只是
+把 `src/vite/index.ts` 上的 `/// <reference path="./theme.d.ts" />` 带进程序。
 
 ---
 
