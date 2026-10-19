@@ -89,17 +89,6 @@ export const DEFAULT_THEME_COLOR = 'white';
 export const DEFAULT_THEME_DARK_COLOR = 'black';
 
 /**
- * 基础版式的**逻辑** id（与版式注册表工厂的默认 `baseId` 是同一约定值）
- *
- * ⚠️ 它**不是**配色注册表里的 view 值：配色记录里的 view 段恒等于包名
- * （一个主题包 = 一种版式），`'base'` 永远不会出现在配色键里。
- * 外部 `?view=base` 由版式选择器归一化到当前包名，到不了配色注册表。
- *
- * 保留它只是为了版式工厂的默认值；新增代码不要拿它当配色查找的 view 参数。
- */
-export const BASE_VIEW_ID = 'base';
-
-/**
  * 主题包目录的**结构契约** —— 「目录长什么样」的唯一来源
  *
  * === 为什么要有它（2026-10-17）===

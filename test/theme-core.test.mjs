@@ -18,7 +18,6 @@ import {
   DEFAULT_THEME_PAGE,
   DEFAULT_THEME_COLOR,
   DEFAULT_THEME_DARK_COLOR,
-  BASE_VIEW_ID,
   THEME_TONES,
   TONE_LABELS,
   isThemeTone,
@@ -48,8 +47,6 @@ test('兜底常量：默认配色是显式 white / black，不依赖字母序', 
   assert.equal(DEFAULT_THEME_PAGE, 'login');
   // 'default' 只是空记录占位，不是配色
   assert.equal(DEFAULT_THEME_ID, 'default');
-  // 'base' 是版式工厂的逻辑 id，永远不该出现在配色键里
-  assert.equal(BASE_VIEW_ID, 'base');
 });
 
 test('tone：只有两系，且没有 system（系别是配色自带属性，无从"跟随系统"）', () => {
@@ -76,29 +73,30 @@ test('mode：三态含 system，循环顺序固定', () => {
 });
 
 test('readDeviceParam：设备专属键优先于通用键', () => {
-  const q = { 'view.mobile': 'compact', view: 'default' };
-  assert.equal(readDeviceParam(q, 'view', 'mobile'), 'compact');
-  assert.equal(readDeviceParam(q, 'view', 'standard'), 'default'); // 该设备没指定 → 通用键
-  assert.equal(readDeviceParam({ 'theme.standard': 'cyan', theme: 'black' }, 'theme', 'standard'), 'cyan');
+  // 键形 `?th_<设备缩写>` / `?th_color_<设备缩写>`（下划线，禁用点号）
+  const q = { th_mobile: 'compact', th: 'default' };
+  assert.equal(readDeviceParam(q, 'th', 'mobile'), 'compact');
+  assert.equal(readDeviceParam(q, 'th', 'std'), 'default'); // 该设备没指定 → 通用键
+  assert.equal(readDeviceParam({ th_color_std: 'cyan', th_color: 'black' }, 'th_color', 'std'), 'cyan');
 });
 
 test('readDeviceParam：空串 / 纯空白 / 空数组 = 未指定，不得顶掉通用键', () => {
-  assert.equal(readDeviceParam({ 'view.standard': '', view: 'compact' }, 'view', 'standard'), 'compact');
-  assert.equal(readDeviceParam({ 'view.standard': '   ', view: 'compact' }, 'view', 'standard'), 'compact');
-  assert.equal(readDeviceParam({ 'view.standard': [''], view: 'compact' }, 'view', 'standard'), 'compact');
-  // 设备专属键一旦"存在就用"，原样返回（可能是对同一个 key 重复传参得到的数组）
-  assert.deepEqual(
-    readDeviceParam({ 'view.standard': ['', 'compact'], view: 'default' }, 'view', 'standard'),
-    ['', 'compact']
-  );
+  assert.equal(readDeviceParam({ th_std: '', th: 'compact' }, 'th', 'std'), 'compact');
+  assert.equal(readDeviceParam({ th_std: '   ', th: 'compact' }, 'th', 'std'), 'compact');
+  assert.equal(readDeviceParam({ th_std: [''], th: 'compact' }, 'th', 'std'), 'compact');
+  // 设备专属键一旦"存在非空值就用"，原样返回（可能是对同一个 key 重复传参得到的数组）
+  assert.deepEqual(readDeviceParam({ th_std: ['', 'compact'], th: 'default' }, 'th', 'std'), [
+    '',
+    'compact'
+  ]);
 });
 
 test('readDeviceParam：没有任何指定时返回 undefined（由调用方走包声明 → ENV → 当前包）', () => {
-  assert.equal(readDeviceParam({}, 'view', 'mobile'), undefined);
-  assert.equal(readDeviceParam(undefined, 'view', 'mobile'), undefined);
-  assert.equal(readDeviceParam({ 'view.mobile': '' }, 'view', 'mobile'), undefined);
+  assert.equal(readDeviceParam({}, 'th', 'mobile'), undefined);
+  assert.equal(readDeviceParam(undefined, 'th', 'mobile'), undefined);
+  assert.equal(readDeviceParam({ th_mobile: '' }, 'th', 'mobile'), undefined);
 });
 
 test('DEVICE_SCOPED_PARAMS：与 DeviceScopedParam 类型一致（造链接时可直接遍历）', () => {
-  assert.deepEqual([...DEVICE_SCOPED_PARAMS], ['view', 'theme']);
+  assert.deepEqual([...DEVICE_SCOPED_PARAMS], ['th', 'th_color']);
 });

@@ -15,36 +15,74 @@
 
 export { default as ThemeDebugPanel } from './ThemeDebugPanel.vue';
 export { default as ThemeRoot } from './ThemeRoot.vue';
-export type { ThemeRootHost } from './ThemeRoot.vue';
+export { default as ThemeView } from './ThemeView.vue';
+export { themeStoreKey } from './theme-store';
+export type { ThemeStoreLike } from './theme-store';
+export { useThemeSources } from './useThemeSources';
+export type { ThemeSourcesOptions } from './useThemeSources';
 export { useParentThemeSync } from './useParentThemeSync';
 export type { ParentThemeSyncOptions } from './useParentThemeSync';
-export { setupTheme } from './setupTheme';
-export type { SetupThemeOptions } from './setupTheme';
 export { useThemeDebugPanel } from './useThemeDebugPanel';
-export type { ThemeDebugPanelHost } from './useThemeDebugPanel';
 export type { ThemeDebugActions, ThemeDebugColor, ThemeDebugModel } from './types';
 
 // ---- 版式机制（「主题包 ⇄ Vue 组件」的桥接，2026-10-17 下沉）----
-export { createViewRegistry } from './view-registry';
+// 🔴 公开面收敛（2026-10-17 末）：原 view-picker 并入 view-registry、view-pages 并入
+//    view-page；对外只留两个工厂。宿主只需 defineThemePage。
+export { createViewRegistry, createViewPicker } from './view-registry';
 export type {
   PackageViews,
+  ViewModuleLoader,
   ViewModuleMap,
+  ViewModuleProvider,
   ViewRegistry,
-  ViewRegistryHost,
-  ViewRegistryOptions
+  ViewRegistryOptions,
+  ViewPicker,
+  ViewPickerOptions,
+  ViewPickerSource
 } from './view-registry';
-export { createViewPicker } from './view-picker';
-export type { ViewPicker, ViewPickerOptions, ViewPickerSource } from './view-picker';
-export { defineThemePage, isThemePage } from './view-page';
+export { defineThemePage, isThemePage, pageOf, registeredPageNames, resetPages } from './view-page';
 export type { ThemePage, ThemePageOptions } from './view-page';
-export { buildPages, listPageViewsOf, viewsForPageOf } from './view-pages';
-export type { PageSummaryHost, PageViews } from './view-pages';
-export { createPageIndex } from './page-index';
-export type { PageIndex, PageIndexOptions, PagePathResolver } from './page-index';
+export { installThemeViews, resetThemeViews, themeViewsFor } from './theme-views';
 
 // ---- 设备容器机制（「设备 id → 容器组件」的组件半边，2026-10-17 下沉）----
-export { containerOf, pageContainers, resolveContainerOf } from './device-containers';
+// 🔴 containerOf / resolveContainerOf 的「传 defs」低层版不对外导出 —— 对外只留
+//    pageContainers（建容器表）与设备域单例版（见下），宿主不再写「传 registeredDefs」转发。
+export { pageContainers } from './device-containers';
 export type { DeviceContainerLoader } from './device-containers';
+
+// ---- 设备域（声明工厂 + 查询派生 + 运行时，2026-10-18 下沉）----
+export {
+  defineThemeDevice,
+  deviceIds,
+  fallbackDevice,
+  isKnownDevice,
+  pickDeviceId,
+  registeredDevices,
+  resetDevices,
+  resolveContainerOf,
+  urlKeyOf
+} from './define-theme-device';
+export type { DeclarativeMatch, ThemeDeviceOptions } from './define-theme-device';
+export { currentDevice, currentQuery, installThemeDomain, replaceQuery } from './device-domain';
+export type { DeviceDomainRouter, InstallThemeDomainOptions } from './device-domain';
+export { theme } from './plugin';
+export type { ThemePluginOptions } from './plugin';
+
+// ---- 视口 / UA 设备形态判定（2026-10-19 下沉，供设备域与宿主守卫/请求共用）----
+export {
+  DESKTOP_MIN_WIDTH,
+  MOBILE_BREAKPOINT,
+  detectMobileUA,
+  isDesktopViewport,
+  isMobileViewport
+} from './viewport';
+
+// ---- 主题状态机（scope/intent/runtime + 持久化，2026-10-19 下沉）----
+// 🔴 只导出 `createThemeState`（编排入口）—— scope/intent/runtime/persistence 是内部实现，
+//    对外只承诺「宿主一行 defineStore 包起来」。pinia **不进库**：编排返回的是纯 Vue 响应式，
+//    宿主自己决定是否用 defineStore 包装。
+export { createThemeState } from './create-theme-state';
+export type { ThemeStateOptions } from './create-theme-state';
 
 // ---- token 运行时（「分层 token → DOM」的注入半边，2026-10-17 下沉）----
 export {

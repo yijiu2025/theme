@@ -58,7 +58,7 @@
  *
  * @author yijiu2025
  */
-import type { ThemeTone } from './tone.js';
+import type { ThemeTone } from './scheme.js';
 import type { ThemeTokenOverrides } from './tokens.js';
 import type { ResolvedThemeManifest } from './manifest.js';
 

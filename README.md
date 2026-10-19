@@ -27,6 +27,24 @@ npm install skinsuite
 
 ---
 
+## 接入指南（新前端从零接入）
+
+> 要在一个**新的 Vue + Vite 前端**里用上多主题 / 多版式 / 多设备 / 调试面板？从头一步步走：
+
+- **完整接入指南**：[`docs/onboarding.md`](./docs/onboarding.md) —— 从安装、目录约定、写主题资产、
+  写声明文件、`vite.config.ts`、`bootstrap.ts`、store、`App.vue`、路由与容器，到验证清单与常见坑，
+  每一步给真实 API + 完整代码。
+
+先看三个入口的分工，再看下面的「30 秒上手」体会单个 API 的用法：
+
+| 入口 | 作用 |
+| --- | --- |
+| `skinsuite` | 纯内核（本 README 的 API 全在这里） |
+| `skinsuite/vue` | Vue 绑定：`<ThemeView>` / `<ThemeRoot>` / `createThemeState` / 设备域 |
+| `skinsuite/vite` | 构建期插件：`themeAssets` 扫主题目录生成 `virtual:theme` |
+
+---
+
 ## 30 秒上手
 
 ### 1. 安全地接受外部下发的 CSS 变量
@@ -189,7 +207,9 @@ readDeviceParam(query, name, device);
 | 设备取值集合 | `mobile` / `standard` / `mini` 是**某个 app** 的词汇表，不是机制的一部分 |
 | 业务资产（`themes/**`） | 版式实现与配色数据是"你的页面长什么样"，随应用走 |
 
-配套的宿主 Vue 适配层（store + DOM 注入 + glob 适配器）计划单发一个包 `skinsuite-vue`，见 [Roadmap](#roadmap)。
+配套的宿主 Vue 适配层（`<ThemeView>` / `<ThemeRoot>` / 状态机 / 设备域）与 Vite 构建插件
+已经作为**同包子路径** `skinsuite/vue` 与 `skinsuite/vite` 一起发布 —— 见
+[接入指南](./docs/onboarding.md)，不再单发一个包。
 
 ### 在自有项目里接入（Vite 示例）
 
@@ -246,11 +266,13 @@ CSS 自定义属性是能**直接改变渲染**的输入。未经校验就 `setP
 
 | 期 | 内容 | 状态 |
 | --- | --- | --- |
-| Stage 1 | 常量与白名单、`types`、`tone`、`mode`、设备维度参数、token 形态与校验 | ✅ 已发布（本版本） |
-| Stage 2 | 版式注册表工厂 + 版式选择器（四档链：`?view.<设备>` → `?view` → 包声明 → 环境变量 → 当前包） | 计划中 |
-| Stage 3 | 配色注册表与回退链（`createColorRegistry` 等） | 计划中 |
-| Stage 4 | store 的纯逻辑（URL 意图归一、明暗联动规则）；DOM 与存储拆成适配器 | 计划中 |
-| Stage 5 | 配套 Vue 适配层 `skinsuite-vue` | 计划中 |
+| Stage 1 | 常量与白名单、`types`、`tone`、`mode`、设备维度参数、token 形态与校验 | ✅ 已发布 |
+| Stage 2 | 版式注册表工厂 + 版式选择器（`defineThemePage` / `createViewPicker`，`?th[_<设备缩写>]` → 包声明 → 当前包） | ✅ 已发布（`skinsuite/vue`） |
+| Stage 3 | 配色注册表与回退链（`createColorRegistry` 等） | ✅ 已发布 |
+| Stage 4 | store 的纯逻辑（`createThemeState`：URL 意图归一、明暗联动、token 注入） | ✅ 已发布（`skinsuite/vue`） |
+| Stage 5 | Vue 适配层 + Vite 构建插件（`skinsuite/vue` / `skinsuite/vite`） | ✅ 已发布 |
+
+> 阶段划分已随机制下沉而完成，上表仅作历史对照。接入方式以 [docs/onboarding.md](./docs/onboarding.md) 为准。
 
 在 1.0 之前（0.x），次要版本可能包含重命名 —— 公开出口是显式具名导出，改名即 semver-minor。
 

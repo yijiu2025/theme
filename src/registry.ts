@@ -44,7 +44,7 @@ import type {
   MauthThemePackage,
   MauthThemeRecord
 } from './types.js';
-import { normalizeTone, type ThemeTone } from './tone.js';
+import { normalizeTone, type ThemeTone } from './scheme.js';
 
 /* ---------------------------------------------------------------------------
  * 构建层
@@ -94,8 +94,7 @@ function packageFromKey(key: string): string | null {
  */
 function colorFromKey(
   key: string,
-  suffix: string,
-  isKnownDevice: (raw: string) => boolean
+  suffix: string
 ): ColorKeyInfo | null {
   const file = suffix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const re = new RegExp(
@@ -108,8 +107,15 @@ function colorFromKey(
   const page = m[3];
   const colorId = m[4];
   if (!pkg || !device || !page || !colorId) return null;
-  if (!THEME_ID_RE.test(pkg) || !THEME_ID_RE.test(page) || !THEME_ID_RE.test(colorId)) return null;
-  if (!isKnownDevice(device)) return null;
+  // 设备段也走字符白名单（设备词汇表已收进库内设备域，这里只挡"目录名不是合法 id"；
+  // 字符合法但未声明的设备目录会被扫进注册表，但查询按设备 id 取、永不命中，无害）。
+  if (
+    !THEME_ID_RE.test(pkg) ||
+    !THEME_ID_RE.test(device) ||
+    !THEME_ID_RE.test(page) ||
+    !THEME_ID_RE.test(colorId)
+  )
+    return null;
   // 一个主题包 = 一种版式 ⇒ 配色归属只到包段（view ≡ pkg，不再单列一段）
   return { pkg, device, page, colorId };
 }
@@ -117,13 +123,11 @@ function colorFromKey(
 /**
  * 把三个加载表构建成一张配色注册表
  *
- * @param modules        虚拟模块 `virtual:theme` 的三个加载表
- * @param isKnownDevice  设备名白名单判定（宿主注入自己的设备清单，如 `asThemeDevice`）
- * @param onWarn         构建期告警回调（可选；内核默认静默以保持零依赖，宿主传 `console.warn`）
+ * @param modules 虚拟模块 `virtual:theme` 的三个加载表
+ * @param onWarn  构建期告警回调（可选；内核默认静默以保持零依赖，宿主传 `console.warn`）
  */
 export function buildThemeRegistry(
   modules: ThemeAssetModules,
-  isKnownDevice: (raw: string) => boolean,
   onWarn: (msg: string) => void = () => {}
 ): Map<string, MauthThemeRecord> {
   const { packages: packageModules, colors: colorModules, styles: colorStyles } = modules;
@@ -147,7 +151,7 @@ export function buildThemeRegistry(
 
   // ② 各包下的配色 —— 每条记录都带 pkg + device + page 三段归属
   for (const [key, mod] of sortedEntries(colorModules)) {
-    const parsed = colorFromKey(key, THEME_COLOR_DEF_FILE, isKnownDevice);
+    const parsed = colorFromKey(key, THEME_COLOR_DEF_FILE);
     const def = mod?.default;
     if (!parsed || !def || typeof def !== 'object' || !def.meta) continue;
     // 包定义缺失（包本身写坏）：该配色无处可依，跳过
@@ -182,7 +186,7 @@ export function buildThemeRegistry(
 
   // ③ 附加样式：按与 ② 相同的键挂上去，避免歧义
   for (const [key, loader] of sortedEntries(colorStyles)) {
-    const parsed = colorFromKey(key, THEME_COLOR_STYLE_FILE, isKnownDevice);
+    const parsed = colorFromKey(key, THEME_COLOR_STYLE_FILE);
     if (!parsed) continue;
     const record = registry.get(keyOf(parsed));
     // 有 theme.scss 但没 index.ts 的目录视为残缺，忽略其样式
@@ -264,33 +268,7 @@ export function listThemes(device?: string): MauthThemeMeta[] {
   return (device ? records.filter(r => r.device === device) : records).map(r => r.meta);
 }
 
-/** 当前有哪些主题包（去重，已排序） */
-export function listThemePackages(): string[] {
-  return [...new Set([...themeRegistry.values()].map(r => r.pkg))].sort();
-}
 
-/** 调试面板用的一组：一个主题包 + 它名下该版式的配色（按包名、再按 id 排序） */
-export function listThemeGroups(
-  device?: string,
-  page?: string,
-  pkg?: string
-): { pkg: string; themes: MauthThemeMeta[] }[] {
-  const groups = new Map<string, MauthThemeMeta[]>();
-  for (const record of themeRegistry.values()) {
-    if (device && record.device !== device) continue;
-    if (page && record.page !== page) continue;
-    if (pkg && record.pkg !== pkg) continue;
-    const bucket = groups.get(record.pkg);
-    if (bucket) bucket.push(record.meta);
-    else groups.set(record.pkg, [record.meta]);
-  }
-  return [...groups.entries()]
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([pkg, themes]) => ({
-      pkg,
-      themes: [...themes].sort((a, b) => a.id.localeCompare(b.id))
-    }));
-}
 
 /**
  * 列出某个包下的全部配色（按 id 去重、按目录名排序）
@@ -395,16 +373,6 @@ export function getThemeRecord(params: {
     emptyRecord(device, page);
 }
 
-/** 这套配色属于哪个主题包 */
-export function getThemePackage(params: {
-  id: string;
-  device: string;
-  pkg?: string;
-  page?: string;
-}): string {
-  return getThemeRecord(params).pkg;
-}
-
 /** 该范围内默认用哪套配色；无配色时返回 null */
 export function getDefaultThemeId(params: {
   device: string;
@@ -419,10 +387,6 @@ export function isKnownTheme(id: unknown, device?: string, page?: string, pkg?: 
   return resolveThemeId(id, device, page, pkg) !== null;
 }
 
-/** 该设备下有哪些页面登记了配色（面板要按页面列出） */
-export function listColorPages(device: string): string[] {
-  return [...new Set([...themeRegistry.values()].filter(r => r.device === device).map(r => r.page))].sort();
-}
 
 /** 某设备某页面下有哪些包登记了配色（面板要按包分组） */
 export function listColorViews(device: string, page: string): string[] {

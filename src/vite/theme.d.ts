@@ -16,6 +16,7 @@
  *    vue-tsc / Vite 转译检查 —— 因为 `virtual:theme` 是构建期产物，不在纯内核里。
  */
 declare module 'virtual:theme' {
+  import type { Component } from 'vue';
   import type { MauthThemeColor, MauthThemePackage, ResolvedThemeManifest } from 'skinsuite';
 
   /** 包定义：`./<包>/index.ts` */
@@ -24,13 +25,25 @@ declare module 'virtual:theme' {
   export const colors: Record<string, { default: MauthThemeColor }>;
   /** 附加样式（惰性，取编译后的 CSS 字符串）：`./<包>/<设备>/<页面>/colors/<配色>/theme.scss` */
   export const styles: Record<string, () => Promise<string>>;
+  /**
+   * 版式组件（按页面分组）：`themeViews.<页面>` = 该页各「包 × 设备」的版式组件加载器
+   *
+   * 键相对主题包目录：`./<包>/<设备>/<页面>/index.vue`。内置包（default）eager（零请求，
+   * 加载器**同步返回**模块命名空间）、非内置包惰性（返回 Promise）。与原先
+   * `import.meta.glob` 的惰性加载器形态一致。
+   */
+  export const themeViews: Record<
+    string,
+    Record<string, () => { default: Component } | Promise<{ default: Component }>>
+  >;
 
   /**
-   * 主题域清单
+   * 主题域清单（**已 resolve**，非 null）
    *
-   * 目录里没有 `theme.config.ts` 时为 `null` —— 机制照常工作（有资产、无路由投影、
-   * 面板退回默认档），而不是让应用起不来。类型上保留 `null` 是为了让消费方
-   * **必须**显式处理这一支，别指望它总是存在。
+   * 目录里没有 `theme.config.ts` 时回落到机制默认值（`resolveThemeManifest` 兜底），
+   * 所以这里恒非 null —— 机制照常工作（有资产、面板退回默认档），
+   * 而不是让应用起不来。本模块被 import 时同时完成「版式加载表安装 + 注册表装配 +
+   * 清单解析 + 声明目录（views/*.ts）副作用拉齐」。
    */
-  export const manifest: ResolvedThemeManifest | null;
+  export const themeManifest: ResolvedThemeManifest;
 }

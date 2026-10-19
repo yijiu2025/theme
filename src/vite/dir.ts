@@ -19,19 +19,17 @@
  *
  *   ```
  *   <根目录>/                          ← VITE_THEME_DIR（如 src/theme）
- *   ├── theme.config.ts               清单：调试开关 + 路由投影（契约 = defineThemeManifest）
+ *   ├── theme.config.ts               清单：调试开关（契约 = defineThemeManifest）
  *   ├── themes/                       主题包目录（一个包 = 一种版式）
  *   │   ├── default/  ├── compact/
- *   └── views/                        版式契约目录（login.ts / registry.ts / picker.ts …）
+ *   └── views/                        声明目录（devices.ts 设备声明 + login.ts 等页面契约）
  *   ```
  *
- * 于是「主题域」是**一个自足的目录**：换根目录位置时，主题包、清单、版式契约一起走，
+ * 于是「主题域」是**一个自足目录**：换根目录位置时，主题包、清单、声明一起走，
  * 宿主要改的只有 `VITE_THEME_DIR` 这一个变量。
  *
- * ⚠️ `themes` 与 `views` 是**固定子目录名**（不是可配置项）：宿主的
- *    `views/*.ts` 里 `import.meta.glob('/src/theme/themes/...')` 的字面量依赖
- *    `themes` 这个名字稳定，所以插件扫描包目录时也认 `themes` 这个名字 ——
- *    两者靠「名字固定」对齐，不靠配置。
+ * ⚠️ `themes` 与 `views` 是**固定子目录名**（不是可配置项）：构建插件扫包目录与
+ *    声明目录都认这两个名字 —— 靠「名字固定」对齐，不靠配置。
  *
  * 而**主题域自己的策略**（调试开关、路由投影）不在这里 —— 那份配置跟着主题域走，
  * 住在根目录的 `theme.config.ts`（契约见 `skinsuite` 的 `defineThemeManifest`）。
@@ -59,6 +57,9 @@ export const DEFAULT_THEME_DIR = 'src/theme';
 
 /** 主题根目录内、主题包的子目录名（固定约定，宿主 `views/*.ts` 的字面量 glob 依赖它稳定） */
 export const THEME_PACKAGES_SUBDIR = 'themes';
+
+/** 主题根目录内的版式契约目录名（`views/*.ts`，设备声明 + 页面契约，插件副作用 import 拉齐） */
+export const THEME_VIEWS_SUBDIR = 'views';
 
 /** 主题根目录内的清单文件名（插件按它找 `theme.config.ts`） */
 export const DEFAULT_THEME_MANIFEST = 'theme.config.ts';

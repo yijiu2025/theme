@@ -43,6 +43,8 @@ export interface DeviceDef<T = unknown> {
   id: string;
   /** 中文名（调试面板 / 日志用） */
   label: string;
+  /** 缩写名（URL 专属参数后缀用，如 `?th_<urlKey>` / `?th_color_<urlKey>`）；缺省回落 `id` */
+  urlKey?: string;
   /** 该设备在某页的容器（分发器渲染它）；返回 undefined 表示「该设备没有这一页的容器」 */
   containers: ReadonlyMap<string, T>;
   /** 该设备在路由表里占的 path（相对根，`{page}` 由页面名替换） */

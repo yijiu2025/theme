@@ -1,20 +1,26 @@
 /**
  * 主题域扫描插件 —— **主题库自带的 Vite 适配器**（随 `skinsuite/vite` 一起发布）
  *
- * 把 `VITE_THEME_DIR` 指向的**主题根目录**扫成一个虚拟模块 `virtual:theme`，它同时产出两样东西：
+ * 把 `VITE_THEME_DIR` 指向的**主题根目录**扫成一个虚拟模块 `virtual:theme`，它同时产出三样东西：
  *
- *   ① **资产**：主题包定义、配色元信息、配色附加样式（惰性）
- *   ② **清单**：根目录里那份 `theme.config.ts`（调试开关 + 路由投影，见 `defineThemeManifest`）
+ *   ① **资产**：主题包定义、配色元信息、配色附加样式（惰性）、版式组件加载表 `themeViews`
+ *   ② **清单**：根目录里那份 `theme.config.ts`（调试开关，见 `defineThemeManifest`）
+ *   ③ **声明**：`views/*.ts`（设备声明 + 页面契约）以副作用 import 拉齐注册
+ *
+ * 本模块被 import 的那一刻（模块求值期副作用）自动完成三件装配：
+ * `installThemeViews(themeViews)` + `installThemeRegistry(...)` + `installThemeManifest(...)`，
+ * 宿主**无需 import `virtual:theme` 再转发**，也无需手动 import 任何 `views/*.ts`。
  *
  * === 目录口径：`VITE_THEME_DIR` 是「主题根目录」，不是「主题包目录」===
  * 根目录内固定三个名字（约定俗成，换根目录位置时整包跟着走）：
  *   `theme.config.ts`  清单
- *   `themes/`          主题包目录（本插件扫这里）
- *   `views/`           版式契约目录（不扫，由 `views/*.ts` 自己的 glob 负责）
- * 所以本插件在 `dir` 下**再进一层 `themes/`** 扫包，清单则从 `dir` 根层读。
+ *   `themes/`          主题包目录（本插件扫这里，出 packages/colors/styles/themeViews）
+ *   `views/`           声明目录（devices.ts 设备声明 + 页面契约，本插件副作用 import 拉齐注册）
+ * 所以本插件在 `dir` 下**再进一层 `themes/`** 扫包、再进一层 `views/` 拉声明，
+ * 清单则从 `dir` 根层读。
  *
  * === 为什么它放在库里（而非让每个宿主各写一份）===
- * 它是主题机制的**构建期半边**：内核负责契约（`ThemeManifest` / `ThemeRouteRule`），
+ * 它是主题机制的**构建期半边**：内核负责契约（`ThemeManifest`），
  * 这里负责扫描。没有它，「主题目录是配置项」就只实现了一半 —— 每个宿主都得
  * 自己抄一遍一百多行的扫描逻辑，正是"库不够强大"的典型症状。
  *
@@ -31,10 +37,11 @@
  *
  * === 产出形态（资产部分与 `import.meta.glob` 的结果保持一致）===
  * ```ts
- * export const packages: { './default/index.ts': Module }
- * export const colors:   { './default/mobile/login/colors/white/index.ts': Module }
- * export const styles:   { './default/mobile/login/colors/white/theme.scss': () => Promise<string> }
- * export { default as manifest } from '/src/theme/theme.config.ts'
+ * export const packages:   { './default/index.ts': Module }
+ * export const colors:     { './default/mobile/login/colors/white/index.ts': Module }
+ * export const styles:     { './default/mobile/login/colors/white/theme.scss': () => Promise<string> }
+ * export const themeViews: { 'login': { './default/mobile/login/index.vue': () => Module } }
+ * // 副作用：installThemeViews(themeViews) / installThemeRegistry(...) / installThemeManifest(...)
  * ```
  * 资产键**相对主题包目录**（`themes/`，`./` 开头），值保持「模块命名空间」而非默认导出 ——
  * 这样宿主注册表代码一行都不用改（它按「包/设备/页面/配色」四段解析键）。`styles` 是
@@ -57,13 +64,17 @@ import { existsSync, readdirSync, statSync } from 'node:fs';
 import { join, resolve, sep } from 'node:path';
 import type { Plugin } from 'vite';
 import {
+  DEFAULT_THEME_PACKAGE,
   THEME_COLOR_DEF_FILE,
   THEME_COLOR_STYLE_FILE,
   THEME_COLORS_SEGMENT,
   THEME_DIR_LEVELS,
   THEME_PACKAGE_DEF_FILE
 } from '../constants.ts';
-import { DEFAULT_THEME_MANIFEST, THEME_PACKAGES_SUBDIR } from './dir.ts';
+import { DEFAULT_THEME_MANIFEST, THEME_PACKAGES_SUBDIR, THEME_VIEWS_SUBDIR } from './dir.ts';
+
+/** 版式组件的叶子文件名（`themes/<包>/<设备>/<页面>/index.vue`） */
+const VIEW_COMPONENT_FILE = 'index.vue';
 
 export interface ThemeAssetsPluginOptions {
   /** 主题**根目录**：相对 Vite root 或绝对路径（通常来自 `resolveThemeDir()`，已是绝对路径） */
@@ -79,20 +90,39 @@ interface ScanEntry {
   file: string;
 }
 
+/** 版式组件条目（`themes/<包>/<设备>/<页面>/index.vue`） */
+interface ViewEntry {
+  /** 包名（内置包判断用） */
+  pkg: string;
+  /** 页面名（分组用） */
+  page: string;
+  key: string;
+  file: string;
+}
+
 interface ScanResult {
   packages: ScanEntry[];
   colors: ScanEntry[];
   styles: ScanEntry[];
+  views: ViewEntry[];
+  /** `views/*.ts` 声明文件（设备声明 + 页面契约），副作用 import 拉齐注册 */
+  decls: ScanEntry[];
 }
 
 const DEFAULT_MODULE_ID = 'virtual:theme';
 
-/** 目录不存在 / 没有清单时的产出：空注册表 + 空清单 */
+/** 目录不存在 / 没有清单时的产出：空注册表 + 空清单（import 本模块即自动装配） */
 const EMPTY_MODULE = [
+  "import { installThemeRegistry, buildThemeRegistry, resolveThemeManifest, installThemeManifest } from 'skinsuite';",
+  "import { installThemeViews } from 'skinsuite/vue';",
   'export const packages = {};',
   'export const colors = {};',
   'export const styles = {};',
-  'export const manifest = null;'
+  'export const themeViews = {};',
+  'installThemeViews(themeViews);',
+  'installThemeRegistry(buildThemeRegistry({ packages, colors, styles }));',
+  'export const themeManifest = resolveThemeManifest(null);',
+  'installThemeManifest(themeManifest);'
 ].join('\n');
 
 /** 是否为目录；不存在或不可读一律 false（扫描全程"读不到就跳过"） */
@@ -108,6 +138,18 @@ function subdirs(path: string): string[] {
   try {
     return readdirSync(path, { withFileTypes: true })
       .filter(entry => entry.isDirectory())
+      .map(entry => entry.name)
+      .sort();
+  } catch {
+    return [];
+  }
+}
+
+/** 目录下的 `.ts` 文件（不含 `.d.ts`）；不存在或不可读返回空（读不到就跳过） */
+function tsFiles(path: string): string[] {
+  try {
+    return readdirSync(path, { withFileTypes: true })
+      .filter(entry => entry.isFile() && entry.name.endsWith('.ts') && !entry.name.endsWith('.d.ts'))
       .map(entry => entry.name)
       .sort();
   } catch {
@@ -134,7 +176,7 @@ function subdirs(path: string): string[] {
  */
 function scan(dir: string): ScanResult {
   const packagesDir = join(dir, THEME_PACKAGES_SUBDIR);
-  const result: ScanResult = { packages: [], colors: [], styles: [] };
+  const result: ScanResult = { packages: [], colors: [], styles: [], views: [], decls: [] };
 
   for (const pkg of subdirs(packagesDir)) {
     const pkgDir = join(packagesDir, pkg);
@@ -147,6 +189,15 @@ function scan(dir: string): ScanResult {
     // 按契约递归下降：取值目录段（THEME_DIR_LEVELS）逐层深入，最后在 `colors/`
     // 固定字面段之下收叶子（index.ts / theme.scss）。
     walk(pkgDir, [pkg], result);
+  }
+
+  // 声明目录 `views/*.ts`（设备声明 devices.ts + 页面契约 login/register/forgot-password）：
+  // 插件以副作用 import 拉齐，宿主 bootstrap/store 不再手动 import。
+  for (const name of tsFiles(join(dir, THEME_VIEWS_SUBDIR))) {
+    result.decls.push({
+      key: `./${THEME_VIEWS_SUBDIR}/${name}`,
+      file: join(dir, THEME_VIEWS_SUBDIR, name)
+    });
   }
   return result;
 }
@@ -167,6 +218,16 @@ function walk(base: string, segments: string[], result: ScanResult): void {
   // 已累积到「包/设备/页面」三段后，下一层是固定字面段 `colors/` + 最后一个取值段 `colorId`。
   // 判定依据 = `THEME_DIR_LEVELS` 里还剩几段未进入：只剩 `colorId` 一段时收叶子。
   if (segments.length === THEME_DIR_LEVELS.length - 1) {
+    // 已到「包/设备/页面」层：版式组件（本页 index.vue）+ colors/ 配色
+    const viewFile = join(base, VIEW_COMPONENT_FILE);
+    if (existsSync(viewFile)) {
+      result.views.push({
+        pkg: segments[0],
+        page: segments[2],
+        key: './' + [...segments, VIEW_COMPONENT_FILE].join('/'),
+        file: viewFile
+      });
+    }
     const colorsDir = join(base, THEME_COLORS_SEGMENT);
     for (const color of subdirs(colorsDir)) {
       const colorDir = join(colorsDir, color);
@@ -206,7 +267,21 @@ function toSpecifier(abs: string, root: string): string {
 
 /** 生成虚拟模块源码 */
 function render(result: ScanResult, root: string, manifestSpec: string | null): string {
-  const lines: string[] = [];
+  const lines: string[] = [
+    // 装配依赖（纯内核机制）：本模块被 import 时自动装注册表 + 解析清单单例
+    "import { installThemeRegistry, buildThemeRegistry, resolveThemeManifest, installThemeManifest } from 'skinsuite';",
+    // 版式加载表单例（Vue 绑定层）：本模块体把 themeViews 装进内核单例，页面契约惰性解析
+    "import { installThemeViews } from 'skinsuite/vue';",
+    manifestSpec
+      ? `import { default as __manifest } from ${JSON.stringify(manifestSpec)};`
+      : 'const __manifest = null;',
+    // 声明文件副作用 import（views/*.ts）：拉齐 defineThemeDevice / defineThemePage 注册。
+    // 🔴 必须在 `installThemeViews(themeViews)` 之前**作为 import 语句**存在（ESM import 全部
+    //    提升到模块体之前执行），而页面契约现在是惰性解析 loader，不读 themeViews ——
+    //    所以这里安全，不再是「页面契约 import virtual:theme」的循环。
+    ...result.decls.map(entry => `import ${JSON.stringify(toSpecifier(entry.file, root))};`),
+    ''
+  ];
 
   const emit = (entries: ScanEntry[], exportName: 'packages' | 'colors'): void => {
     entries.forEach((entry, index) => {
@@ -233,11 +308,40 @@ function render(result: ScanResult, root: string, manifestSpec: string | null): 
   });
   lines.push('};');
 
-  lines.push(
-    manifestSpec
-      ? `export { default as manifest } from ${JSON.stringify(manifestSpec)};`
-      : 'export const manifest = null;'
-  );
+  // ---- themeViews：版式组件（按页面分组；内置包 eager 零请求、非内置包惰性）----
+  // 🔴 内置包用**同步返回**（`() => __viewN`，eager 静态 import 的模块命名空间），
+  //    这样 `ViewRegistry.builtin()` 才能首帧同步拿到内置包版式（零请求、不闪屏）。
+  const builtinViews = result.views.filter(v => v.pkg === DEFAULT_THEME_PACKAGE);
+  builtinViews.forEach((entry, index) => {
+    lines.push(`import * as __view${index} from ${JSON.stringify(toSpecifier(entry.file, root))};`);
+  });
+  const byPage = new Map<string, ViewEntry[]>();
+  for (const entry of result.views) {
+    const list = byPage.get(entry.page);
+    if (list) list.push(entry);
+    else byPage.set(entry.page, [entry]);
+  }
+  lines.push('export const themeViews = {');
+  for (const [page, entries] of byPage) {
+    lines.push(`  ${JSON.stringify(page)}: {`);
+    entries.forEach(entry => {
+      if (entry.pkg === DEFAULT_THEME_PACKAGE) {
+        const idx = builtinViews.indexOf(entry);
+        lines.push(`    ${JSON.stringify(entry.key)}: () => __view${idx},`);
+      } else {
+        const spec = JSON.stringify(toSpecifier(entry.file, root));
+        lines.push(`    ${JSON.stringify(entry.key)}: () => import(${spec}),`);
+      }
+    });
+    lines.push('  },');
+  }
+  lines.push('};');
+
+  // ---- 装配副作用 + 清单单例（import 本模块即自动装版式加载表 + 注册表 + 清单）----
+  lines.push('installThemeViews(themeViews);');
+  lines.push('installThemeRegistry(buildThemeRegistry({ packages, colors, styles }));');
+  lines.push('export const themeManifest = resolveThemeManifest(__manifest);');
+  lines.push('installThemeManifest(themeManifest);');
 
   return lines.join('\n');
 }

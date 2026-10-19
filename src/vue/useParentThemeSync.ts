@@ -34,8 +34,7 @@
  * @author yijiu2025
  * @since 2026-08-30
  */
-import { onMounted, onUnmounted } from 'vue';
-import type { RemoteThemeConfig } from '../remote-config';
+import type { RemoteThemeConfig } from '../scheme';
 
 /** 宿主适配器 */
 export interface ParentThemeSyncOptions {
@@ -53,11 +52,14 @@ export interface ParentThemeSyncOptions {
 }
 
 /**
- * 监听父应用的主题同步消息
+ * 监听父应用的主题同步消息（**立即注册**，返回 cleanup）
  *
- * 仅在 iframe 嵌入时生效（顶层窗口无父，不监听）。
+ * 仅在 iframe 嵌入时生效（`handleMessage` 内判断顶层窗口无父则忽略）。
+ * 不依赖组件生命周期（`onMounted`/`onUnmounted`）：来源同步已归主题运行时
+ * （宿主 store 的 runtime），那里没有组件实例，改用「立即 addEventListener +
+ * 返回 cleanup」，由宿主在 store 的 dispose 里调 cleanup。
  */
-export function useParentThemeSync(options: ParentThemeSyncOptions): void {
+export function useParentThemeSync(options: ParentThemeSyncOptions): () => void {
   function handleMessage(event: MessageEvent): void {
     // 顶层窗口无父，忽略（非 iframe 场景）
     if (!(window.parent && window.parent !== window)) return;
@@ -92,11 +94,6 @@ export function useParentThemeSync(options: ParentThemeSyncOptions): void {
     }
   }
 
-  onMounted(() => {
-    window.addEventListener('message', handleMessage);
-  });
-
-  onUnmounted(() => {
-    window.removeEventListener('message', handleMessage);
-  });
+  window.addEventListener('message', handleMessage);
+  return () => window.removeEventListener('message', handleMessage);
 }

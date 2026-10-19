@@ -10,8 +10,7 @@
  * @author yijiu2025
  * @since 2026-10-17
  */
-import type { ThemeMode } from '../mode';
-import type { ThemeTone } from '../tone';
+import type { ThemeMode, ThemeTone } from '../scheme';
 
 /** 一张色卡 */
 export interface ThemeDebugColor {

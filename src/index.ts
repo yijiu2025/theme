@@ -37,19 +37,18 @@ export {
   DEFAULT_THEME_PAGE,
   DEFAULT_THEME_COLOR,
   DEFAULT_THEME_DARK_COLOR,
-  BASE_VIEW_ID,
-  THEME_DIR_LEVELS,
+    THEME_DIR_LEVELS,
   THEME_COLORS_SEGMENT,
   THEME_COLOR_DEF_FILE,
   THEME_COLOR_STYLE_FILE,
   THEME_PACKAGE_DEF_FILE
 } from './constants.js';
 
-export { THEME_TONES, TONE_LABELS, isThemeTone, normalizeTone } from './tone.js';
-export type { ThemeTone } from './tone.js';
+export { THEME_TONES, TONE_LABELS, isThemeTone, normalizeTone } from './scheme.js';
+export type { ThemeTone } from './scheme.js';
 
-export { MODE_CYCLE, MODE_LABELS, isThemeMode, normalizeMode } from './mode.js';
-export type { ThemeMode } from './mode.js';
+export { MODE_CYCLE, MODE_LABELS, isThemeMode, normalizeMode } from './scheme.js';
+export type { ThemeMode } from './scheme.js';
 
 export {
   isSafeTokenName,
@@ -70,18 +69,14 @@ export { buildThemeRegistry, installThemeRegistry } from './registry.js';
 export type { ThemeAssetModules } from './registry.js';
 export {
   listThemes,
-  listThemePackages,
-  listThemeGroups,
-  listColorsOf,
+    listColorsOf,
   toneOfColor,
   toneOfAnyScope,
   listColorIdsOfTone,
   resolveThemeId,
   getThemeRecord,
-  getThemePackage,
   getDefaultThemeId,
   isKnownTheme,
-  listColorPages,
   listColorViews
 } from './registry.js';
 
@@ -109,11 +104,11 @@ export type { DeviceRegistry, DeviceRegistryOptions } from './views/device-regis
  *
  * 取数（超时 / 重试 / cookie 策略）属于宿主，故不在此。
  */
-export { normalizeRemoteThemeConfig } from './remote-config.js';
-export type { RemoteThemeConfig } from './remote-config.js';
+export { normalizeRemoteThemeConfig } from './scheme.js';
+export type { RemoteThemeConfig } from './scheme.js';
 
 /**
- * 主题域清单（主题目录里那份 `theme.config.ts` 的契约）：调试开关 + 路由投影
+ * 主题域清单（主题目录里那份 `theme.config.ts` 的契约）：调试开关
  *
  * 它是**主题域自带**的配置（跟主题包一起走）；「主题目录在哪」不在这里 ——
  * 那是宿主的部署事实，由宿主的 env 提供，换目录不必改代码也不必改这个包。
@@ -122,12 +117,12 @@ export {
   defineThemeManifest,
   isThemeDebugVisible,
   resolveThemeManifest,
-  resolveThemePage
+  installThemeManifest,
+  themeManifest
 } from './manifest.js';
 export type {
   ResolvedThemeDebug,
   ResolvedThemeManifest,
   ThemeDebugMode,
-  ThemeManifest,
-  ThemeRouteRule
+  ThemeManifest
 } from './manifest.js';

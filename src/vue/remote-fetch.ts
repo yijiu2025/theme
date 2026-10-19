@@ -16,8 +16,8 @@
  * @author yijiu2025
  * @since 2026-10-17（从 oauth21/src/theme/remote.ts 下沉）
  */
-import { normalizeRemoteThemeConfig } from '../remote-config';
-import type { RemoteThemeConfig } from '../remote-config';
+import { normalizeRemoteThemeConfig } from '../scheme';
+import type { RemoteThemeConfig } from '../scheme';
 
 export interface RemoteThemeFetchOptions {
   /** 端点 URL（宿主 `VITE_THEME_ENDPOINT`）；空串 = 机制关闭，直接返回 null */
