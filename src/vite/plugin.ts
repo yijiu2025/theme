@@ -149,7 +149,10 @@ function subdirs(path: string): string[] {
 function tsFiles(path: string): string[] {
   try {
     return readdirSync(path, { withFileTypes: true })
-      .filter(entry => entry.isFile() && entry.name.endsWith('.js') && !entry.name.endsWith('.d.js'))
+      // 🔴 主题域的声明是 `.ts` 源码（`views/devices.ts`、`views/<page>.ts`），不是编译后的 `.js`。
+      //    这里曾误写成 `.js` / `.d.js`，于是 `decls` 恒为空 —— 设备域与页面域静默不注册，
+      //    症状是配色回落到占位 id `default`、`deviceIds()` 返回空数组，而构建/类型检查全绿。
+      .filter(entry => entry.isFile() && entry.name.endsWith('.ts') && !entry.name.endsWith('.d.ts'))
       .map(entry => entry.name)
       .sort();
   } catch {
