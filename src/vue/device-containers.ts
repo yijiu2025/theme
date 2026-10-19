@@ -52,22 +52,26 @@ export function containerOf(
 }
 
 /**
- * 取某设备在某页的容器加载器，**没写时兜底到 standard 设备**
+ * 取某设备在某页的容器加载器，**没写时兜底到末条设备**（声明顺序即优先级）
  *
  * 分发器用它做「设备 id → 该页容器」的数据化映射：加一种设备时，只要给它写了容器，
- * 分发器就能渲染；没写则该设备退到桌面容器 —— 不再写死「mobile ? X : mini ? Y : Standard」。
+ * 分发器就能渲染；没写则该设备退到兜底设备 —— 不再写死「mobile ? X : mini ? Y : Standard」。
+ *
+ * 🔴 兜底目标取**末条声明**，不写死 `'standard'`（2026-10-19）：具体设备名是宿主的词汇，
+ *    库只认「声明顺序，末条兜底」这条机制。宿主把兜底设备放末条即可。
  */
 export function resolveContainerOf(
   defs: readonly DeviceDef<DeviceContainerLoader>[],
   id: string,
   page: string
 ): DeviceContainerLoader {
+  const fallback = defs[defs.length - 1]?.id;
   return (
     containerOf(defs, id, page) ??
-    containerOf(defs, 'standard', page) ??
+    (fallback === undefined ? undefined : containerOf(defs, fallback, page)) ??
     (() =>
       Promise.reject(
-        new Error(`[theme] 设备「${id}」在页面「${page}」没有容器，也没有 standard 兜底`)
+        new Error(`[theme] 设备「${id}」在页面「${page}」没有容器，也没有兜底设备`)
       ))
   );
 }

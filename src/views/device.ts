@@ -1,41 +1,31 @@
 /**
- * 设备清单机制（**纯逻辑半边**）—— 「哪些设备、怎么判定」的唯一实现（内核版）
+ * 设备清单机制（**纯逻辑半边**）—— 只描述「有哪些设备、占哪条路由、容器在哪」
  *
- * === 设备 = 路由 + 容器 = 版式信息的一部分 ===
- * 「有哪些设备」是宿主的部署事实（每个应用设备不同、容器位置不同），所以**设备清单
- * （`DeviceDef[]`）由宿主声明**；但「怎么从清单判定出当前设备、怎么归一化外部输入、
- * 怎么取容器」是**通用机制**，收在这里 —— 加一种设备时宿主只加一条声明，判定逻辑零改动。
+ * === 🔴 判定不在这里（2026-10-19 收口）===
+ * 「当前属于哪台设备」是**宿主的业务判定**，不是通用机制：
+ *   · 视口阈值（768 / 1024）、UA 兜底口径 —— 换个产品就变
+ *   · 宿主自己的 URL 词汇（`?isMobile` / `?from=mini` / `?device=` 锁定）—— 更是宿主专有
+ * 一旦下沉，库就得认识这些词汇，别的宿主复用机制时被迫沿用同一套约定；而本库对外
+ * 承诺的只有「设备域」这件机制本身。
  *
- * === 为什么这里只有「判定」、没有「组件」 ===
- * 本文件是**纯逻辑**（不含 `Component` 类型），能被内核 tsc 独立检查、也能被任何前端复用。
- * `containers` 用泛型 `T` 表达（宿主的「设备容器加载器」是 `T`），组件加载的**具体机制**
- * （`pageContainers` / `resolveContainerOf`）在 `skinsuite/vue` 的 `device-containers`，
- * 那里才 import Vue 的 `Component`。
+ * 所以判定改成**注入点**：宿主给 `app.use(theme, { router, resolveDevice })` 传一个
+ * `(ctx) => deviceId | null`，库把 router 的 `query / path / fullPath` **原样**递过去
+ * （只递事实，不带任何词汇），由宿主自己决定。库只负责：注册清单、记住当前设备、
+ * 通知订阅方、按设备取容器。
  *
- * === 判定顺序就是清单顺序（先命中先用），最后一条必须无条件成立 ===
- * 它是兜底设备。宿主关卡会核这一条。
+ * 由此「加一种设备」= 宿主加一条声明 + 一条判定分支，**库零改动**。
  *
- * === 为什么判定必须收在一处 ===
- * 三个分发器曾经各写一份「mini 来源」判定，口径不一致 → 同一个链接在不同页面落到
- * 不同设备。现在判定只有一份，各页面自然同形。
+ * === 为什么这里只有「设备」、没有「组件」 ===
+ * 本文件是**纯逻辑**（不含 `Component` 类型），能被内核 tsc 独立检查、也能被任何前端
+ * 复用。`containers` 用泛型 `T` 表达（宿主的「设备容器加载器」是 `T`），组件加载的
+ * **具体机制**（`pageContainers` / `resolveContainerOf`）在 `skinsuite/vue` 的
+ * `device-containers`，那里才 import Vue 的 `Component`。
  *
  * @author yijiu2025
  * @since 2026-10-17（从 oauth21/src/theme/devices.ts 下沉）
+ * @since 2026-10-19（判定层撤出：`match` / `DeviceMatchContext` / `pickDeviceId` /
+ *        `deviceContext` 全删，改为宿主注入 `resolveDevice`）
  */
-
-/** 判定上下文 —— 判定所需的**全部**外部信息（与页面无关的原始事实） */
-export interface DeviceMatchContext {
-  /** `?isMobile=true` —— 显式意图，优先级最高 */
-  explicitMobile: boolean;
-  /** 路由 path（不含 query / hash） */
-  path: string;
-  /** `?from=` 的取值（iframe 来源标记，空串表示没给） */
-  from: string;
-  /** `?fromLogin=` 的取值（历史键：从 mini 登录页跳来） */
-  fromLogin: string;
-  /** 视口/UA 判定结果 */
-  viewportIsMobile: boolean;
-}
 
 /** 一条设备声明（`containers` 是泛型：纯逻辑侧不关心它到底是什么，只透传） */
 export interface DeviceDef<T = unknown> {
@@ -49,8 +39,6 @@ export interface DeviceDef<T = unknown> {
   containers: ReadonlyMap<string, T>;
   /** 该设备在路由表里占的 path（相对根，`{page}` 由页面名替换） */
   routePath(page: string): string;
-  /** 本次访问是否属于这台设备（清单顺序 = 优先级，先命中先用） */
-  match(ctx: DeviceMatchContext): boolean;
 }
 
 /** 归一化外部传入的设备名；不认识的取值返回 null（**不是**落默认设备） */
@@ -68,40 +56,10 @@ export function deviceLabel<T>(defs: readonly DeviceDef<T>[], id: string): strin
   return defs.find(def => def.id === id)?.label ?? id;
 }
 
-/** 从外部输入判定「本次访问属于哪台设备」；清单顺序 = 优先级，返回值永远非空 */
-export function pickDeviceId<T>(
-  defs: readonly DeviceDef<T>[],
-  ctx: DeviceMatchContext,
-  defaultDevice: string
-): string {
-  for (const def of defs) {
-    if (def.match(ctx)) return def.id;
-  }
-  // 清单被改坏（末条不再无条件成立）时的保底
-  return defaultDevice;
-}
-
 /** 取某设备的容器表；未知设备返回空表（调用方退到兜底设备） */
 export function containersOf<T>(
   defs: readonly DeviceDef<T>[],
   id: string
 ): ReadonlyMap<string, T> {
   return defs.find(def => def.id === id)?.containers ?? new Map();
-}
-
-/** 从当前访问信息构造判定上下文 */
-export function deviceContext(
-  query: Record<string, unknown> | undefined,
-  path: string,
-  viewportIsMobile: boolean
-): DeviceMatchContext {
-  const text = (key: string): string =>
-    typeof query?.[key] === 'string' ? (query[key] as string) : '';
-  return {
-    explicitMobile: text('isMobile') === 'true',
-    path: path.split(/[?#]/)[0],
-    from: text('from'),
-    fromLogin: text('fromLogin'),
-    viewportIsMobile
-  };
 }

@@ -56,26 +56,30 @@ export {
   deviceIds,
   fallbackDevice,
   isKnownDevice,
-  pickDeviceId,
   registeredDevices,
   resetDevices,
   resolveContainerOf,
   urlKeyOf
 } from './define-theme-device';
-export type { DeclarativeMatch, ThemeDeviceOptions } from './define-theme-device';
-export { currentDevice, currentQuery, installThemeDomain, replaceQuery } from './device-domain';
-export type { DeviceDomainRouter, InstallThemeDomainOptions } from './device-domain';
+export type { ThemeDeviceOptions } from './define-theme-device';
+export {
+  currentDevice,
+  currentQuery,
+  installThemeDomain,
+  refreshDevice,
+  replaceQuery
+} from './device-domain';
+export type {
+  DeviceDomainContext,
+  DeviceDomainRouter,
+  InstallThemeDomainOptions
+} from './device-domain';
 export { theme } from './plugin';
 export type { ThemePluginOptions } from './plugin';
 
-// ---- 视口 / UA 设备形态判定（2026-10-19 下沉，供设备域与宿主守卫/请求共用）----
-export {
-  DESKTOP_MIN_WIDTH,
-  MOBILE_BREAKPOINT,
-  detectMobileUA,
-  isDesktopViewport,
-  isMobileViewport
-} from './viewport';
+// ── 视口 / UA 判定**不在这里**（2026-10-19 收口）──────────────────────────────
+// 「手机还是电脑」是宿主的业务口径（768 / 1024 阈值、UA 兜底、`?isMobile` 等），
+// 换个产品就变。库只提供注入点 `resolveDevice`（见 device-domain），宿主自己判定。
 
 // ---- 主题状态机（scope/intent/runtime + 持久化，2026-10-19 下沉）----
 // 🔴 只导出 `createThemeState`（编排入口）—— scope/intent/runtime/persistence 是内部实现，

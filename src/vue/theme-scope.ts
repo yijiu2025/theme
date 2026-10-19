@@ -62,7 +62,8 @@ export function useThemeScope(keys: ThemeStorageKeys, colorParam: string) {
 
   /**
    * 从**设备域**订阅当前生效设备（设备判定已收进库内设备域，这里只读）。
-   * `app.use(theme, { router })` 里设备域监听路由 + 视口 → `pickDeviceId` 判定 → `activeDevice`，
+   * `app.use(theme, { router, resolveDevice })` 里设备域监听路由 + 宿主主动
+   * `refreshDevice()` → 宿主 `resolveDevice` 判定 → `activeDevice`，
    * 这里把它同步进作用域（`immediate` 覆盖 store 实例化时设备域已判好的值）。
    */
   watch(

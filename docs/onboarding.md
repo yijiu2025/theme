@@ -17,7 +17,7 @@
 |---|---|---|
 | 多配色（明暗 + 色系，换 CSS 变量） | `skinsuite` + `skinsuite/vue` | 必选 |
 | 多版式（同一页换 DOM / 交互组织） | `skinsuite/vue` | 可选（只有一个版式就只建一个主题包） |
-| 多设备（手机 / 桌面 / 平板各自布局） | `skinsuite/vue` | 可选（单端就不声明视口 match） |
+| 多设备（手机 / 桌面 / 平板各自布局） | `skinsuite/vue` | 可选（单端就只声明一台设备） |
 | 调试面板 | `skinsuite/vue` | 可选（`theme.config.ts` 里 `debug: { enabled: 'url' }`） |
 
 **最小接入 = 多配色**：只建一个主题包、一个设备、一个页面，也能完整跑起来。
@@ -131,7 +131,7 @@ import type { Component } from 'vue';
 import { THEME_ID_RE } from 'skinsuite';
 import { defineThemeDevice } from 'skinsuite/vue';
 
-// 判定顺序 = 声明顺序，最后一条必须 fallback（兜底）
+// 声明顺序 = 优先级；**最后一条是兜底设备**（库只认顺序，不认设备名）
 defineThemeDevice({
   id: 'mobile',
   label: '手机端',
@@ -141,8 +141,7 @@ defineThemeDevice({
     fileRe: /^index\.vue$/,
     idRe: THEME_ID_RE
   },
-  routePath: page => `m/${page}`,
-  match: { explicitMobile: true, viewportMobile: true }
+  routePath: page => `m/${page}`
 });
 
 defineThemeDevice({
@@ -154,14 +153,51 @@ defineThemeDevice({
     fileRe: /^Standard/,
     idRe: THEME_ID_RE
   },
-  routePath: page => page,
-  match: { fallback: true }
+  routePath: page => page
 });
 ```
 
-`match` 里的信号是声明式的：`explicitMobile`（`?isMobile=true`）、`viewportMobile`（视口窄）、
-`from` / `fromLogin` / `pathSegment`（URL 来源标记）。`defineThemeDevice` 会自动注册进设备域、
-自动建容器表，**不要再手动写任何转发函数**。
+`defineThemeDevice` 只登记**事实**（id / label / urlKey / 容器在哪 / 占哪条路由），自动建容器表、
+自动注册进设备域，**不要再手动写任何转发函数**。
+
+🔴 **这里没有 `match`** —— 判定不归库，见 §4.1b。
+
+### 4.1b 🔴 设备判定写在哪：宿主（不是库）
+
+「当前属于哪台设备」是**业务口径**：视口阈值取 768 还是别的、UA 命中算不算、
+`?isMobile=true` / `?from=mini` / `?device=` 这些 URL 词汇，换个产品就变。
+所以库只留**注入点**，判定由宿主实现并通过 `app.use(theme, { resolveDevice })` 传进来：
+
+```ts
+// src/theme/views/devices.ts（宿主侧）
+import type { DeviceDomainContext } from 'skinsuite/vue';
+import { fallbackDevice, isKnownDevice } from 'skinsuite/vue';
+import { isMobileViewport } from '@/utils/device';
+
+export function resolveCurrentDevice(ctx: DeviceDomainContext): string | null {
+  if (isKnownDevice(ctx.query.device)) return ctx.query.device as string;  // 一次性锁定
+  if (ctx.query.isMobile === 'true') return 'mobile';                     // 显式意图
+  if (ctx.query.from === 'mini') return 'mini';                           // 来源标记
+  if (isMobileViewport()) return 'mobile';                                // 视口 + UA
+  return fallbackDevice();                                                // 兜底（末条）
+}
+```
+
+`DeviceDomainContext` 只给**事实** —— `{ query, path, fullPath }`，没有任何词汇。
+库不认识「手机」是什么、也不认识 768 这个数。
+
+**视口变化怎么办**：库不订阅 `matchMedia`（「什么算变了」也是宿主口径）。
+宿主自己订阅，然后叫库重判：
+
+```ts
+import { refreshDevice } from 'skinsuite/vue';
+import { watchViewport } from '@/utils/device';
+
+watchViewport(() => refreshDevice());
+```
+
+**加一种设备**要动的四处：`defineThemeDevice` 一条声明 / `resolveCurrentDevice()` 一条分支 /
+容器组件 / 主题包里加设备目录。库零改动。
 
 ### 4.2 页面契约 `views/<page>.ts`
 
@@ -272,21 +308,22 @@ app.use(createPinia());
 app.use(router);
 app.use(i18n);
 
-// 设备域启动：传 router + 宿主自己的「设备覆盖」解析。
+// 设备域启动：传 router + 宿主自己的判定函数。
 // 库只认 router 的最小结构（currentRoute.value.{ query, path, fullPath }），
-// 不 import vue-router，不写死任何 URL 词汇。
-app.use(theme, {
-  router,
-  // ?device=<id> 是宿主自己的 URL 约定，用注入点交给库（返回 null = 不覆盖）
-  resolveDeviceOverride: query => (typeof query.device === 'string' ? query.device : null)
-});
+// 不 import vue-router，**也不认识任何 URL 词汇或视口阈值** —— 判定全在
+// `theme/views/devices.ts` 的 resolveCurrentDevice 里（含 ?device= 锁定）。
+app.use(theme, { router, resolveDevice: resolveCurrentDevice });
+
+// 视口变化 → 让设备域重判（库不订阅 matchMedia）
+watchViewport(() => refreshDevice());
 
 router.isReady().then(() => app.mount('#app'));
 ```
 
-**`resolveDeviceOverride` 的语义**：宿主想让「某个 URL 参数能锁定设备（压过视口自动判定）」
-时，通过它注入解析逻辑。参数名（`device`）是宿主词汇，库不认识也不写死；返回合法设备 id
-即锁定、返回 `null` 或非法 id 走自动判定。**不需要这个能力就不传，字段可选。**
+**`resolveDevice` 的语义**：`(ctx) => deviceId | null`，**唯一的判定入口**。`ctx` 只有
+`{ query, path, fullPath }` 三个事实字段。返回合法设备 id 即采用；返回 `null` 或未知 id
+走兜底设备（清单末条）。宿主在里面怎么写都行 —— `?device=` 锁定、`?isMobile`、UA、视口，
+都是宿主自己的事。**不传就全部落兜底设备**（单端应用可以只用一句话的判定了）。
 
 ---
 
@@ -417,7 +454,7 @@ const ctx = computed<LoginViewContext>(() => ({
 | 构建 | `vite build` | 成功，内置包 eager、非内置包独立 chunk |
 | 手测 | `?th=<包>` / `?th_<设备缩写>=<包>` | 版式切换 |
 | 手测 | `?debug=theme` | 调试面板出现，可切配色 |
-| 手测 | 缩放窗口 / 换 UA | 手机 / 桌面自动切换（若声明了视口 match） |
+| 手测 | 缩放窗口 / 换 UA | 手机 / 桌面自动切换（由宿主的 `resolveDevice` 决定） |
 | 手测 | `?device=mobile`（若注入 override） | 锁定手机端，刷新后失效 |
 
 ---
@@ -439,8 +476,10 @@ const ctx = computed<LoginViewContext>(() => ({
 5. **在容器里手写 `setActiveDevice` / `setActivePageView`** → 冗余且会被 `<ThemeView>` 覆盖。
    全删，交给 `<ThemeView>`。
 
-6. **URL 词汇（`?device=` 等）写进库里** → 边界错。库只提供通用注入点（`resolveDeviceOverride`），
-   参数名是宿主词汇，只写在宿主装配处。
+6. **设备判定（视口阈值 / UA / `?device=` / `?isMobile` / `?from=`）写进库里** → 边界错。
+   库只提供注入点 `resolveDevice`（`ctx` 里只有 `query / path / fullPath` 三个事实），
+   判定与它的词汇全部写在宿主（见 §4.1b）。同理别指望库订阅 `matchMedia` ——
+   视口变化由宿主订阅后调 `refreshDevice()`。
 
 7. **容器摊平在 `view/web/` 下**（`web/StandardLogin.vue`）→ 页面名被算成 `web`，该页在这一设备上
    等于「没写容器」。`standard` / `mini` 必须各自待在 `view/web/<页面>/` 里，见 §9.2。
@@ -456,7 +495,7 @@ my-app/
 ├── vite.config.ts            # themeAssets({ dir: resolveThemeDir(mode) }) + vue()
 ├── .env                      # VITE_THEME_DIR=src/theme（可省）
 └── src/
-    ├── bootstrap.ts          # app.use(theme, { router, resolveDeviceOverride? })
+    ├── bootstrap.ts          # app.use(theme, { router, resolveDevice }) + watchViewport(refreshDevice)
     ├── App.vue               # <ThemeRoot :theme-store> + <ThemeDebugPanel>
     ├── stores/theme.ts       # defineStore('theme', () => createThemeState()) + import 'virtual:theme'
     ├── router/index.ts       # 固定声明 /<page>、/m/<page>

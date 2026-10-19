@@ -1,25 +1,29 @@
 /**
- * 设备域运行时 —— 当前生效设备 `activeDevice` + matchMedia 视口判定 + 路由监听 → 判定
+ * 设备域运行时 —— 维护「当前生效设备」这一状态，判定交给宿主
  *
- * 与 `define-theme-device`（声明工厂）配对：宿主在 `defineThemeDevice` 里声明设备清单
- * （自动注册），本文件维护「当前属于哪台设备」这一运行时状态，供宿主 store 订阅、供
- * token 注入 / 版式查找取用。
+ * 与 `define-theme-device`（声明工厂）配对：宿主声明设备清单（自动注册），本文件维护
+ * 「当前属于哪台设备」，供宿主 store 订阅、供 token 注入 / 版式查找取用。
  *
- * === 信号来源 ===
- * 设备判定只有「设备清单 `match`」一个来源，输入是 path / query（从 router 拿）+ 视口
- * （`matchMedia`，阈值可配）。**不再有 `meta.device`** 这个冗余基线。
+ * === 🔴 判定归宿主（2026-10-19 收口）===
+ * 本文件**不认识**视口阈值、UA、`?isMobile`、`?from=mini`、`?device=` 这些词汇 ——
+ * 它们都是宿主的产品约定。库只把 router 上的事实（`query / path / fullPath`）原样
+ * 交给宿主注入的 `resolveDevice`，拿回一个设备 id；不合法/返回 null 就落到兜底设备
+ * （清单末条）。
+ *
+ * 宿主自己知道「什么时候该重判」（视口变了、UA 变了、自己的开关变了），所以本文件
+ * 额外暴露 `refreshDevice()` 让宿主主动触发 —— 库**不订阅** `matchMedia`，也就不会
+ * 和宿主的响应式口径打架。
  *
  * === 为什么库只认 router 的最小结构 ===
  * 库不 import vue-router（应用世界观），只认 `currentRoute.value.{ query, path, fullPath }`
- * 这三个字段 —— 宿主把 router 传进来（`app.use(theme, { router })`）。
+ * 这三个字段 —— 宿主把 router 传进来（`app.use(theme, { router, resolveDevice })`）。
  *
  * @author yijiu2025
  * @since 2026-10-18
+ * @since 2026-10-19（`matchMedia` / 视口 / `resolveDeviceOverride` 撤出，改 `resolveDevice` + `refreshDevice`）
  */
 import { ref, watch } from 'vue';
-import { deviceContext, pickDeviceId } from '../views/device';
 import { registeredDevices } from './define-theme-device';
-import { DESKTOP_MIN_WIDTH, MOBILE_BREAKPOINT, detectMobileUA } from './viewport';
 
 /** 路由的最小结构（库不 import vue-router，只认这些字段） */
 export interface DeviceDomainRouter {
@@ -34,75 +38,63 @@ export interface DeviceDomainRouter {
   replace?(to: { query: Record<string, string | string[] | undefined> }): unknown;
 }
 
+/**
+ * 交给宿主的**判定输入** —— 只有事实，没有任何词汇
+ *
+ * 宿主在这里自己决定：视口宽窄、UA、`?isMobile`、`?from=mini`、`?device=` 锁定……
+ * 都是宿主的事；库不参与、也不缓存这些概念。
+ */
+export interface DeviceDomainContext {
+  /** 当前路由 query */
+  query: Record<string, unknown>;
+  /** 路由 path（不含 query / hash） */
+  path: string;
+  /** 完整路径（宿主可用于自己的来源判断） */
+  fullPath: string;
+}
+
 export interface InstallThemeDomainOptions {
   router: DeviceDomainRouter;
   /**
-   * 宿主注入的「设备覆盖」解析：从当前 query 返回要**锁定**的设备 id，`null` = 不覆盖。
+   * 宿主判定「本次访问属于哪台设备」：返回设备 id，`null` = 交给兜底设备。
    *
-   * 用于宿主自己的 URL 约定（如 `?device=mobile` 锁定手机端）——参数名是宿主词汇，
-   * 库不认、也不写死，只提供一个「显式覆盖自动判定」的通用注入点。命中合法设备时
-   * 优先于 `?isMobile` / `?from` / 视口；返回 null 或非法 id 则走自动判定。
+   * 返回未知 id 时按 `null` 处理（不信任宿主手滑写错的名字）。
+   * 🔴 这是**唯一的判定入口** —— 库内没有任何默认判定实现。
    */
-  resolveDeviceOverride?: (query: Record<string, unknown>) => string | null;
+  resolveDevice?: (ctx: DeviceDomainContext) => string | null;
 }
 
 /** 当前生效设备（响应式；宿主 store 从这里订阅） */
 const activeDevice = ref<string>('');
 
-/** 视口是否判为手机（响应式；「1024 优先 + 768 窄 + UA 兜底」口径，见 viewport.ts） */
-const viewportMobile = ref(false);
-
 let routerRef: DeviceDomainRouter | null = null;
-let resolveDeviceOverride: InstallThemeDomainOptions['resolveDeviceOverride'] = undefined;
+let resolveDevice: InstallThemeDomainOptions['resolveDevice'];
 
-/** 判定一次设备并写入 activeDevice */
+/**
+ * 判定一次设备并写入 `activeDevice`
+ *
+ * 优先宿主 `resolveDevice` 的结果；返回 null / 未知 id → 清单末条（兜底设备）。
+ */
 function judgeDevice(): void {
   const defs = registeredDevices();
   if (!routerRef || defs.length === 0) return;
   const route = routerRef.currentRoute.value;
 
-  // 宿主注入的设备覆盖（如 ?device=）：命中合法设备直接锁定，压过自动判定
-  const override = resolveDeviceOverride?.(route.query) ?? null;
-  if (override && defs.some(d => d.id === override)) {
-    if (activeDevice.value !== override) activeDevice.value = override;
-    return;
-  }
-
-  const ctx = deviceContext(route.query, route.path, viewportMobile.value);
-  // 兜底 = 末条 fallback 设备的 id（默认设备的指定先不在这里定）
-  const fallback = defs[defs.length - 1].id;
-  const next = pickDeviceId(defs, ctx, fallback);
+  const picked = resolveDevice?.({ query: route.query, path: route.path, fullPath: route.fullPath });
+  const known = picked !== null && picked !== undefined && defs.some(d => d.id === picked);
+  const next = known ? (picked as string) : defs[defs.length - 1].id;
   if (activeDevice.value !== next) activeDevice.value = next;
 }
 
 /**
- * 装配设备域运行时（`app.use(theme, { router })` 时调用一次）
+ * 装配设备域运行时（`app.use(theme, { router, resolveDevice })` 时调用一次）
  *
- * 建立两条响应链：链接变动（`fullPath`）→ 判定；视口变化（两个 matchMedia + UA）→ 判定。
- * 视口口径与宿主 `useDeviceDetect` 一致（宽视口优先 + 窄视口 + UA 兜底），保证设备域
- * 判出的 `currentDevice` 与分发器渲染的形态同源。
+ * 只建一条响应链：路由 `fullPath` 变动 → 判定。
+ * 视口 / UA / 宿主其它信号变化时，宿主自己调 `refreshDevice()`。
  */
 export function installThemeDomain(options: InstallThemeDomainOptions): void {
   routerRef = options.router;
-  resolveDeviceOverride = options.resolveDeviceOverride;
-
-  if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
-    const desktopMq = window.matchMedia(`(min-width: ${DESKTOP_MIN_WIDTH}px)`);
-    const mobileMq = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`);
-    const syncViewport = (): void => {
-      // 宽视口优先：放得下桌面布局就一律电脑版，UA 说什么都不例外
-      if (desktopMq.matches || window.innerWidth >= DESKTOP_MIN_WIDTH) {
-        viewportMobile.value = false;
-        return;
-      }
-      // 窄视口直接移动端；中间段（768–1023）交给 UA 兜底（该区间可能是被缩放的桌面浏览器）
-      const narrow = mobileMq.matches || window.innerWidth < MOBILE_BREAKPOINT;
-      viewportMobile.value = narrow ? true : detectMobileUA();
-    };
-    syncViewport();
-    desktopMq.addEventListener('change', syncViewport);
-    mobileMq.addEventListener('change', syncViewport);
-  }
+  resolveDevice = options.resolveDevice;
 
   // 🔴 watch fullPath 而非整个路由对象：同路由 query/hash 变化不触发重判
   watch(
@@ -110,9 +102,15 @@ export function installThemeDomain(options: InstallThemeDomainOptions): void {
     () => judgeDevice(),
     { immediate: true }
   );
+}
 
-  // 视口变化 → 重判
-  watch(viewportMobile, () => judgeDevice());
+/**
+ * 让宿主在**自己的信号变化时**主动重判（视口、UA、自己存的开关……）
+ *
+ * 幂等、廉价；未装配 router 时是空操作。
+ */
+export function refreshDevice(): void {
+  judgeDevice();
 }
 
 /** 当前生效设备（只读响应式，宿主 store 订阅它） */

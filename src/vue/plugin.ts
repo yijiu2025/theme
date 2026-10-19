@@ -20,16 +20,22 @@ import type { DeviceDomainRouter, InstallThemeDomainOptions } from './device-dom
 export interface ThemePluginOptions {
   /** 宿主路由（库只认 `currentRoute.value.{ query, path, fullPath }` 最小结构） */
   router: DeviceDomainRouter;
-  /** 宿主注入的设备覆盖解析（`?device=` 等宿主 URL 词汇），透传给设备域 */
-  resolveDeviceOverride?: InstallThemeDomainOptions['resolveDeviceOverride'];
+  /**
+   * 宿主判定「当前属于哪台设备」—— **唯一的判定入口**。
+   *
+   * 库把 `{ query, path, fullPath }` 原样递过去，宿主自己用视口 / UA / 自己的 URL 词汇
+   * （`?isMobile`、`?from=mini`、`?device=` 锁定……）决定返回哪个设备 id；返回 `null`
+   * 走兜底设备（清单末条）。
+   */
+  resolveDevice?: InstallThemeDomainOptions['resolveDevice'];
 }
 
-/** Vue 插件：`app.use(theme, { router, resolveDeviceOverride? })` */
+/** Vue 插件：`app.use(theme, { router, resolveDevice })` */
 export const theme: Plugin<[ThemePluginOptions]> = {
   install(_app: App, options: ThemePluginOptions) {
     installThemeDomain({
       router: options.router,
-      resolveDeviceOverride: options.resolveDeviceOverride
+      resolveDevice: options.resolveDevice
     });
   }
 };

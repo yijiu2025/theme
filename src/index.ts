@@ -83,21 +83,14 @@ export {
 export { DEVICE_SCOPED_PARAMS, readDeviceParam } from './views/params.js';
 export type { DeviceScopedParam } from './views/params.js';
 
-export {
-  asDeviceId,
-  containersOf,
-  deviceContext,
-  deviceLabel,
-  pickDeviceId
-} from './views/device.js';
-export type { DeviceDef, DeviceMatchContext } from './views/device.js';
-
 /**
- * 设备注册表工厂：一份 `DeviceDef[]` 清单 → 全套已绑定的判定机制。
- * 宿主不再逐个转发判定函数，只写清单、调一次工厂。
+ * 设备清单机制（只有事实与查询，**判定不在这里**）
+ *
+ * 「当前属于哪台设备」由宿主注入 `resolveDevice`（`skinsuite/vue`），库不认识
+ * 视口阈值 / UA / `?isMobile` / `?from=` 这些词汇。
  */
-export { createDeviceRegistry } from './views/device-registry.js';
-export type { DeviceRegistry, DeviceRegistryOptions } from './views/device-registry.js';
+export { asDeviceId, containersOf, deviceLabel } from './views/device.js';
+export type { DeviceDef } from './views/device.js';
 
 /**
  * 外部下发的主题配置：**只归一形状，不碰网络**
