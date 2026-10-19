@@ -31,11 +31,11 @@
  */
 /// <reference path="./theme.d.ts" />
 
-export { themeAssets } from './plugin.ts';
-export type { ThemeAssetsPluginOptions } from './plugin.ts';
+export { themeAssets } from './plugin.js';
+export type { ThemeAssetsPluginOptions } from './plugin.js';
 export {
   DEFAULT_THEME_DIR,
   THEME_PACKAGES_SUBDIR,
   DEFAULT_THEME_MANIFEST,
   resolveThemeDir
-} from './dir.ts';
+} from './dir.js';

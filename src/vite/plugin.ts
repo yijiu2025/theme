@@ -37,8 +37,8 @@
  *
  * === 产出形态（资产部分与 `import.meta.glob` 的结果保持一致）===
  * ```ts
- * export const packages:   { './default/index.ts': Module }
- * export const colors:     { './default/mobile/login/colors/white/index.ts': Module }
+ * export const packages:   { './default/index.js': Module }
+ * export const colors:     { './default/mobile/login/colors/white/index.js': Module }
  * export const styles:     { './default/mobile/login/colors/white/theme.scss': () => Promise<string> }
  * export const themeViews: { 'login': { './default/mobile/login/index.vue': () => Module } }
  * // 副作用：installThemeViews(themeViews) / installThemeRegistry(...) / installThemeManifest(...)
@@ -70,8 +70,8 @@ import {
   THEME_COLORS_SEGMENT,
   THEME_DIR_LEVELS,
   THEME_PACKAGE_DEF_FILE
-} from '../constants.ts';
-import { DEFAULT_THEME_MANIFEST, THEME_PACKAGES_SUBDIR, THEME_VIEWS_SUBDIR } from './dir.ts';
+} from '../constants.js';
+import { DEFAULT_THEME_MANIFEST, THEME_PACKAGES_SUBDIR, THEME_VIEWS_SUBDIR } from './dir.js';
 
 /** 版式组件的叶子文件名（`themes/<包>/<设备>/<页面>/index.vue`） */
 const VIEW_COMPONENT_FILE = 'index.vue';
@@ -149,7 +149,7 @@ function subdirs(path: string): string[] {
 function tsFiles(path: string): string[] {
   try {
     return readdirSync(path, { withFileTypes: true })
-      .filter(entry => entry.isFile() && entry.name.endsWith('.ts') && !entry.name.endsWith('.d.ts'))
+      .filter(entry => entry.isFile() && entry.name.endsWith('.js') && !entry.name.endsWith('.d.js'))
       .map(entry => entry.name)
       .sort();
   } catch {
