@@ -169,7 +169,12 @@ defineThemeDevice({
 所以库只留**注入点**，判定由宿主实现并通过 `app.use(theme, { resolveDevice })` 传进来：
 
 ```ts
-// src/theme/views/devices.ts（宿主侧）
+// src/utils/device-resolve.ts（宿主侧）
+//
+// 🔴 别把这段放进 `src/theme/views/`：那是主题域的**纯声明目录**
+//    （defineThemePage / defineThemeDevice），会被 virtual:theme 当声明副作用 import，
+//    判定代码会跟着主题域一起进包；而且「theme/ 整包搬到另一个前端」就不成立了。
+//    theme/views/devices.ts 只留设备声明（有哪些设备、容器在哪、占哪条路由）。
 import type { DeviceDomainContext } from 'skinsuite/vue';
 import { fallbackDevice, isKnownDevice } from 'skinsuite/vue';
 import { isMobileViewport } from '@/utils/device';
@@ -196,8 +201,13 @@ import { watchViewport } from '@/utils/device';
 watchViewport(() => refreshDevice());
 ```
 
-**加一种设备**要动的四处：`defineThemeDevice` 一条声明 / `resolveCurrentDevice()` 一条分支 /
-容器组件 / 主题包里加设备目录。库零改动。
+**加一种设备**要动的四处：`theme/views/devices.ts` 一条 `defineThemeDevice` 声明 /
+`utils/device-resolve.ts` 一条判定分支 / 容器组件 / 主题包里加设备目录。库零改动。
+
+⚠️ 判定函数依赖「设备域已注册的清单」（`isKnownDevice` / `fallbackDevice`），
+所以 `bootstrap.ts` 要在 `app.use(theme)` **之前** import 一次声明模块
+（`import './theme/views/devices'`）—— 通常 `virtual:theme` 会拉齐，但显式 import
+能让顺序确定，不依赖插件产物。
 
 ### 4.2 页面契约 `views/<page>.ts`
 
