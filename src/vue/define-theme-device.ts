@@ -9,8 +9,9 @@
  * 早先这里带一个「声明式 match」（`explicitMobile` / `from` / `fromLogin` /
  * `pathSegment` / `viewportMobile` / `fallback`），并由库解释成判定函数 ——
  * 那等于把**宿主的判定词汇**（`?isMobile`、`?from=mini`、视口阈值）写进了库。
- * 现在判定归宿主：`app.use(theme, { resolveDevice })` 传一个函数，库把 router 的
- * `query / path / fullPath` 原样递过去。声明里只剩「这台设备叫什么、容器在哪」。
+ * 现在判定归宿主：宿主分发器（如 `login/index.vue`）按自己的口径（视口 / `?device=`
+ * 锁定）选设备容器，设备身份由容器里的 `<ThemeView page="login" device="mini">` props
+ * 告知主题 store。声明里只剩「这台设备叫什么、容器在哪」。
  *
  * === 声明顺序 = 优先级，末条是兜底 ===
  * `fallbackDevice()` 取末条、`resolveContainerOf()` 兜底也走末条 —— 库不认识
@@ -18,7 +19,7 @@
  *
  * @author yijiu2025
  * @since 2026-10-18（从 oauth21/src/theme/views/devices.ts 的声明下沉）
- * @since 2026-10-19（`match` 撤出，判定改由宿主注入 `resolveDevice`）
+ * @since 2026-10-19（`match` 撤出，判定归宿主）
  */
 import type { DeviceDef } from '../views/device';
 import { pageContainers, resolveContainerOf as resolveContainerOfWith } from './device-containers';

@@ -3,10 +3,17 @@
  *
  * 从 `oauth21/src/stores/theme-scope.ts` 下沉（2026-10-19）。
  * 本文件只负责「作用域」这件事：
- *   · 设备身份 `activeDevice`：订阅库内设备域判定结果；
+ *   · 设备身份 `activeDevice`：由 `<ThemeView>` 的 `device` prop 告知（`setActiveDevice`，
+ *     2026-10-20 起库内不再自行判定设备 —— 判定是宿主分发器的职责，见文件头 §设备来源）；
  *   · 页面 / 版式 `activePage` / `activeView`：由容器在 setup 里告知；
  *   · `themeRecordFor`：把「配色意图（themeId / deviceTheme）+ 作用域」解析成可渲染配色；
  *   · 派生值：`isDark`（= 生效配色 tone）、`activeTone`、`packageId`、`device`。
+ *
+ * === 设备来源（2026-10-20：判定归宿主分发器，库只接收）===
+ * 「当前渲染视图属于哪台设备」由**宿主分发器**决定（如 `login/index.vue` 按视口 /
+ * `?device=` 锁定选设备容器），容器里的 `<ThemeView page="login" device="mini">` props
+ * 把设备身份告知本 scope。库不自行判定（不认视口 / UA / `?device=` / `?from=` 这些
+ * 宿主词汇）—— 设备域（`device-domain.ts`）只保留 `currentQuery()` 给版式意图同步用。
  *
  * === 依赖方向（拆分的骨架）===
  *   scope ← intent（明暗意图，读 activeDevice/activePage/activeView/themeId）
@@ -15,17 +22,33 @@
  *
  * @author yijiu2025
  * @since 2026-10-19（从 oauth21/src/stores/theme-scope.ts 下沉，keys/colorParam 参数化）
+ * @since 2026-10-20（设备来源：库内判定撤出，改 `<ThemeView>` device prop 告知）
  */
-import { computed, ref, watch } from 'vue';
+import { computed, ref } from 'vue';
 import { DEFAULT_THEME_PACKAGE, DEFAULT_THEME_PAGE } from '../constants';
 import { getThemeRecord, listThemes } from '../registry';
-import { currentDevice } from './device-domain';
-import { fallbackDevice } from './define-theme-device';
+import { currentQuery } from './device-domain';
+import { fallbackDevice, registeredDevices } from './define-theme-device';
 import { readInitialTheme, readUrlIntent } from './theme-persistence';
 import type { DeviceThemeIntent, ThemeStorageKeys } from './theme-persistence';
+import {
+  DEFAULT_VIEW_PARAM,
+  readUrlViewIntent,
+  sameViewSnapshot,
+  viewParamsSnapshot
+} from '../views/params';
+import type { DeviceViewIntent } from '../views/params';
 
-export function useThemeScope(keys: ThemeStorageKeys, colorParam: string) {
+export function useThemeScope(
+  keys: ThemeStorageKeys,
+  colorParam: string,
+  viewParam: string = DEFAULT_VIEW_PARAM
+) {
   const urlIntent = readUrlIntent(colorParam);
+  // 版式意图：URL 一次读入（query 来自设备域 `currentQuery()`，设备清单来自设备域注册表）。
+  // 与配色侧读 `window.location.search` 同源不同径——版式意图要**跟着路由走**：/login 与
+  // /register 可带不同 `th`；store 化后由编排层 watch `currentQuery()` 保持响应。
+  const urlViewIntent = readUrlViewIntent(currentQuery(), viewParam, registeredDevices());
 
   /**
    * URL 按设备指定的配色（**响应式**）
@@ -57,25 +80,16 @@ export function useThemeScope(keys: ThemeStorageKeys, colorParam: string) {
    */
   const themeId = ref<string>(urlIntent.deviceTheme[fallbackDevice()] ?? readInitialTheme(keys));
 
-  /** 当前**生效设备** —— 决定把哪一套配色 token 注入 html；是"当前渲染视图属于哪种设备" */
+  /** 当前**生效设备** —— 由 `<ThemeView>` 的 device prop 告知（库不自行判定，见文件头） */
   const activeDevice = ref<string>(fallbackDevice());
 
   /**
-   * 从**设备域**订阅当前生效设备（设备判定已收进库内设备域，这里只读）。
-   * `app.use(theme, { router, resolveDevice })` 里设备域监听路由 + 宿主主动
-   * `refreshDevice()` → 宿主 `resolveDevice` 判定 → `activeDevice`，
-   * 这里把它同步进作用域（`immediate` 覆盖 store 实例化时设备域已判好的值）。
+   * 告知「当前渲染视图属于哪台设备」—— **`<ThemeView>` 的职责**（宿主分发器选好设备
+   * 容器后，容器内的 ThemeView 用 `device` prop 把身份带进来；主题据此解析配色 / 版式）。
+   *
+   * 🔴 这是 activeDevice 的**唯一写入口**（单测 / 调试面板同样走它）。判定逻辑
+   *    （视口 / UA / `?device=` / `?from=`）是宿主词汇，住在宿主侧 —— 库不认。
    */
-  watch(
-    currentDevice(),
-    device => {
-      if (device && device !== activeDevice.value) {
-        activeDevice.value = device;
-      }
-    },
-    { immediate: true }
-  );
-
   function setActiveDevice(device: string): void {
     if (activeDevice.value !== device) activeDevice.value = device;
   }
@@ -88,6 +102,66 @@ export function useThemeScope(keys: ThemeStorageKeys, colorParam: string) {
     if (page && activePage.value !== page) activePage.value = page;
     const next = view || DEFAULT_THEME_PACKAGE;
     if (activeView.value !== next) activeView.value = next;
+  }
+
+  /* ==========================================================================
+     版式意图（2026-10-20 store 化）—— 与配色侧 `deviceTheme` / `themeId` 完全同形
+     ========================================================================== */
+
+  /**
+   * URL 按设备**显式**指定的版式（**响应式** ref）
+   *
+   * 只记设备专属键（`?th_<urlKey>`）；通用键（`?th`）在 `viewIntent`。做成 ref 而非
+   * 普通常量，是 debug 面板的显式操作会写/清当前设备那条（见 `setDeviceView`）。
+   */
+  const deviceView = ref<DeviceViewIntent>({ ...urlViewIntent.deviceView });
+
+  /** 全局版式意图 = URL 通用键（`?th`）；debug 显式写它时不落盘、不写 URL */
+  const viewIntent = ref<string | null>(urlViewIntent.viewIntent);
+
+  /**
+   * 某设备**显式指定**的版式 id（专属键 > 通用键；都没有返回 null）
+   * —— `<ThemeView>` 与调试面板的**唯一数据源**（取代原先每次渲染现读 route.query）。
+   */
+  function deviceViewOf(device: string = activeDevice.value): string | null {
+    return deviceView.value[device] ?? viewIntent.value;
+  }
+
+  /** 某设备的版式是否被 URL **专属键**显式指定 → 该设备"锁定" */
+  function urlLockedViewOf(device: string): boolean {
+    return deviceView.value[device] !== undefined;
+  }
+
+  /** 清掉某设备被 URL 写下的版式 —— **只该由用户的显式操作调用**（debug 选回生效版式） */
+  function clearDeviceViewOverride(device: string = activeDevice.value): void {
+    if (deviceView.value[device] === undefined) return;
+    const next = { ...deviceView.value };
+    delete next[device];
+    deviceView.value = next;
+  }
+
+  /** 显式设置某设备的版式（debug 面板用；**只写 store**，不写 URL、不落盘） */
+  function setDeviceView(device: string, id: string): void {
+    const next = { ...deviceView.value };
+    next[device] = id;
+    deviceView.value = next;
+  }
+
+  /**
+   * URL 上 `th*` **原始值**变化 → 重新读入 store（编排层 watch `currentQuery()` 调它）
+   *
+   * 🔴 "仅当原始值变化才同步"靠快照判等：debug 改写只碰 store（不写 URL），快照
+   *    不变 ⇒ 不会被误冲；跨页带不同 `th`（/login → /register）⇒ 同步，行为与
+   *    store 化前"每次渲染现读 URL"一致。
+   */
+  let lastViewSnapshot = viewParamsSnapshot(currentQuery(), viewParam, registeredDevices());
+  function syncUrlViewIntent(): void {
+    const next = viewParamsSnapshot(currentQuery(), viewParam, registeredDevices());
+    if (sameViewSnapshot(lastViewSnapshot, next)) return;
+    lastViewSnapshot = next;
+    const fresh = readUrlViewIntent(currentQuery(), viewParam, registeredDevices());
+    deviceView.value = { ...fresh.deviceView };
+    viewIntent.value = fresh.viewIntent;
   }
 
   /**
@@ -126,8 +200,11 @@ export function useThemeScope(keys: ThemeStorageKeys, colorParam: string) {
 
   return {
     urlIntent,
+    urlViewIntent,
     deviceTheme,
     themeId,
+    deviceView,
+    viewIntent,
     activeDevice,
     activePage,
     activeView,
@@ -138,6 +215,11 @@ export function useThemeScope(keys: ThemeStorageKeys, colorParam: string) {
     themes,
     urlLockedThemeOf,
     clearDeviceThemeOverride,
+    urlLockedViewOf,
+    clearDeviceViewOverride,
+    deviceViewOf,
+    setDeviceView,
+    syncUrlViewIntent,
     setActiveDevice,
     setActivePageView,
     themeRecordFor,

@@ -10,8 +10,12 @@
  *   · `isDark`             → ThemeRoot 挂 `.dark` 类（纯外观）
  *   · `packageId`          → ThemeView / 面板选版式的「在哪个包里找」
  *   · `viewFor(page)`      → 主题包声明档（`views.<page>`）这一档
+ *   · `deviceViewOf`       → URL 版式意图档（`?th` / `?th_<urlKey>`，2026-10-20 store 化）
+ *   · `setDeviceView` / `clearDeviceViewOverride` → 面板写侧（切版式只写 store，不碰路由）
  *   · `setActivePageView`  → ThemeView 告知 store「当前页 + 版式」（配色挂在版式下）
  *   · `activePage`         → 面板展示当前页
+ *   · `activeDevice` / `setActiveDevice` → `<ThemeView>` 的 device prop 告知主题
+ *     「当前渲染哪台设备」（2026-10-20：库不自行判定，这是 activeDevice 的唯一写入口）
  *   · `themeId` / `mode`   → 面板展示 / 切换配色与明暗
  *   · `themeRecordFor`     → 面板算「生效配色」（含 URL 设备覆盖，device 参数化）
  *   · `setTheme` / `setMode` → 面板写侧（点色卡 / 切明暗）
@@ -41,8 +45,24 @@ export interface ThemeStoreLike {
   readonly mode: ThemeMode;
   /** 某页当前声明式版式 id（主题包 `views.<page>` 声明；无声明返回 undefined） */
   viewFor(page: string, device?: string): string | undefined;
+  /**
+   * 某设备**显式指定**的版式 id（URL 一次读入 + debug 显式操作；专属键 > 通用键，
+   * 都没有返回 null）—— ThemeView 的 URL 档数据源（2026-10-20 store 化）
+   */
+  deviceViewOf(device?: string): string | null;
+  /** 显式设置某设备的版式（debug 面板用；只写 store，不写 URL、不落盘） */
+  setDeviceView(device: string, id: string): void;
+  /** 清掉某设备被 URL 显式指定的版式意图（用户的显式操作前调用，如 debug 选回生效版式） */
+  clearDeviceViewOverride(device?: string): void;
   /** 告知 store「当前是哪一页、哪套版式」（配色挂在版式下，token 注入依赖它） */
   setActivePageView(page: string, viewId: string): void;
+  /**
+   * 当前生效设备 —— 由 `<ThemeView page="…" device="…">` props 告知（2026-10-20：
+   * 库不自行判定，这是 ThemeView 与调试面板共同读取的值）
+   */
+  readonly activeDevice: string;
+  /** 告知 store「当前渲染视图属于哪台设备」（ThemeView 的写入口；判定逻辑在宿主分发器） */
+  setActiveDevice(device: string): void;
   /** 按包/设备/页解析生效配色记录（含 URL 设备覆盖；面板只要 `meta.id` 与 `tone`） */
   themeRecordFor(pkg?: string, device?: string, page?: string): {
     meta: { id: string };

@@ -22,10 +22,13 @@
  * @author yijiu2025
  * @since 2026-10-19（从 oauth21/src/stores/theme.ts 下沉编排，pinia 留在宿主）
  */
+import { watch } from 'vue';
 import { useThemeScope } from './theme-scope';
 import { useThemeIntent } from './theme-intent';
 import { useThemeRuntime } from './theme-runtime';
+import { currentQuery } from './device-domain';
 import { DEFAULT_COLOR_PARAM, DEFAULT_STORAGE_KEYS } from './theme-persistence';
+import { DEFAULT_VIEW_PARAM } from '../views/params';
 import type { ThemeStorageKeys } from './theme-persistence';
 
 /** 宿主策略收口点（全可选，默认 = 主题机制约定，oauth21 即默认值本身） */
@@ -34,6 +37,8 @@ export interface ThemeStateOptions {
   storageKeys?: Partial<ThemeStorageKeys>;
   /** URL 配色意图参数前缀（配合设备 urlKey 组成 `th_color_<urlKey>`） */
   colorParam?: string;
+  /** URL 版式意图参数前缀（配合设备 urlKey 组成 `th_<urlKey>`） */
+  viewParam?: string;
 }
 
 /**
@@ -53,13 +58,26 @@ export interface ThemeStateOptions {
 export function createThemeState(options: ThemeStateOptions = {}) {
   const keys: ThemeStorageKeys = { ...DEFAULT_STORAGE_KEYS, ...options.storageKeys };
   const colorParam = options.colorParam ?? DEFAULT_COLOR_PARAM;
+  const viewParam = options.viewParam ?? DEFAULT_VIEW_PARAM;
 
   // ① 作用域（共享基础：activeDevice / activePage / activeView / themeRecordFor / isDark 等）
-  const scope = useThemeScope(keys, colorParam);
+  const scope = useThemeScope(keys, colorParam, viewParam);
   // ② 意图（明暗三态 + 记忆槽 + 色系联动 + 用户操作入口）
   const intent = useThemeIntent(scope, keys);
   // ③ 运行时（token 注入 + 附加样式 + 明暗类 + 外部配置）；必须最后创建（内部 watch immediate 依赖前两步）
   const runtime = useThemeRuntime(scope, intent);
+
+  // -------------------------------------------------------------------------
+  // URL 上 `th*` 原始值变化 → 同步版式意图进 store（2026-10-20 store 化）
+  //
+  // 🔴 debug 面板的 `pickView` 只写 store（`setDeviceView`）**不写 URL**，所以此
+  //    watch 不会被调试操作误触发；跨页带不同 `th`（/login → /register）仍生效。
+  // 🔴 `app.use(theme, { router })` 先于 store 创建（bootstrap 顺序），此处
+  //    `currentQuery()` 已是响应式路由 query；未装 router 时返回 `{}`（无依赖，不触发）。
+  // 🔴 source 包 getter（而非直接传 `currentQuery()`）：后者未装 router 时是普通对象，
+  //    Vue 会 warn "Invalid watch source"；包一层后两种形态都合法。
+  // -------------------------------------------------------------------------
+  watch(() => currentQuery(), () => scope.syncUrlViewIntent(), { deep: true });
 
   // -------------------------------------------------------------------------
   // 调试探针（仅 dev + ?debug=theme）：getter 形态随 store 实时取最新值
@@ -68,6 +86,8 @@ export function createThemeState(options: ThemeStateOptions = {}) {
     (window as unknown as Record<string, unknown>).__MAUTH_STORE__ = {
       get themeId() { return scope.themeId.value; },
       get deviceTheme() { return { ...scope.deviceTheme.value }; },
+      get viewIntent() { return scope.viewIntent.value; },
+      get deviceView() { return { ...scope.deviceView.value }; },
       get mode() { return intent.mode.value; },
       get packageId() { return scope.packageId.value; },
       get activeDevice() { return scope.activeDevice.value; },
@@ -98,6 +118,11 @@ export function createThemeState(options: ThemeStateOptions = {}) {
     themeRecordFor: scope.themeRecordFor,
     setActiveDevice: scope.setActiveDevice,
     setActivePageView: scope.setActivePageView,
+    // ---- 版式意图（store 化；与 themeId/deviceTheme 同形）----
+    viewIntent: scope.viewIntent,
+    deviceViewOf: scope.deviceViewOf,
+    setDeviceView: scope.setDeviceView,
+    clearDeviceViewOverride: scope.clearDeviceViewOverride,
     // ---- 来自 intent ----
     setMode: intent.setMode,
     cycleMode: intent.cycleMode,

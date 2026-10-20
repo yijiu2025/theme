@@ -80,8 +80,15 @@ export {
   listColorViews
 } from './registry.js';
 
-export { DEVICE_SCOPED_PARAMS, readDeviceParam } from './views/params.js';
-export type { DeviceScopedParam } from './views/params.js';
+export {
+  DEFAULT_VIEW_PARAM,
+  DEVICE_SCOPED_PARAMS,
+  readDeviceParam,
+  readUrlViewIntent,
+  sameViewSnapshot,
+  viewParamsSnapshot
+} from './views/params.js';
+export type { DeviceScopedParam, DeviceViewIntent } from './views/params.js';
 
 /**
  * 设备清单机制（只有事实与查询，**判定不在这里**）

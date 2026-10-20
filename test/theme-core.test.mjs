@@ -27,7 +27,11 @@ import {
   isThemeMode,
   normalizeMode,
   DEVICE_SCOPED_PARAMS,
-  readDeviceParam
+  DEFAULT_VIEW_PARAM,
+  readDeviceParam,
+  readUrlViewIntent,
+  sameViewSnapshot,
+  viewParamsSnapshot
 } from '../dist/index.js';
 
 test('THEME_ID_RE：目录名白名单（小写字母 / 数字 / 短横线）', () => {
@@ -99,4 +103,92 @@ test('readDeviceParam：没有任何指定时返回 undefined（由调用方走�
 
 test('DEVICE_SCOPED_PARAMS：与 DeviceScopedParam 类型一致（造链接时可直接遍历）', () => {
   assert.deepEqual([...DEVICE_SCOPED_PARAMS], ['th', 'th_color']);
+});
+
+// ---- 版式意图 store 化（2026-10-20）：URL 一次读入的读入半边 ----
+// 设备清单由调用方传入（本文件零 import 的分层承诺）；用 oauth21 的真实清单形状。
+const DEVICES = [
+  { id: 'mini', urlKey: 'mini' },
+  { id: 'tablet', urlKey: 'tab' },
+  { id: 'mobile', urlKey: 'mobile' },
+  { id: 'standard', urlKey: 'std' }
+];
+
+test('DEFAULT_VIEW_PARAM：版式参数前缀是 th（配色侧是 th_color，两个家族）', () => {
+  assert.equal(DEFAULT_VIEW_PARAM, 'th');
+});
+
+test('readUrlViewIntent：设备专属键进 deviceView，通用键进 viewIntent（不下发）', () => {
+  const { deviceView, viewIntent } = readUrlViewIntent(
+    { th_std: 'compact', th_mobile: 'default', th: 'base' },
+    'th',
+    DEVICES
+  );
+  // 专属键：只记被指定的那两台
+  assert.deepEqual(deviceView, { standard: 'compact', mobile: 'default' });
+  // 通用键原样进 viewIntent，不复制到每台设备（与配色侧 readUrlIntent 的刻意差别）
+  assert.equal(viewIntent, 'base');
+});
+
+test('readUrlViewIntent：只有通用键时 deviceView 为空、viewIntent 承载它', () => {
+  const { deviceView, viewIntent } = readUrlViewIntent({ th: 'compact' }, 'th', DEVICES);
+  assert.deepEqual(deviceView, {});
+  assert.equal(viewIntent, 'compact');
+});
+
+test('readUrlViewIntent：空串 / 纯空白 = 未指定，不得顶掉通用键', () => {
+  const { deviceView, viewIntent } = readUrlViewIntent(
+    { th_std: '', th: 'compact' },
+    'th',
+    DEVICES
+  );
+  assert.deepEqual(deviceView, {});
+  assert.equal(viewIntent, 'compact');
+  const blank = readUrlViewIntent({ th_std: '   ', th: 'compact' }, 'th', DEVICES);
+  assert.deepEqual(blank.deviceView, {});
+});
+
+test('readUrlViewIntent：重复键（vue-router 数组）视为未指定，与配色侧 get() 净效果一致', () => {
+  const { deviceView, viewIntent } = readUrlViewIntent(
+    { th: ['compact', 'default'] },
+    'th',
+    DEVICES
+  );
+  assert.deepEqual(deviceView, {});
+  assert.equal(viewIntent, null); // 落声明档，不猜用户想要哪个
+});
+
+test('readUrlViewIntent：query 为 undefined / 空对象时全无意图', () => {
+  assert.deepEqual(readUrlViewIntent(undefined, 'th', DEVICES), { deviceView: {}, viewIntent: null });
+  assert.deepEqual(readUrlViewIntent({}, 'th', DEVICES), { deviceView: {}, viewIntent: null });
+});
+
+test('readUrlViewIntent：自定义前缀（宿主改 viewParam 时键形跟着走）', () => {
+  const { deviceView, viewIntent } = readUrlViewIntent(
+    { view_std: 'compact', view: 'base' },
+    'view',
+    DEVICES
+  );
+  assert.deepEqual(deviceView, { standard: 'compact' });
+  assert.equal(viewIntent, 'base');
+});
+
+test('viewParamsSnapshot：只收 th + th_<urlKey>（白名单），配色键 th_color 不进快照', () => {
+  // 🔴 回归用例：曾用 startsWith('th_') 前缀匹配，把 th_color / th_color_std 也收进来，
+  //    导致"换了一条带不同配色的链接"误触发版式意图同步。白名单（urlKey）天然排除。
+  const snap = viewParamsSnapshot(
+    { th: 'a', th_std: 'b', th_color: 'blue', th_color_std: 'blue', appName: 'x', rnd: '1' },
+    'th',
+    DEVICES
+  );
+  assert.deepEqual(snap, { th: 'a', th_std: 'b' });
+  // 不认识的 th_  ？前缀（如 th_color）一律不进
+  assert.deepEqual(viewParamsSnapshot({ th_color: 'blue' }, 'th', DEVICES), {});
+});
+
+test('sameViewSnapshot：键集合或原始值任一不同即"变了"', () => {
+  assert.equal(sameViewSnapshot({ th: 'a' }, { th: 'a' }), true);
+  assert.equal(sameViewSnapshot({ th: 'a' }, { th: 'b' }), false);
+  assert.equal(sameViewSnapshot({ th: 'a' }, { th: 'a', th_std: 'b' }), false);
+  assert.equal(sameViewSnapshot({}, {}), true);
 });

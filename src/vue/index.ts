@@ -51,6 +51,9 @@ export { pageContainers } from './device-containers';
 export type { DeviceContainerLoader } from './device-containers';
 
 // ---- 设备域（声明工厂 + 查询派生 + 运行时，2026-10-18 下沉）----
+// 🔴 设备**判定**不在库内（2026-10-20）：宿主分发器按自己的口径选设备容器，
+//    设备身份由 `<ThemeView page="login" device="mini">` props 告知 store
+//    （`setActiveDevice`）；库只保留 `currentQuery` / `replaceQuery` 两条 URL 通道。
 export {
   defineThemeDevice,
   deviceIds,
@@ -62,24 +65,13 @@ export {
   urlKeyOf
 } from './define-theme-device';
 export type { ThemeDeviceOptions } from './define-theme-device';
-export {
-  currentDevice,
-  currentQuery,
-  installThemeDomain,
-  refreshDevice,
-  replaceQuery
-} from './device-domain';
+export { currentQuery, installThemeDomain, replaceQuery } from './device-domain';
 export type {
-  DeviceDomainContext,
   DeviceDomainRouter,
   InstallThemeDomainOptions
 } from './device-domain';
 export { theme } from './plugin';
 export type { ThemePluginOptions } from './plugin';
-
-// ── 视口 / UA 判定**不在这里**（2026-10-19 收口）──────────────────────────────
-// 「手机还是电脑」是宿主的业务口径（768 / 1024 阈值、UA 兜底、`?isMobile` 等），
-// 换个产品就变。库只提供注入点 `resolveDevice`（见 device-domain），宿主自己判定。
 
 // ---- 主题状态机（scope/intent/runtime + 持久化，2026-10-19 下沉）----
 // 🔴 只导出 `createThemeState`（编排入口）—— scope/intent/runtime/persistence 是内部实现，

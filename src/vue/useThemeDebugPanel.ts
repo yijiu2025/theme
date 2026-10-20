@@ -7,10 +7,12 @@
  * 宿主写一个 `host` 对象注入；现在它们都已收进库内「域」，本文件**无参**地从域取：
  *
  *   · store       → `<ThemeRoot :themeStore>` provide，`inject`（`ThemeStoreLike`）
- *   · 设备        → 设备域 `registeredDevices()` / `currentDevice()`（`defineThemeDevice` 自动注册）
+ *   · 设备        → `registeredDevices()`（`defineThemeDevice` 自动注册）+ store
+ *     `activeDevice`（2026-10-20：设备由分发器判定后告知，库不自行判定）
  *   · 页面        → 页面域 `pageOf()`（`defineThemePage` 自动注册）+ store `activePage`（ThemeView 维护）
  *   · 配色查询    → 内核注册表单例（`listColorsOf` / `toneOfColor` / `listColorViews`）
- *   · 路由        → 设备域（`app.use(theme, { router })` 传入）：`currentQuery()` / `replaceQuery()`
+ *   · 版式意图    → store `deviceViewOf` / `setDeviceView`（2026-10-20 store 化：
+ *     URL 一次读入，debug 改写只写 store、不碰路由）
  *
  * 于是宿主**零接线**：App.vue 里一行 `<ThemeDebugPanel />`，其余全在库内自动完成。
  *
@@ -29,11 +31,9 @@
 import { computed, inject, ref } from 'vue';
 import type { ComputedRef } from 'vue';
 import { listColorViews, listColorsOf, toneOfColor } from '../registry';
-import { readDeviceParam } from '../views/params';
 import type { ThemeDebugActions, ThemeDebugColor, ThemeDebugModel } from './types';
-import { currentDevice, currentQuery, replaceQuery } from './device-domain';
 import { pageOf } from './view-page';
-import { registeredDevices, urlKeyOf } from './define-theme-device';
+import { registeredDevices } from './define-theme-device';
 import { themeStoreKey } from './theme-store';
 import type { ThemeStoreLike } from './theme-store';
 
@@ -60,8 +60,8 @@ export function useThemeDebugPanel(): {
     registeredDevices().map(d => [d.id, d.label])
   );
 
-  /** 当前生效设备：面板覆盖优先，否则用设备域判定的 */
-  const device = computed<string>(() => deviceOverride.value ?? currentDevice().value);
+  /** 当前生效设备：面板覆盖优先，否则用分发器告知 store 的（`activeDevice`） */
+  const device = computed<string>(() => deviceOverride.value ?? store.activeDevice);
 
   /** 当前生效页面：由 `<ThemeView>` 的 `setActivePageView` 维护（不再从路径反推） */
   const activePage = computed(() => store.activePage);
@@ -78,8 +78,8 @@ export function useThemeDebugPanel(): {
     if (!registry) return store.packageId;
     const pkg = store.packageId;
     const dev = device.value;
-    // 设备维度参数：`th_<urlKey>` 优先于 `th`（与容器 pick 同一套读取规则）
-    const fromUrl = asText(readDeviceParam(currentQuery(), 'th', urlKeyOf(dev)));
+    // 版式意图来自 store（2026-10-20 store 化）：设备专属 > 通用，与容器 pick 同一数据源
+    const fromUrl = asText(store.deviceViewOf(dev));
     if (fromUrl && fromUrl !== 'base') {
       const inCurrent = registry.resolve(fromUrl, pkg, dev);
       if (inCurrent) return inCurrent;
@@ -154,18 +154,18 @@ export function useThemeDebugPanel(): {
     },
 
     /**
-     * 切换版式（**只改 URL 的版式键，path 不动**）
+     * 切换版式（**只写 store，URL 全程不动** —— 2026-10-20 store 化）
      *
-     * 🔴 设备维度参数：版式键可能是 `th` 也可能是 `th_<urlKey>`（设备专属优先）。
-     *    必须改**当前设备实际由哪条键决定**的那一条，否则带 `?th_std=compact` 时
-     *    点面板会写 `th=xxx` 而被设备专属键盖住 —— 表现是"点了没反应"。
-     * 选回当前生效版式时把参数**删掉**（URL 干净，与容器「无参数即默认 view」一致）。
+     * 旧实现改 URL 版式键（`replaceQuery`），要先判断"当前设备实际由哪条键决定"
+     * （专属键在就改专属键，否则改通用键——改错键会被专属键盖住，"点了没反应"）；
+     * store 化后写**该设备的显式意图**（`setDeviceView`），不存在"改错键"问题，
+     * 且只影响当前设备（旧实现只有通用键时，改一下会影响所有设备）。
+     * 选回当前生效版式 = 清掉该设备意图（`clearDeviceViewOverride`），回到
+     * URL/声明档，与旧实现"删参数"净效果一致。
      */
     pickView(id) {
-      const scopedKey = `th_${urlKeyOf(device.value)}`;
-      const key = scopedKey in currentQuery() ? scopedKey : 'th';
-      if (id === activeViewId.value) replaceQuery({ [key]: undefined });
-      else replaceQuery({ [key]: id });
+      if (id === activeViewId.value) store.clearDeviceViewOverride(device.value);
+      else store.setDeviceView(device.value, id);
     },
 
     /**
