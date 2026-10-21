@@ -16,8 +16,10 @@
  * `VITE_THEME_ENDPOINT` / `VITE_ALLOWED_PARENT_ORIGINS`），不进 options。
  *
  * === 调试探针 ===
- * dev + `?debug=theme` 时把只读快照挂到 `window.__MAUTH_STORE__`（getter 形态，随 store 实时）。
- * 探针需要访问 scope/intent 的内部 ref，所以随编排一起下沉（而不是留在宿主壳里）。
+ * dev + `?debug=theme` 时把只读快照挂到 `window.__MAUTH_STORE__`（getter 形态，随 store 实时），
+ * 并在 dev 无条件警告 URL 主题参数的静默失败（非法版式值 / 未知设备 / 重复键）。
+ * 实现与放置 rationale 见 `theme-debug.ts`（探针需要访问 scope/intent 的内部 ref，
+ * 所以随编排一起下沉，而不是留在宿主壳里）。
  *
  * @author yijiu2025
  * @since 2026-10-19（从 oauth21/src/stores/theme.ts 下沉编排，pinia 留在宿主）
@@ -26,6 +28,7 @@ import { watch } from 'vue';
 import { useThemeScope } from './theme-scope';
 import { useThemeIntent } from './theme-intent';
 import { useThemeRuntime } from './theme-runtime';
+import { installThemeDebug } from './theme-debug';
 import { currentQuery } from './device-domain';
 import { DEFAULT_COLOR_PARAM, DEFAULT_STORAGE_KEYS } from './theme-persistence';
 import { DEFAULT_VIEW_PARAM } from '../views/params';
@@ -80,23 +83,14 @@ export function createThemeState(options: ThemeStateOptions = {}) {
   watch(() => currentQuery(), () => scope.syncUrlViewIntent(), { deep: true });
 
   // -------------------------------------------------------------------------
-  // 调试探针（仅 dev + ?debug=theme）：getter 形态随 store 实时取最新值
+  // 调试探针 + URL 参数静默失败警告（dev-only）
+  //
+  // 探针（`window.__MAUTH_STORE__`，11 个 store getter + url / effectiveView /
+  // warnings 三个链路键）与角标在 dev + `?debug=theme` 下挂载；**警告不要门控** ——
+  // 非法版式值 / 未知设备锁定 / 重复键都是静默失败，靠「记得开开关」等于没防。
+  // 实现与放置 rationale 见 theme-debug.ts（2026-10-21 从宿主下沉：判定知识全在库）。
   // -------------------------------------------------------------------------
-  if (import.meta.env.DEV && typeof window !== 'undefined' && new URLSearchParams(location.search).get('debug') === 'theme') {
-    (window as unknown as Record<string, unknown>).__MAUTH_STORE__ = {
-      get themeId() { return scope.themeId.value; },
-      get deviceTheme() { return { ...scope.deviceTheme.value }; },
-      get viewIntent() { return scope.viewIntent.value; },
-      get deviceView() { return { ...scope.deviceView.value }; },
-      get mode() { return intent.mode.value; },
-      get packageId() { return scope.packageId.value; },
-      get activeDevice() { return scope.activeDevice.value; },
-      get activePage() { return scope.activePage.value; },
-      get activeView() { return scope.activeView.value; },
-      get activeThemeId() { return scope.themeRecordFor().meta.id; },
-      get activeTone() { return scope.themeRecordFor().tone; }
-    };
-  }
+  installThemeDebug(scope, intent);
 
   return {
     // ---- 来自 scope ----

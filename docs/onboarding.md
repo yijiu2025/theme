@@ -498,6 +498,7 @@ const ctx = computed<LoginViewContext>(() => ({
 | 构建 | `vite build` | 成功，内置包 eager、非内置包独立 chunk |
 | 手测 | `?th=<包>` / `?th_<设备缩写>=<包>` | 版式切换 |
 | 手测 | `?debug=theme` | 调试面板出现，可切配色 |
+| 手测 | dev 下拼错值（如 `?th=compat` / `?device=phon` / `?th=a&th=b`） | console 出 `[theme]` 警告（**无门控**，静默失败不靠"记得开开关"防）；`?debug=theme` 时 `window.__MAUTH_STORE__` 见 `warnings` / `effectiveView` / `url` 三链路键，右下角角标按警告计数红 / 绿 |
 | 手测 | 缩放窗口 / 换 UA | 手机 / 桌面自动切换（由宿主设备模块判定，见 §4.1b） |
 | 手测 | `?device=mobile` | 锁定手机端（宿主判定模块的词汇，刷新后失效） |
 

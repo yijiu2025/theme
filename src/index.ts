@@ -90,6 +90,19 @@ export {
 } from './views/params.js';
 export type { DeviceScopedParam, DeviceViewIntent } from './views/params.js';
 
+// URL 主题参数的静默失败审计（纯函数；Vue 绑定层的调试句针消费它，宿主 / CI 也可自用）
+export {
+  collectWarnings,
+  effectiveViewRaw,
+  parseThemeParams
+} from './views/param-audit.js';
+export type {
+  ParamAuditDevice,
+  RepeatedParam,
+  ThemeUrlParams,
+  WarningContext
+} from './views/param-audit.js';
+
 /**
  * 设备清单机制（只有事实与查询，**判定不在这里**）
  *

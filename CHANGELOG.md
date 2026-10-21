@@ -9,6 +9,28 @@
 >   旧名 `mauth-theme-core` 的 `0.1.0` / `0.1.1` 均已标记 **deprecated** 并保留可安装，不再更新 ——
 >   它们的代码与 `skinsuite@0.1.0` 完全一致，只有包名不同。
 
+## 0.7.0 — 2026-10-21
+
+**URL 主题参数的静默失败有了出口** —— `?th=compat`（拼错）不报错、`?device=phon` 不报错、`?th=a&th=b` 不报错，踩坑的人当时唯一的线索是"怎么点都没变化"。本版把这些静默失败变成 dev 下的 console 警告 + `?debug=theme` 时的探针链路键。第一版实现在 oauth21 宿主，评审后下沉库：判定知识（`pageOf(page).views.has()` / `registeredDevices()` / 参数键形）与被诊断的静默失败（`pick()` 回落、未知设备落兜底）**都是库的**，宿主各写一遍就是抄 N 份必然漂移（params.ts / view-picker / registry 都因此沉过内核）。
+
+### 新增
+
+- **内核 `views/param-audit.ts`**（零 import 纯函数，dist 出口，可被 CI 直接调用做链接体检）
+  - `parseThemeParams(query)` —— 路由 query → 主题白名单键原始值。口径与读取侧逐字对齐：空串 = 未指定；重复键（router 数组）进 `repeated` 并**带首值** —— 版式键读取侧（`readUrlViewIntent` 的 `present()`）拒绝数组 ⇒ 按未指定，配色键（`readUrlIntent` 的 `URLSearchParams.get()`）只取首值 ⇒ 首值生效，两种净效果不同，警告文案分开说（说错一边审计就成了误诊）
+  - `effectiveViewRaw(params, urlKey)` —— 当前设备生效的 URL 版式原始值（专属键 > 通用键 > 无）
+  - `collectWarnings(params, ctx)` —— 四类静默失败显影：① `?device=` 未知 id（含已注册清单 + 兜底设备）② 当前设备生效版式值不存在（带「可用版式：…」字典序建议）③ 其它设备专属键错值（现在不渲染，切过去才静默落包）④ 白名单键重复定义。**不检**配色合法性（生效配色是 URL 覆盖 + 持久化 + 用户操作的合成，脱离 store 单看 URL 会误报）与通用键对其余设备的解析（部署方常有意只保一端）
+  - 类型 `ThemeUrlParams` / `ParamAuditDevice` / `WarningContext` / `RepeatedParam`
+- **`skinsuite/vue` 的 `installThemeDebug`**（由 `createThemeState` 装配末尾自动调用，宿主零接线；prod 下 `import.meta.env.DEV` 静态为 false，函数体整体消失）
+  - **dev 无门控警告**：非法版式值 / 未知设备锁定 / 重复键直接喊 console（同一问题只喊一次，Set 去重）—— 静默失败不靠"记得开开关"防
+  - **`?debug=theme` 门控探针**：`window.__MAUTH_STORE__` 既有 11 个 store getter **原样保留**（e2e 三个关卡的依赖面），新增 `url`（地址栏原始值，路由 query 同源）/ `effectiveView`（生效版式的输入 + 判定）/ `warnings`（当前存在的问题）三个链路键；右下角角标随警告计数红 / 绿
+  - 响应式刷新：watch store 六值 + `watch(currentQuery, { deep })`，**不轮询**
+- **库 test 23 例**（`test/param-audit.test.mjs`，打 dist）+ **宿主 vitest 6 例**（`src/theme/views/__tests__/theme-debug.test.ts`，真实 store + 假 router 域测装配：无门控警告 / 探针 11+3 键 / 角标红绿 / console 去重）
+
+### 说明
+
+- 判定为什么敢下结论：版式合法性由调用方注入 `hasView`（库公开 API `pageOf(page).views.has`），设备清单来自 `registeredDevices()` —— 审计**不复制 pick 逻辑**，只做「输入 → 判定 → 文案」
+- 页未注册时不判版式（没有 registry 就没有判据，不误报）；`?device=` 警告照出
+
 ## 0.6.0 — 2026-10-21
 
 **死字节清理** —— 全仓 grep（含单测与 e2e 关卡）核实零消费后整条删除，无行为变化。
