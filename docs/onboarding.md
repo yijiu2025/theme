@@ -27,8 +27,31 @@
 ## 一、安装与依赖
 
 ```bash
-npm install skinsuite
+npm install skinsuite@~0.7.0
 ```
+
+> 🔴 **必须显式写版本号**，两个理由：
+>
+> ① 本包仍在 **0.x**，而语义化版本在 0.x 下有个反直觉的规则：`^0.7.0` 与 `~0.7.0`
+>    **都**等价于 `>=0.7.0 <0.8.0`（caret 在 0.x 下**不跨 minor**）。也就是说，一旦写进
+>    `package.json`，本包每发一个新 minor 你都得手工跟一次 —— 这是 0.x 的固有成本，
+>    不是写法问题（CHANGELOG 里 0.x 允许重命名与结构调整，自动跟 minor 反而更危险）。
+> ② 裸 `npm install skinsuite` 拿到的是 registry 的 `latest`，而它**可能落后于本文**。
+>    接入前先 `npm view skinsuite version` 核对 —— 本文按 **0.7.0** 编写。
+
+### 接入前必读：`./vue` 入口给的是**源码**不是产物
+
+三个入口里只有 `./vue` 的 `types` 与 `import` **双双指向 `src/vue/index.ts`**（`./` 与 `./vite`
+的运行时都走 `dist`），且包内 `files` 带 `src` —— 4 个 `.vue` 组件随包发布。
+
+这是刻意的设计（机制只有一份源码，不为类型另生成声明，避免 d.ts 与源码漂移），
+但它是一条**隐含前提**：
+
+> 你的打包器与类型检查器必须能处理 `node_modules` 里的 `.ts` / `.vue` 源码。
+> · **Vite + `@vitejs/plugin-vue`**：默认可行，但请在写业务代码前先跑一次
+>   `vue-tsc -b` + `vite build` 实测（这是唯一可靠的确认方式）。
+> · **webpack / Rspack**：默认常把 `node_modules` 排除在 loader 之外，需显式放行 ——
+>   `ts-loader` / `vue-loader` 的 `include` 要带上 `node_modules/skinsuite`。
 
 库是**零运行时依赖**的纯内核，`vue` / `vite` 都是 `optional` peer dependency——你项目里
 本就有它们，无需额外安装。

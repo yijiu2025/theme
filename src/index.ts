@@ -37,7 +37,7 @@ export {
   DEFAULT_THEME_PAGE,
   DEFAULT_THEME_COLOR,
   DEFAULT_THEME_DARK_COLOR,
-    THEME_DIR_LEVELS,
+  THEME_DIR_LEVELS,
   THEME_COLORS_SEGMENT,
   THEME_COLOR_DEF_FILE,
   THEME_COLOR_STYLE_FILE,
@@ -69,7 +69,7 @@ export { buildThemeRegistry, installThemeRegistry } from './registry.js';
 export type { ThemeAssetModules } from './registry.js';
 export {
   listThemes,
-    listColorsOf,
+  listColorsOf,
   toneOfColor,
   toneOfAnyScope,
   listColorIdsOfTone,
