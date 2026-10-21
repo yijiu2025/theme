@@ -503,7 +503,39 @@ const ctx = computed<LoginViewContext>(() => ({
 
 ---
 
-## 十一、常见坑（每一条都踩过）
+## 十一、发布（`npm run publish:sync`）
+
+本包在 monorepo 里的位置是 `packages/theme-core`（submodule），宿主（如 `oauth21`）在根仓。
+发布不只是 `npm publish` —— 宿主的 `package.json` / `package-lock.json` 还要同步到新版本，
+这三步历史上全是手工、每步都踩过坑（registry 传播延迟盲等、lock 补丁 LF/CRLF 锚点静默
+不替换、`npm install` 撞 workspace arborist bug），已全部收进一个脚本：
+
+```bash
+cd packages/theme-core
+npm run publish:sync          # = node scripts/publish-and-sync.mjs
+```
+
+脚本六步（任一步失败即退出码 1，不带着半成品往下走）：
+
+| 步 | 做什么 | 失败意味着 |
+|---|---|---|
+| 1 | git 预检（工作区干净、本地/远端无同号 tag） | 版本没升或有未提交改动 |
+| 2 | `npm publish` | 发布失败（输出末尾 4 行带回显） |
+| 3 | 轮询 `npm view` 等 registry 传播，拿 `dist.integrity` | 超时 180s（可 `--skip-publish` 续跑） |
+| 4 | 补宿主 `package.json` 的 `"skinsuite": "^x.y.z"` | 锚点不唯一 / 找不到（手改过结构） |
+| 5 | 补宿主 lock 三字段（version / resolved / integrity，CRLF 安全） | 同上，补错块会比不补更糟 |
+| 6 | 从**根仓**跑 `npm ci --dry-run --prefix <宿主>` 自证 | lock 没补对 |
+
+常用变体：`--dry-run`（不发布，只演练同步 + 自证，要求 registry 上已有该版本）/
+`--skip-publish`（发布成功但同步失败后重跑同步）/ `--host <path>`（换宿主仓）/
+`--allow-dirty`（放行未提交改动，不推荐）。
+
+发布后别忘了：库仓 `git commit` + `git tag v<x.y.z>` + push；宿主仓那两处改动
+（脚本会列出路径）提交推送由人决定 —— CI 的 `npm ci` 认 lock，不认工作区。
+
+---
+
+## 十二、常见坑（每一条都踩过）
 
 1. **页面契约 import 了 `virtual:theme`** → 形成 `store → virtual:theme → 组件 → 容器 → store`
    循环。页面契约必须是纯声明（只 `defineThemePage({ page })`），版式表由内核惰性解析。

@@ -37,6 +37,7 @@
     "build": "tsc -p tsconfig.build.json && tsc -p tsconfig.vite.json",
     "typecheck": "tsc -p tsconfig.json",
     "test": "npm run build && node --test",
+    "publish:sync": "node scripts/publish-and-sync.mjs",
     "prepack": "npm run build"
   },
   "keywords": [
