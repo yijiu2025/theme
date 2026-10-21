@@ -1,7 +1,7 @@
 /**
  * 设备声明工厂 —— `defineThemeDevice`（声明式，自动注册进设备域）
  *
- * 宿主只写一条声明（`id` / `label` / `urlKey` / `containers` 三参数 / `routePath`），
+ * 宿主只写一条声明（`id` / `label` / `urlKey` / `containers` 三参数），
  * 机制全在库内：`pageContainers` 建容器表、按声明顺序注册进设备域。宿主不再写
  * `createDeviceRegistry` 装配、不再手动组数组、不再转发 `asKnownDevice`。
  *
@@ -42,8 +42,6 @@ export interface ThemeDeviceOptions {
     /** 页面名白名单（统一 `THEME_ID_RE`） */
     idRe: RegExp;
   };
-  /** 该设备在路由表占的 path（`{page}` 由页面名替换） */
-  routePath(page: string): string;
 }
 
 /** 已自动注册的设备清单（顺序 = 优先级，末条是兜底设备） */
@@ -64,8 +62,7 @@ export function defineThemeDevice(options: ThemeDeviceOptions): DeviceDef<Device
       options.containers.glob,
       options.containers.fileRe,
       options.containers.idRe
-    ),
-    routePath: options.routePath
+    )
   };
   registeredDefs.push(def);
   return def;
@@ -74,11 +71,6 @@ export function defineThemeDevice(options: ThemeDeviceOptions): DeviceDef<Device
 /** 已注册的设备清单（设备域运行时 / URL 参数解析用） */
 export function registeredDevices(): readonly DeviceDef<DeviceContainerLoader>[] {
   return registeredDefs;
-}
-
-/** 外部传入的设备名是否在设备域白名单里（归一化校验用；替代旧 `asThemeDevice` 转发） */
-export function isKnownDevice(raw: unknown): raw is string {
-  return typeof raw === 'string' && registeredDefs.some(d => d.id === raw);
 }
 
 /** 设备 id → 缩写名（urlKey，URL 专属参数后缀用）；未声明缩写时回落 id */
@@ -103,9 +95,4 @@ export function fallbackDevice(): string {
 /** 取某设备在某页的容器加载器，**没写时兜底到末条设备**（用设备域单例） */
 export function resolveContainerOf(id: string, page: string): DeviceContainerLoader {
   return resolveContainerOfWith(registeredDefs, id, page);
-}
-
-/** 重置模块级注册表（单测 / HMR 用） */
-export function resetDevices(): void {
-  registeredDefs.length = 0;
 }

@@ -92,8 +92,3 @@ export function pageOf(name: string): ThemePage | undefined {
 export function registeredPageNames(): readonly string[] {
   return [...registeredPages.keys()];
 }
-
-/** 重置模块级页面域（单测 / HMR 用） */
-export function resetPages(): void {
-  registeredPages.clear();
-}

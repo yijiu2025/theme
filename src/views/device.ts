@@ -1,5 +1,5 @@
 /**
- * 设备清单机制（**纯逻辑半边**）—— 只描述「有哪些设备、占哪条路由、容器在哪」
+ * 设备清单机制（**纯逻辑半边**）—— 只描述「有哪些设备、容器在哪」
  *
  * === 🔴 判定不在这里（2026-10-19 收口）===
  * 「当前属于哪台设备」是**宿主的业务判定**，不是通用机制：
@@ -37,23 +37,6 @@ export interface DeviceDef<T = unknown> {
   urlKey?: string;
   /** 该设备在某页的容器（分发器渲染它）；返回 undefined 表示「该设备没有这一页的容器」 */
   containers: ReadonlyMap<string, T>;
-  /** 该设备在路由表里占的 path（相对根，`{page}` 由页面名替换） */
-  routePath(page: string): string;
-}
-
-/** 归一化外部传入的设备名；不认识的取值返回 null（**不是**落默认设备） */
-export function asDeviceId<T extends string>(
-  known: readonly string[],
-  raw: unknown
-): T | null {
-  return typeof raw === 'string' && (known as readonly string[]).includes(raw)
-    ? (raw as T)
-    : null;
-}
-
-/** 设备 id → 中文名（调试面板用；加设备不必再改面板） */
-export function deviceLabel<T>(defs: readonly DeviceDef<T>[], id: string): string {
-  return defs.find(def => def.id === id)?.label ?? id;
 }
 
 /** 取某设备的容器表；未知设备返回空表（调用方退到兜底设备） */

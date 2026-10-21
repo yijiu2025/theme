@@ -40,9 +40,9 @@ export type {
   ViewPickerOptions,
   ViewPickerSource
 } from './view-registry';
-export { defineThemePage, isThemePage, pageOf, registeredPageNames, resetPages } from './view-page';
+export { defineThemePage, isThemePage, pageOf, registeredPageNames } from './view-page';
 export type { ThemePage, ThemePageOptions } from './view-page';
-export { installThemeViews, resetThemeViews, themeViewsFor } from './theme-views';
+export { installThemeViews, themeViewsFor } from './theme-views';
 
 // ---- 设备容器机制（「设备 id → 容器组件」的组件半边，2026-10-17 下沉）----
 // 🔴 containerOf / resolveContainerOf 的「传 defs」低层版不对外导出 —— 对外只留
@@ -58,9 +58,7 @@ export {
   defineThemeDevice,
   deviceIds,
   fallbackDevice,
-  isKnownDevice,
   registeredDevices,
-  resetDevices,
   resolveContainerOf,
   urlKeyOf
 } from './define-theme-device';
@@ -85,8 +83,7 @@ export {
   applyThemeLayers,
   applyThemeTokens,
   clearThemeTokens,
-  getInjectedTokenNames,
-  resetThemeRuntime
+  getInjectedTokenNames
 } from './token-runtime';
 
 // ---- 后端主题配置取数（「fetch + 超时 + 归一」骨架，2026-10-17 下沉）----

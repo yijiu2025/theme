@@ -74,8 +74,3 @@ export function applyThemeTokens(overrides: ThemeTokenOverrides | null): string[
 export function getInjectedTokenNames(): readonly string[] {
   return injectedNames;
 }
-
-/** 重置模块级状态（HMR / 单测用） */
-export function resetThemeRuntime(): void {
-  clearThemeTokens();
-}

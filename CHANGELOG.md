@@ -9,6 +9,22 @@
 >   旧名 `mauth-theme-core` 的 `0.1.0` / `0.1.1` 均已标记 **deprecated** 并保留可安装，不再更新 ——
 >   它们的代码与 `skinsuite@0.1.0` 完全一致，只有包名不同。
 
+## 0.6.0 — 2026-10-21
+
+**死字节清理** —— 全仓 grep（含单测与 e2e 关卡）核实零消费后整条删除，无行为变化。
+
+### 删除
+
+- **`DeviceDef.routePath` / `ThemeDeviceOptions.routePath`**（及 `defineThemeDevice` 构造透传）：设备声明里「该设备占哪条路由」的字段。路由 path 早在 2026-10-18 收归宿主 `router/routes.ts` 固定声明（清单再声明一份就是第二个真相），此后该字段只剩定义处与透传处、**零读取方**。宿主 `views/devices.ts` 的四条 `routePath` 同步删除
+- **内核出口 `asDeviceId` / `deviceLabel`**（`views/device.ts`）：零调用方（`ThemeDebugPanelBody.vue` 里的 `deviceLabel` 是同名局部常量，不是它）
+- **`skinsuite/vue` 出口 `isKnownDevice` / `resetDevices`**（`define-theme-device.ts`）：前者零调用（`view-registry.ts` 自有同名局部实现）；后者注释声称「单测 / HMR 用」，但单测与仓库内同样零调用
+- **`skinsuite/vue` 出口 `resetPages` / `resetThemeViews` / `resetThemeRuntime`**：同族的「单测 / HMR 用」reset 导出，同样零调用，一并退役
+
+### 说明
+
+- `containers` 三参数（glob / fileRe / idRe）与 `pageContainers` / `resolveContainerOf` / `deviceIds` / `fallbackDevice` / `urlKeyOf` / `registeredDevices` 等**全部保留**——那是设备容器链路的命脉，本次审计确认无一死字节
+- 删除的导出对下游的唯一影响是「import 不到」：按 0.x 口径记 minor，无 URL / 运行时行为变化
+
 ## 0.5.0 — 2026-10-20
 
 **设备身份改由 `<ThemeView>` props 告知** —— `page="login" device="mini"` 一步告诉主题「哪台设备、哪页」，主题据此渲染。在此之前「判设备 → 选容器 → 告知主题」需要库提供注入槽 / 分发器接线，或宿主在分发器里手动 `setActiveDevice`；现在收成一条：宿主分发器只管按自己的口径选容器，设备身份由容器内的 `<ThemeView>` props 带进 store。库**零判定词汇**（不认视口 / UA / `?device=` / `?from=`），也不新增任何导出面。

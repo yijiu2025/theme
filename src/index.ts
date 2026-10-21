@@ -96,7 +96,7 @@ export type { DeviceScopedParam, DeviceViewIntent } from './views/params.js';
  * 「当前属于哪台设备」由宿主注入 `resolveDevice`（`skinsuite/vue`），库不认识
  * 视口阈值 / UA / `?isMobile` / `?from=` 这些词汇。
  */
-export { asDeviceId, containersOf, deviceLabel } from './views/device.js';
+export { containersOf } from './views/device.js';
 export type { DeviceDef } from './views/device.js';
 
 /**

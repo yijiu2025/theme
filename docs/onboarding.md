@@ -140,8 +140,7 @@ defineThemeDevice({
     glob: import.meta.glob<{ default: Component }>('/src/view/app/*/index.vue'),
     fileRe: /^index\.vue$/,
     idRe: THEME_ID_RE
-  },
-  routePath: page => `m/${page}`
+  }
 });
 
 defineThemeDevice({
@@ -152,12 +151,11 @@ defineThemeDevice({
     glob: import.meta.glob<{ default: Component }>('/src/view/web/*/*.vue'),
     fileRe: /^Standard/,
     idRe: THEME_ID_RE
-  },
-  routePath: page => page
+  }
 });
 ```
 
-`defineThemeDevice` 只登记**事实**（id / label / urlKey / 容器在哪 / 占哪条路由），自动建容器表、
+`defineThemeDevice` 只登记**事实**（id / label / urlKey / 容器在哪），自动建容器表、
 自动注册进设备域，**不要再手动写任何转发函数**。
 
 🔴 **这里没有 `match`** —— 判定不归库，见 §4.1b。
@@ -175,7 +173,7 @@ defineThemeDevice({
 // 🔴 别把这段放进 `src/theme/views/`：那是主题域的**纯声明目录**
 //    （defineThemePage / defineThemeDevice），会被 virtual:theme 当声明副作用 import，
 //    判定代码会跟着主题域一起进包；而且「theme/ 整包搬到另一个前端」就不成立了。
-//    theme/views/devices.ts 只留设备声明（有哪些设备、容器在哪、占哪条路由）。
+//    theme/views/devices.ts 只留设备声明（有哪些设备、容器在哪）。
 export function resolveRenderDevice(
   query: Record<string, unknown>,
   path: string,

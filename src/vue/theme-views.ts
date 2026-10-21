@@ -32,8 +32,3 @@ export function installThemeViews(views: Record<string, ViewModuleMap>): void {
 export function themeViewsFor(page: string): ViewModuleMap {
   return themeViewsSingleton[page] ?? {};
 }
-
-/** 重置模块级单例（单测 / HMR 用） */
-export function resetThemeViews(): void {
-  themeViewsSingleton = {};
-}
