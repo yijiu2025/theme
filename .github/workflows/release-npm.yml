@@ -1,0 +1,136 @@
+# ============================================================================
+# CD —— 打 tag 即发布 skinsuite 到 npm
+#
+# 命名：按家族 CI 规范（fullstack-rules → ci-conventions.md §六），发布族一律
+#       `release-<target>.yml`；本仓发布目标是 npm 包 ⇒ release-npm.yml。
+#
+# 为什么装依赖用 `npm install` 而不是 `npm ci`：
+#   库仓口径（规范 §七）—— 发布前现算依赖树，无 lock 复现需求。
+#
+# 🔴 为什么这里只发布、不同步宿主：
+#   本仓是**独立仓**（yijiu2025/theme），CI checkout 里既没有 oauth21 也没有根仓，
+#   而宿主 package.json + lock 的补丁与 `npm ci --dry-run` 自证需要两仓同时在场。
+#   跨仓提交也不该由 CI 代劳 —— 那会绕过宿主仓自己的 PR 门禁。
+#   ⇒ CI 只做发布脚本的 1~3 步（发布 + 等 registry 传播自证），4~6 步本地续跑：
+#        node scripts/publish-and-sync.mjs --skip-publish
+#
+# 🔴 认证方式：**Trusted Publishing（OIDC）** —— 仓库里不放任何长期 token。
+#   这是 npm 官方对 CI/CD 的推荐做法（长期 write token 会泄露、需手工轮换）。
+#   npm CLI 检测到 OIDC 环境会自动使用它，取不到才回退找 token。
+#   一次性配置（在 npmjs.com，不是 GitHub）：
+#     skinsuite 包页 → Settings → Trusted Publisher → Add trusted publisher
+#       Organization or user : yijiu2025
+#       Repository           : theme
+#       Workflow filename    : release-npm.yml   ← 只文件名，必须带 .yml
+#       Environment          : 留空（本流程没用 GitHub environment）
+#       Allowed actions      : 必须勾选 **npm publish**
+#           ⚠️ 2026-09-03 之后新建的配置默认只给 `npm stage publish`；
+#              不勾 npm publish 的话，这条 workflow 会发不出去。
+#   验证过一次之后，建议再去包 Settings → Publishing access 选
+#   「Require two-factor authentication and disallow tokens」，彻底关掉 token 通道。
+#
+# 🔴 两条硬前提（由下面的「校验 OIDC 前置条件」步骤把关）：
+#   · `permissions: id-token: write` —— 没有它拿不到 OIDC token
+#   · npm CLI ≥ 11.5.1 且 Node ≥ 22.14.0 —— 版本不够时 OIDC **静默不生效**，
+#     npm 会回退去找 token，然后以 401 收场，报错信息完全指不到真正的原因。
+#     宁可在这里红，也不要让它走到 npm publish。
+#
+# 触发方式：推 tag（`git tag v0.7.1 && git push origin v0.7.1`）；
+#   手动重跑用 workflow_dispatch 并填 tag 名 —— 脚本会校验 tag 与 package.json
+#   版本一致，不一致直接红（防止 tag 与源码版本漂移，这是本流程最该守住的一条）。
+# ============================================================================
+
+name: Publish npm
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: '要发布的 tag（例 v0.7.1）；发布失败重跑时填同一个 tag'
+        required: true
+
+concurrency:
+  group: release-npm-${{ github.ref }}
+  # 发布中途取消会留下「已推 registry 但没跑完」的半截状态，所以不取消
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  # 🔴 Trusted Publishing 必需：向 GitHub 申请 OIDC token
+  id-token: write
+
+jobs:
+  publish:
+    name: 发布 skinsuite 到 npm
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # 手动重跑时 checkout 到指定 tag，保证源码版本 == 要发布的版本
+          ref: ${{ inputs.tag || github.ref }}
+
+      - uses: actions/setup-node@v4
+        with:
+          # 🔴 固定 24：Trusted Publishing 要求 Node ≥ 22.14.0（且它自带 npm 11.x）。
+          #    兼容性由 ci.yml 的 Node [20,22] 矩阵把关，发布 job 不重复验。
+          node-version: '24'
+          # 不再写 registry-url：OIDC 不需要 _authToken，写了反而让人以为还在用 token
+
+      - name: 校验 OIDC 前置条件
+        run: |
+          node -e "
+          const { execSync } = require('child_process');
+          const ge = (v, [a, b, c]) => {
+            const [x, y, z] = v.split('.').map(Number);
+            return x > a || (x === a && (y > b || (y === b && z >= c)));
+          };
+          const inCI = !!process.env.CI;
+          let npmV = execSync('npm -v').toString().trim();
+
+          if (!ge(npmV, [11, 5, 1])) {
+            if (!inCI) {
+              console.error('::error::npm ' + npmV + ' < 11.5.1（OIDC 要求）。本机不做自动升级，请自行 npm i -g npm@latest');
+              process.exit(1);
+            }
+            console.log('npm ' + npmV + ' 不满足 OIDC 要求，就地升级…');
+            execSync('npm i -g npm@latest', { stdio: 'inherit' });
+            npmV = execSync('npm -v').toString().trim();
+          }
+          if (!ge(npmV, [11, 5, 1])) {
+            console.error('::error::升级后 npm 仍是 ' + npmV + '（需 ≥ 11.5.1），OIDC 不会生效');
+            process.exit(1);
+          }
+
+          const nodeV = execSync('node -v').toString().trim().replace(/^v/, '');
+          if (!ge(nodeV, [22, 14, 0])) {
+            console.error('::error::node ' + nodeV + ' < 22.14.0（OIDC 要求）。改 setup-node 的 node-version');
+            process.exit(1);
+          }
+
+          if (!process.env.ACTIONS_ID_TOKEN_REQUEST_URL) {
+            console.log('::warning::未检测到 OIDC 环境变量 —— 确认 permissions.id-token: write 已配置，否则 npm 会回退找 token');
+          }
+
+          console.log('OIDC 前置 ✅ npm ' + npmV + ' / node ' + nodeV + ' / id-token=' + (process.env.ACTIONS_ID_TOKEN_REQUEST_URL ? '有' : '无'));
+          "
+
+      - name: Install（库仓口径：现算依赖树）
+        run: npm install
+
+      - name: 类型检查 + 单测（npm test 内含构建）
+        run: npm run typecheck && npm test
+
+      - name: 发布并自证
+        env:
+          # 不再传 NODE_AUTH_TOKEN：认证走 OIDC，由 npm CLI 自行完成
+          # 走 env 而非直接把 ${{ inputs.tag }} 拼进 shell：避免表达式注入
+          INPUT_TAG: ${{ inputs.tag }}
+        run: |
+          if [ -n "$INPUT_TAG" ]; then
+            node scripts/publish-and-sync.mjs --publish-only --tag "$INPUT_TAG"
+          else
+            node scripts/publish-and-sync.mjs --publish-only
+          fi

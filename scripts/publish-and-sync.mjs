@@ -16,6 +16,8 @@
  *   node scripts/publish-and-sync.mjs --dry-run        # 不发布：只演练同步 + dry-run 自证
  *   node scripts/publish-and-sync.mjs --skip-publish   # 已发布过：只同步宿主
  *   node scripts/publish-and-sync.mjs --host <path>    # 覆盖宿主仓路径
+ *   node scripts/publish-and-sync.mjs --publish-only   # CI 形态：只发布+自证，不同步宿主
+ *   node scripts/publish-and-sync.mjs --publish-only --tag v0.7.1  # 手动重跑（优先于 GITHUB_REF）
  *   node scripts/publish-and-sync.mjs --allow-dirty    # 放行工作区有未提交改动（不推荐）
  *
  * === 退出码 ===
@@ -161,6 +163,15 @@ async function main() {
   const SKIP_PUBLISH = DRY_RUN || flag('--skip-publish');
   const ALLOW_DIRTY = flag('--allow-dirty');
   const HOST_ARG = flagVal('--host');
+  /** --publish-only 下显式指定 tag（手动重跑用；优先于 GITHUB_REF） */
+  const TAG_ARG = flagVal('--tag');
+  /**
+   * CI 形态：只走 1~3 步（发布 + 等 registry 传播自证），跳过 4~6 步的宿主同步。
+   * 为什么必须有这个开关：本仓是**独立仓**（yijiu2025/theme），CI checkout 里既没有
+   * oauth21 也没有根仓 —— 没有它，脚本开头的宿主存在性检查就会直接 fail。
+   * 而且跨仓提交（改宿主的 package.json + lock）本就不该由 CI 代劳。
+   */
+  const PUBLISH_ONLY = flag('--publish-only');
 
   const pkg = JSON.parse(readFileSync(join(CORE_ROOT, 'package.json'), 'utf8'));
   const VERSION = pkg.version;
@@ -168,15 +179,19 @@ async function main() {
 
   // 宿主仓：默认 <core>/../../oauth21（packages/theme-core 是 submodule，宿主在根仓）
   const HOST = HOST_ARG ? join(CORE_ROOT, HOST_ARG) : join(CORE_ROOT, '..', '..', 'oauth21');
-  if (!existsSync(join(HOST, 'package.json'))) {
-    fail(`宿主仓不存在：${HOST}（用 --host 指定）`);
-  }
-  const hostPkg = JSON.parse(readFileSync(join(HOST, 'package.json'), 'utf8'));
-  if (!/oauth/i.test(hostPkg.name ?? '')) {
-    fail(`宿主 package.json name 不是 oauth*（实际 ${hostPkg.name}）—— 认错仓了？`);
-  }
   const REPO_ROOT = join(HOST, '..'); // 根仓（npm ci --dry-run 必须从这里跑）
-  console.log(`宿主：${HOST}`);
+  if (PUBLISH_ONLY) {
+    console.log('--publish-only：只发布 + 自证，不碰宿主（宿主同步需本地 --skip-publish 续跑）');
+  } else {
+    if (!existsSync(join(HOST, 'package.json'))) {
+      fail(`宿主仓不存在：${HOST}（用 --host 指定）`);
+    }
+    const hostPkg = JSON.parse(readFileSync(join(HOST, 'package.json'), 'utf8'));
+    if (!/oauth/i.test(hostPkg.name ?? '')) {
+      fail(`宿主 package.json name 不是 oauth*（实际 ${hostPkg.name}）—— 认错仓了？`);
+    }
+    console.log(`宿主：${HOST}`);
+  }
 
   /* ---- 1. git 预检 -------------------------------------------------------- */
   step('1/6 git 预检');
@@ -189,7 +204,24 @@ async function main() {
     if (stdout.trim()) console.log('  ⚠️ 工作区有未提交改动（--allow-dirty 放行）');
     // tag 检查只在**真要发布**时做：--skip-publish 的正当用途就是「publish 成功但
     // 宿主同步失败，重跑同步」，那种情况下 tag 必然已存在（不该拦）。
-    if (!SKIP_PUBLISH) {
+    if (PUBLISH_ONLY) {
+      // 🔴 CI 由 tag push 触发 ⇒ tag 必然已存在，所以判据要**反过来**：
+      //    不查「tag 是否已存在」，而是要求「tag 名 == package.json 版本」。
+      //    这条是「npm latest == 源码版本」的自动化守卫 —— 打错 tag（tag v0.7.1
+      //    但包里是 0.7.0）会在这里红，而不是等消费者装到错版本才发现。
+      //    用 GITHUB_REF 而非 `git tag`：shallow checkout 下本地 tag 可能不全。
+      const ref = process.env.GITHUB_REF || '';
+      const m = /^refs\/tags\/(.+)$/.exec(ref);
+      const tagName = TAG_ARG || (m && m[1]);
+      if (!tagName) {
+        fail('--publish-only 需要 tag：由 tag push 触发（GITHUB_REF=refs/tags/vX.Y.Z），' +
+          '或用 --tag v<版本> 显式指定（手动重跑）');
+      }
+      if (tagName !== `v${VERSION}`) {
+        fail(`tag ${tagName} 与 package.json 版本 ${VERSION} 不一致（期望 v${VERSION}）`);
+      }
+      console.log(`  tag ${tagName} == package.json ${VERSION} ✅`);
+    } else if (!SKIP_PUBLISH) {
       const { stdout: tags } = run(GIT, ['-C', CORE_ROOT, 'tag']);
       if (tags.split('\n').includes(`v${VERSION}`)) {
         fail(`本地已有 tag v${VERSION} —— 版本号没升？`);
@@ -244,6 +276,17 @@ async function main() {
   const tarball = dist['dist.tarball'] ?? dist.tarball;
   if (!integrity || !tarball) fail(`npm view 返回缺字段：${JSON.stringify(dist)}`);
   console.log(`  integrity: ${integrity}`);
+
+  /* ---- 3.5 publish-only：到此为止（4~6 步是跨仓提交，不自动化） ---------- */
+  if (PUBLISH_ONLY) {
+    console.log(`
+════════════════════════════════════════
+  已发布并自证：${PKG_NAME}@${VERSION}（registry 可查，integrity 已取）
+  宿主同步属**跨仓提交**，不在 CI 里做 —— 本地续跑：
+    node scripts/publish-and-sync.mjs --skip-publish
+════════════════════════════════════════`);
+    process.exit(0);
+  }
 
   /* ---- 4. 补丁宿主 package.json ------------------------------------------- */
   step('4/6 补丁宿主 package.json');

@@ -9,6 +9,27 @@
 >   旧名 `mauth-theme-core` 的 `0.1.0` / `0.1.1` 均已标记 **deprecated** 并保留可安装，不再更新 ——
 >   它们的代码与 `skinsuite@0.1.0` 完全一致，只有包名不同。
 
+## 0.7.1 — 2026-10-22
+
+**发布闭环与类型覆盖补齐** —— 0.7.0 之前「发版」是本地手工活：没有人能在 CI 里复现它，也没有任何关卡保证 tag 与源码版本不漂移。本版把发布搬进 GitHub Actions，并把 `src/vue`（skinsuite/vue 的绑定层）纳入类型检查 —— 这一层此前从未被检查过。
+
+### 新增
+
+- **`.github/workflows/release-npm.yml`（CD）**：推 `v*` tag 即发布 `skinsuite` 到 npm；`workflow_dispatch` 可填 tag 手动重跑（发布失败重跑填同一个 tag）。命名按家族 CI 规范，发布族一律 `release-<target>.yml`
+  - **认证走 Trusted Publishing（OIDC）**，仓库不再持有任何长期 token（`permissions: id-token: write`）。npmjs 侧的一次性配置见 workflow 头部注释
+  - **OIDC 前置校验步骤**：npm ≥ 11.5.1 且 node ≥ 22.14.0。版本不足时 OIDC **静默不生效** —— npm 回退去找 token，最后以 401 收场，而报错信息完全指不到真因。宁可在这里红，也不让它走到 `npm publish`
+  - **只发布、不同步宿主**：CI checkout 里没有 oauth21 与根仓，宿主 `package.json` + lock 补丁与 `npm ci --dry-run` 自证需要两仓同时在场；跨仓提交也不该由 CI 代劳（会绕过宿主仓自己的 PR 门禁）。1~3 步在 CI，4~6 步本地 `node scripts/publish-and-sync.mjs --skip-publish` 续跑
+- **`scripts/publish-and-sync.mjs` 两个开关**
+  - `--publish-only`：只跑发布 + 等 registry 传播自证，跳过宿主同步
+  - `--tag <名>`：优先读 `GITHUB_REF`；**CI 下 tag 名必须等于 `v` + package.json 版本**，不一致直接红。防的是 tag 与源码版本漂移 —— 这是本流程最该守住的一条
+- **类型检查覆盖 vue 绑定层**：新增 `tsconfig.vue.json`（`moduleResolution: bundler`）+ `src/vue/shims-vue.d.ts`，`npm run typecheck` 现在串联两个配置。此前主 `tsconfig.json` 排除了 `src/vue`，**独立仓形态下这一层从未被类型检查过**（23 个文件）
+  - devDeps 补 `vue ^3.5.38`：本机此前 0 错是靠 monorepo 父级 node_modules hoist 上来的 vue；独立仓 `npm install` 后会报 19 个 `TS2307`。毒丸自证因此改成验两件事 —— 有效性（植入错误会红）与可移植性（隔离形态仍绿）
+
+### 说明
+
+- 公开出口与运行时行为**零变化**，宿主无需改代码；0.x 下 `^0.7.0` 与 `~0.7.0` 等价，升级方式不变
+- 内核零耦合判据（`verify-kernel-zero-coupling`）只查 `dependencies` / `peerDependencies`，devDeps 加 vue 不触碰它 —— `src/vue/` 碰 vue 是设计内允许的
+
 ## 0.7.0 — 2026-10-21
 
 **URL 主题参数的静默失败有了出口** —— `?th=compat`（拼错）不报错、`?device=phon` 不报错、`?th=a&th=b` 不报错，踩坑的人当时唯一的线索是"怎么点都没变化"。本版把这些静默失败变成 dev 下的 console 警告 + `?debug=theme` 时的探针链路键。第一版实现在 oauth21 宿主，评审后下沉库：判定知识（`pageOf(page).views.has()` / `registeredDevices()` / 参数键形）与被诊断的静默失败（`pick()` 回落、未知设备落兜底）**都是库的**，宿主各写一遍就是抄 N 份必然漂移（params.ts / view-picker / registry 都因此沉过内核）。

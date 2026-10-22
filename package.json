@@ -1,6 +1,6 @@
 {
   "name": "skinsuite",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "description": "多主题 / 多版式机制的纯内核（零运行时依赖）：目录名与默认值的白名单常量、主题包契约类型、明暗 mode 与色系 tone、CSS 变量 token 的安全校验、设备维度 URL 参数读取。不碰 DOM / 构建器 / 路由，可在任意前端（Vue / React / Node / SSR）复用。",
   "type": "module",
   "main": "./dist/index.js",
@@ -35,7 +35,7 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json && tsc -p tsconfig.vite.json",
-    "typecheck": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.vue.json",
     "test": "npm run build && node --test",
     "publish:sync": "node scripts/publish-and-sync.mjs",
     "prepack": "npm run build"
@@ -78,6 +78,7 @@
   "devDependencies": {
     "@types/node": "^22.0.0",
     "typescript": "^6.0.3",
-    "vite": "^7.0.0"
+    "vite": "^7.0.0",
+    "vue": "^3.5.38"
   }
 }
