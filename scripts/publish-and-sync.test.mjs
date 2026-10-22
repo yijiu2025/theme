@@ -51,7 +51,7 @@ test('patchPackageJsonSpec：替换依赖 spec 并报回旧值', () => {
   const text = `{\n  "dependencies": {\n    "skinsuite": "^0.6.0",\n    "vue": "^3.5.0"\n  }\n}\n`;
   const { text: out, oldSpec } = patchPackageJsonSpec(text, NEW_VERSION);
   assert.equal(oldSpec, OLD_SPEC);
-  assert.match(out, new RegExp(`"skinsuite": "\\^${NEW_VERSION.replace('.', '\\.')}"`));
+  assert.ok(out.includes(`"skinsuite": "^${NEW_VERSION}"`));
   // 只动 skinsuite 一行：vue 的 spec 原样
   assert.match(out, /"vue": "\^3\.5\.0"/);
 });
@@ -71,11 +71,11 @@ test('patchLockfile：CRLF 行尾下三字段全部换掉', () => {
   const out = buf.toString('utf8');
   assert.equal(oldVersion, '0.6.0');
   // 根 spec
-  assert.match(out, new RegExp(`"skinsuite": "\\^${NEW_VERSION.replace('.', '\\.')}"`));
+  assert.ok(out.includes(`"skinsuite": "^${NEW_VERSION}"`));
   // 三字段
-  assert.match(out, new RegExp(`"version": "${NEW_VERSION.replace('.', '\\.')}"`));
-  assert.match(out, new RegExp(`"resolved": "${TARBALL.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`));
-  assert.match(out, new RegExp(`"integrity": "${INTEGRITY.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`));
+  assert.ok(out.includes(`"version": "${NEW_VERSION}"`));
+  assert.ok(out.includes(`"resolved": "${TARBALL}"`));
+  assert.ok(out.includes(`"integrity": "${INTEGRITY}"`));
   // 旧值彻底消失
   assert.doesNotMatch(out, /0\.6\.0/);
   assert.doesNotMatch(out, /OLDintegrity/);
@@ -114,7 +114,7 @@ test('patchLockfile：integrity 行尾带逗号（非末字段形态）也能补
     TARBALL
   );
   const out = buf.toString('utf8');
-  assert.match(out, new RegExp(`"integrity": "${INTEGRITY.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`));
+  assert.ok(out.includes(`"integrity": "${INTEGRITY}"`));
   assert.match(out, /"dev": true/); // 后续字段没被弄丢
 });
 
