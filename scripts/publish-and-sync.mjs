@@ -20,6 +20,10 @@
  *   node scripts/publish-and-sync.mjs --publish-only --tag v0.7.1  # 手动重跑（优先于 GITHUB_REF）
  *   node scripts/publish-and-sync.mjs --allow-dirty    # 放行工作区有未提交改动（不推荐）
  *
+ *   🔴 --publish-only 是 CI 形态：除跳过宿主同步外，还**跳过「工作区必须干净」**检查
+ *      （CI 的 npm install 必然生成未跟踪的 package-lock.json，那是产物不是漏提交）。
+ *      本地跑完整链时这条检查照旧生效 —— 它防的是「漏提交一块改动还看不出来」。
+ *
  * === 退出码 ===
  *   0 = 全链成功（含 dry-run 自证通过）
  *   1 = 任一步失败（git 不干净 / publish 失败 / 传播超时 / 补丁锚点不唯一 / dry-run 红）
@@ -198,10 +202,24 @@ async function main() {
   {
     const { code, stdout } = run(GIT, ['-C', CORE_ROOT, 'status', '--porcelain']);
     if (code !== 0) fail(`git status 失败（${CORE_ROOT} 不是 git 仓？）`);
-    if (stdout.trim() && !ALLOW_DIRTY) {
+    /**
+     * 🔴 CI 形态（--publish-only）**不做**「工作区必须干净」检查 —— 实测 v0.7.1
+     * 首次触发就红在这一步：库仓按规范不提交 lock，而 CI 的 `npm install` 必然生成
+     * 未跟踪的 package-lock.json —— 于是「脏」的是构建产物，不是漏提交的代码。
+     *
+     * 这条检查的意义只在本地成立：本地漏提交 ⇒ 发出去的包少一块改动，且事后看不出来。
+     * CI 里源码就是 tag 指向的那份（checkout 即权威），压根不存在「漏提交」这个状态，
+     * 拦它只会把构建产物误判成人的失误。
+     */
+    if (PUBLISH_ONLY) {
+      if (stdout.trim()) {
+        console.log(`  CI 形态：跳过「工作区必须干净」检查（脏的是 install 产物，非漏提交）\n${stdout}`);
+      }
+    } else if (stdout.trim() && !ALLOW_DIRTY) {
       fail(`库工作区有未提交改动，先 commit（确认要用 --allow-dirty 才放行）：\n${stdout}`);
+    } else if (stdout.trim()) {
+      console.log('  ⚠️ 工作区有未提交改动（--allow-dirty 放行）');
     }
-    if (stdout.trim()) console.log('  ⚠️ 工作区有未提交改动（--allow-dirty 放行）');
     // tag 检查只在**真要发布**时做：--skip-publish 的正当用途就是「publish 成功但
     // 宿主同步失败，重跑同步」，那种情况下 tag 必然已存在（不该拦）。
     if (PUBLISH_ONLY) {
@@ -234,7 +252,8 @@ async function main() {
     } else {
       console.log('  跳过 tag 检查（--skip-publish / --dry-run）');
     }
-    console.log('  干净 ✅');
+    // CI 形态下工作区本来就脏（install 产物），这里再喊「干净」就是假信号
+    if (!PUBLISH_ONLY) console.log('  干净 ✅');
   }
 
   /* ---- 2. npm publish ----------------------------------------------------- */
