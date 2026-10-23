@@ -58,14 +58,6 @@ export const DEFAULT_THEME_PACKAGE = 'default';
  */
 
 /**
- * 兜底页面：注册表类函数在调用点没给页面时的默认值
- *
- * 取 `login` 是因为它是认证流程的默认入口（未指定页面时最可能问的就是它）。
- * 有明确页面的调用点（容器、面板）都应显式传 `page`，不要依赖这个兜底。
- */
-export const DEFAULT_THEME_PAGE = 'login';
-
-/**
  * 兜底**配色** id：该范围内没有更具体的指定时用它（2026-09-26 定）
  *
  * 用户口径：**默认版式 = `default` 包，默认配色 = `white`**。

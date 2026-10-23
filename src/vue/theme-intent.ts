@@ -82,15 +82,25 @@ export function useThemeIntent(scope: ThemeScope, keys: ThemeStorageKeys) {
 
   /**
    * 首屏对齐：按当前「系别意图」把配色校正到匹配的系别。
+   *
+   * 页面上下文（activePage）由 `<ThemeView page="…">` 稍后告知——没有页面就没有
+   * 「包 × 设备 × 页面」作用域，对齐无从谈起，所以等它**首次非空**时执行一次；
+   * 之后 page 变化重复触发也无害（同系别直接 return，见 syncColorToTone）。
    * 该设备被判 URL 锁定时不干预（部署方/用户的明确意图必须压过联动）。
    */
-  if (!scope.urlLockedThemeOf(scope.activeDevice.value)) {
-    syncColorToTone(mode.value === 'system' ? systemDark.value : mode.value === 'dark');
-  }
+  const stopInitialAlign = watch(
+    scope.activePage,
+    page => {
+      if (!page) return;
+      if (scope.urlLockedThemeOf(scope.activeDevice.value)) return;
+      syncColorToTone(mode.value === 'system' ? systemDark.value : mode.value === 'dark');
+    },
+    { immediate: true }
+  );
 
-  /** 明暗意图变化 → 联动切配色（唯一运行时入口）；首屏那一次已由上面的显式调用处理 */
-  watch(mode, m => syncColorToTone(m === 'system' ? systemDark.value : m === 'dark'));
-  watch(systemDark, dark => {
+  /** 明暗意图变化 → 联动切配色（唯一运行时入口）；首屏对齐见上面的 activePage watch */
+  const stopModeSync = watch(mode, m => syncColorToTone(m === 'system' ? systemDark.value : m === 'dark'));
+  const stopSystemSync = watch(systemDark, dark => {
     if (mode.value === 'system') syncColorToTone(dark);
   });
 
@@ -145,9 +155,15 @@ export function useThemeIntent(scope: ThemeScope, keys: ThemeStorageKeys) {
     setMode(dark ? 'dark' : 'light');
   }
 
-  /** 清理系统主题监听（HMR / 单测场景） */
+  /**
+   * 清理（HMR / 单测反复建 store 场景）：系统偏好监听 + 本层全部 watcher。
+   * watch 返回的 stop 句柄必须收全 —— dispose 半途而废比没有 dispose 更误导排查。
+   */
   function dispose(): void {
     mediaQuery?.removeEventListener('change', onSystemChange);
+    stopInitialAlign();
+    stopModeSync();
+    stopSystemSync();
   }
 
   return { mode, systemDark, lightColor, darkColor, setMode, cycleMode, toggleTheme, setTheme, applyTheme, dispose };

@@ -32,6 +32,7 @@ import { installThemeDebug } from './theme-debug';
 import { currentQuery } from './device-domain';
 import { DEFAULT_COLOR_PARAM, DEFAULT_STORAGE_KEYS } from './theme-persistence';
 import { DEFAULT_VIEW_PARAM } from '../views/params';
+import { listThemes } from '../registry';
 import type { ThemeStorageKeys } from './theme-persistence';
 
 /** 宿主策略收口点（全可选，默认 = 主题机制约定，oauth21 即默认值本身） */
@@ -80,17 +81,34 @@ export function createThemeState(options: ThemeStateOptions = {}) {
   // 🔴 source 包 getter（而非直接传 `currentQuery()`）：后者未装 router 时是普通对象，
   //    Vue 会 warn "Invalid watch source"；包一层后两种形态都合法。
   // -------------------------------------------------------------------------
-  watch(() => currentQuery(), () => scope.syncUrlViewIntent(), { deep: true });
+  const stopQuerySync = watch(() => currentQuery(), () => scope.syncUrlViewIntent(), { deep: true });
 
   // -------------------------------------------------------------------------
   // 调试探针 + URL 参数静默失败警告（dev-only）
   //
   // 探针（`window.__MAUTH_STORE__`，11 个 store getter + url / effectiveView /
-  // warnings 三个链路键）与角标在 dev + `?debug=theme` 下挂载；**警告不要门控** ——
+  // warnings 三个链路键）与角标在 dev + 清单门控命中时挂载；**警告不要门控** ——
   // 非法版式值 / 未知设备锁定 / 重复键都是静默失败，靠「记得开开关」等于没防。
   // 实现与放置 rationale 见 theme-debug.ts（2026-10-21 从宿主下沉：判定知识全在库）。
+  // 🔴 返回的 dispose 必须接住并纳入 dispose()：dev 下的 2 个 watch、右下角角标
+  //    DOM 节点与 `__MAUTH_STORE__` 探针都靠它清理（HMR / 单测反复建 store 场景）。
   // -------------------------------------------------------------------------
-  installThemeDebug(scope, intent);
+  const disposeDebug = installThemeDebug(scope, intent);
+
+  // -------------------------------------------------------------------------
+  // dev 防呆：注册表为空 = 主题机制将全程走空兜底（页面正常渲染、只是没主题、
+  // 零报错）—— 这是本机制「最难归因」的失败形态（onboarding §十二-3 同款）。
+  // 最常见原因：store 文件漏了 `import 'virtual:theme'`。生产不喊（静默兜底是
+  // 机制对"还没建主题"的合法状态的承诺）。
+  // -------------------------------------------------------------------------
+  if (import.meta.env.DEV && listThemes().length === 0) {
+    console.warn(
+      "[theme] 配色注册表为空，主题机制将全程走空兜底（页面能渲染但没有任何主题）。排查：" +
+        "① store 文件是否 `import 'virtual:theme'`（最常见漏项）；" +
+        '② vite.config.ts 是否挂了 themeAssets()；' +
+        '③ VITE_THEME_DIR 是否指向存在的目录。'
+    );
+  }
 
   return {
     // ---- 来自 scope ----
@@ -126,10 +144,14 @@ export function createThemeState(options: ThemeStateOptions = {}) {
     // ---- 来自 runtime ----
     applyThemeConfig: runtime.applyThemeConfig,
     applyTheme: intent.applyTheme,
-    // 销毁：intent 的系统偏好监听 + runtime 的来源同步（父同步 removeEventListener）
+    // 销毁：收全各层副作用（watcher / 系统偏好监听 / postMessage 监听 / 在途 fetch /
+    // 调试探针与角标）。HMR 与单测反复建 store 时防累积 —— dispose 半途而废比没有
+    // dispose 更误导排查，所以每一层的 stop 句柄都必须汇到这里。
     dispose: () => {
+      stopQuerySync();
+      disposeDebug();
       intent.dispose();
-      runtime.disposeSources();
+      runtime.dispose();
     }
   };
 }

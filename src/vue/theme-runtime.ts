@@ -43,7 +43,7 @@ export function useThemeRuntime(scope: ThemeScope, intent: ThemeIntent) {
    * 注入的是 html 上的 inline style（整份文档唯一），所以只用一个设备的 token（activeDevice）。
    * isDark 只负责给 <html> 挂/摘 dark 类（基线 SCSS 用），与注入挂在同一个 watch。
    */
-  watch(
+  const stopInject = watch(
     [themeTokens, externalTokens, scope.activeDevice, scope.isDark],
     ([, , , dark]) => {
       document.documentElement.classList.toggle('dark', dark);
@@ -91,7 +91,7 @@ export function useThemeRuntime(scope: ThemeScope, intent: ThemeIntent) {
    * 生效 id 按设备取 URL 覆盖（与 themeRecordFor 同口径）。
    * 仅当"该设备没有这套配色、用了回落档"（record.meta.id !== id）时才 delete 属性。
    */
-  watch(
+  const stopRecord = watch(
     [scope.themeId, scope.deviceTheme, scope.activeDevice, scope.activePage, scope.activeView],
     ([, , device, page, view]) => {
       const id = scope.deviceTheme.value[device] ?? scope.themeId.value;
@@ -111,7 +111,7 @@ export function useThemeRuntime(scope: ThemeScope, intent: ThemeIntent) {
    * 切版式 → 自动重置配色（让用户立刻感受到新版的视觉特征）。
    * 守门：仅新版式触发、仅 activeView 真的变了、该设备被 URL 锁定时不动、不落盘、不动 mode/槽。
    */
-  watch(scope.activeView, (newView, oldView) => {
+  const stopViewReset = watch(scope.activeView, (newView, oldView) => {
     if (!newView || newView === oldView) return;
     // 用旧 view（= 旧包）查 themeId 当前解析到的包
     const currentPkg = scope.themeRecordFor(oldView, scope.activeDevice.value, scope.activePage.value).pkg;
@@ -125,7 +125,6 @@ export function useThemeRuntime(scope: ThemeScope, intent: ThemeIntent) {
   /** 应用外部配色配置（后端下发 / 父应用同步）；不写 localStorage（后端默认值不覆盖用户偏好） */
   function applyThemeConfig(config: {
     theme?: string;
-    skin?: string;
     mode?: 'light' | 'dark' | 'system';
     tokens?: ThemeTokenOverrides;
   } | null): void {
@@ -134,7 +133,7 @@ export function useThemeRuntime(scope: ThemeScope, intent: ThemeIntent) {
       return;
     }
 
-    const wanted = config.theme ?? config.skin;
+    const wanted = config.theme;
     if (wanted !== undefined && !scope.urlLockedThemeOf(scope.activeDevice.value)) {
       const resolved = resolveThemeId(wanted);
       if (resolved) {
@@ -156,7 +155,19 @@ export function useThemeRuntime(scope: ThemeScope, intent: ThemeIntent) {
     applyTheme: dark => intent.applyTheme(dark)
   });
 
-  return { themeTokens, externalTokens, applyThemeConfig, disposeSources };
+  /**
+   * 清理本层全部副作用（HMR / 单测反复建 store 场景）：3 个 watcher + 来源同步
+   * （postMessage 监听、进行中的远程 fetch）。watch 的 stop 句柄收全，
+   * dispose 半途而废比没有 dispose 更误导排查。
+   */
+  function dispose(): void {
+    stopInject();
+    stopRecord();
+    stopViewReset();
+    disposeSources();
+  }
+
+  return { themeTokens, externalTokens, applyThemeConfig, dispose };
 }
 
 /** runtime 的公开面（类型由 `useThemeRuntime` 返回处推断） */

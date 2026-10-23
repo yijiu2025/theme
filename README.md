@@ -19,7 +19,7 @@ npm install skinsuite
 | 目录名 / id 白名单 | 主题目录名直接拼进 `data-*` 属性与 CSS 选择器，一个大写字母就是静默不生效 |
 | 明暗（`mode`）与色系（`tone`）的联动 | 两个维度被混成一个布尔值 →「开夜间」切不到深色配色，或者切过去就再也回不来 |
 | CSS 变量（token）的安全校验 | 后端/父页面下发的值直接 `setProperty`，等于把 CSS 注入和外发请求的口子交出去 |
-| 设备维度的 URL 参数 | `?view.mobile=compact&view.standard=default` 各端各一套的取值链，抄一份就漂移一份 |
+| 设备维度的 URL 参数 | `?th_mobile=compact&th_std=default` 各端各一套的取值链，抄一份就漂移一份 |
 
 本包把这些做成一串**纯函数 + 常量**：零运行时依赖、`sideEffects: false`、可在 Node / SSR / 单测里直接跑，也可以在 Vue 与 React 里共用同一份口径。
 
@@ -68,10 +68,10 @@ if (rejected.length) reportToSentry('theme: illegal token', rejected);
 ```js
 import { readDeviceParam } from 'skinsuite';
 
-// /login?view=default&view.mobile=compact
-readDeviceParam(route.query, 'view', 'mobile'); // 'compact'  设备专属优先
-readDeviceParam(route.query, 'view', 'standard'); // 'default'  该设备没指定 → 通用键
-readDeviceParam({}, 'view', 'mobile'); // undefined  由调用方决定兜底
+// /login?th=default&th_mobile=compact
+readDeviceParam(route.query, 'th', 'mobile'); // 'compact'  设备专属优先
+readDeviceParam(route.query, 'th', 'std'); // 'default'  该设备没指定 → 通用键
+readDeviceParam({}, 'th', 'mobile'); // undefined  由调用方决定兜底
 ```
 
 ---
@@ -111,7 +111,6 @@ import {
   THEME_ID_RE,
   DEFAULT_THEME_ID,
   DEFAULT_THEME_PACKAGE,
-  DEFAULT_THEME_PAGE,
   DEFAULT_THEME_COLOR,
   DEFAULT_THEME_DARK_COLOR,
   BASE_VIEW_ID
@@ -122,7 +121,6 @@ import {
 | --- | --- | --- |
 | `THEME_ID_RE` | `/^[a-z0-9-]+$/` | 目录名 / id 白名单：主题包名、配色 id、版式 id、页面名都要过这条（它们会进属性选择器） |
 | `DEFAULT_THEME_PACKAGE` | `'default'` | 内置默认**主题包**（首屏静态引入、无需惰性加载的那个包） |
-| `DEFAULT_THEME_PAGE` | `'login'` | 未指定页面时的兜底（认证流程的最常见入口） |
 | `DEFAULT_THEME_COLOR` | `'white'` | **默认配色**（显式值，不是"字母序第一"—— 那样加一个 `amber` 就会静默改掉默认外观） |
 | `DEFAULT_THEME_DARK_COLOR` | `'black'` | 暗系配对值，与上一行成对使用 |
 | `DEFAULT_THEME_ID` | `'default'` | 空记录（注册表还没产出任何记录）的**占位** id，**不是**默认配色 |
@@ -185,11 +183,11 @@ import type {
 import { DEVICE_SCOPED_PARAMS, readDeviceParam } from 'skinsuite';
 import type { DeviceScopedParam } from 'skinsuite';
 
-readDeviceParam(query, name, device);
-// `query['<name>.<device>']` → `query[name]` → undefined
+readDeviceParam(query, name, deviceKey);
+// `query['<name>_<deviceKey>']` → `query[name]` → undefined
 ```
 
-- query key 里带 `.` 合法，但访问必须用下标：`query['view.standard']`
+- query key 是 `name_<deviceKey>` 形态（下划线连接，设备专属键），访问用下标：`query['th_std']`
 - **空串 / 纯空白 / 空数组 = 未指定**，不顶掉通用键（部署方习惯把参数留空表示"这台设备不特殊指定"）
 - 只决定"取哪个键"，**不做合法性校验** —— 校验需要"当前包里有没有这套东西"的知识，那是宿主的事
 
@@ -257,6 +255,27 @@ CSS 自定义属性是能**直接改变渲染**的输入。未经校验就 `setP
 | 背景图、webfont、动画、伪元素、结构级差异 | `theme.scss`（写真实 CSS，选择器带 `html[data-mauth-theme='<id>']` 前缀） |
 
 判据很简单：**必须写 `url()` 或需要伪元素 / keyframes 的，就不能走 token。**
+
+---
+
+## 单例语义（微前端 / 多应用场景必读）
+
+`skinsuite` 与 `skinsuite/vue` 内部维护一组**模块级单例**：配色注册表（`installThemeRegistry`）、
+清单（`installThemeManifest`）、版式加载表（`installThemeViews`）、路由引用（`app.use(theme, …)`）、
+设备域与页面域（`defineThemeDevice` / `defineThemePage` 的注册表）、token 注入名单。
+token 注入写的又是 `document.documentElement` 这**整份文档唯一**的根节点。
+
+因此承诺的形态是：**每个 JS realm（每个独立的模块实例空间）+ 每份 document = 一个主题域。**
+
+- ✅ 一个 SPA、一个 iframe（有自己的模块空间与 document）、SSR 的每次请求渲染 —— 各自独立，互不干扰
+- ⚠️ **微前端共享模块实例**（同一份 `node_modules` / import map 里装两个子应用）：
+  后注册的会**整体覆盖**先注册的（注册表、清单、router 引用、token 注入名单都是单例），
+  且 token 注入互相清除 —— 这不是 bug 支持的场景。子应用需要各自的模块隔离
+  （独立的 bundle / iframe / `import()` 隔离域），或只用纯内核（`skinsuite`）自行管理注入。
+- ⚠️ **同源多应用**还要注意 localStorage 键与 URL 参数（`th` / `th_color`）是共享命名空间：
+  默认存储键已带 `mauth:` 前缀（`mauth:mode` / `mauth:theme`，0.7.x 的裸键 `theme` /
+  `theme-id` 有读回退迁移），多个应用仍可用 `createThemeState({ storageKeys, colorParam,
+  viewParam })` 进一步细分键名。
 
 ---
 

@@ -9,6 +9,38 @@
 >   旧名 `mauth-theme-core` 的 `0.1.0` / `0.1.1` 均已标记 **deprecated** 并保留可安装，不再更新 ——
 >   它们的代码与 `skinsuite@0.1.0` 完全一致，只有包名不同。
 
+## 0.8.0 — 未发布
+
+**全面审查后的健壮性版本**：一次覆盖「生命周期清理 / 静默失败防呆 / 查询性能 / 类型检查盲区」的企业级体检修复（审查报告见根仓 `reports/theme-core-review-2026-10-23.md`）。
+
+### 变更（默认行为）
+
+- **默认 localStorage 键加 `mauth:` 命名空间**：`theme` → `mauth:mode`、`theme-id` → `mauth:theme`。旧默认裸键与生态撞名是真实冲突（本仓 admin / firewall / phonecopy 都用裸 `'theme'` 存自己的明暗偏好，同源部署互相覆盖）。**读取带一次性回退迁移**：新键缺席时读旧键（`LEGACY_STORAGE_KEYS`，不导出），存量用户偏好无声延续；写入只写新键、不删旧键（同源下旧键可能属于别的应用）。自定义过 `storageKeys` 的部署不受影响。
+
+### 性能
+
+- **注册表查询索引化**（`src/registry.ts`）：回退链与范围查询从 O(n) 全表扫描改为惰性索引（WeakMap 按注册表实例缓存；`installThemeRegistry` 换表自动失效）。`findRecord` 回退、`defaultColorIdOf`、`listColorsOf`、`listColorIdsOfTone`、`resolveThemeId`、`listColorViews`、`toneOfAnyScope` 全部走索引；各查询"先到先得"的路径序语义逐字保持（新增 `test/registry.test.mjs` 11 个用例锁行为）
+- **scope 共享 `activeRecord` computed**（`src/vue/theme-scope.ts`）：`isDark` / `activeTone` / `packageId` 从同一份解析结果派生，一次状态变化不再重复解析 3-4 次
+
+### 生命周期（dispose 契约收全）
+
+- `createThemeState().dispose()` 现在清理**全部**副作用：编排层 query watch、`installThemeDebug` 的探针/角标/2 个 watch（此前返回值被丢弃）、intent 的 3 个 watch + 系统偏好监听、runtime 的 3 个 watch、postMessage 监听、**在途的后端配色拉取**（`fetchRemoteThemeConfig` 新增 `signal` 参数，dispose 时 abort + disposed 标志兜住迟到响应）
+- `defineThemeDevice` 重复声明按 id **覆盖**（保持原优先级位置），HMR / 单测反复 import 不再重复注册
+
+### 静默失败防呆（dev）
+
+- **注册表为空警告**：store 装配时 `listThemes()` 为空（最常见：漏 `import 'virtual:theme'`）在 dev 下输出三步排查指引 —— 此前页面正常渲染、只是没主题、零报错
+- **探针门控读 manifest**：`theme-debug.ts` 的 `?debug=theme` 硬编码改为 `isThemeDebugVisible(themeManifest().debug, currentQuery())`，宿主自定义 `debug.query` / `debug.value` 后探针与面板一起生效（此前探针永远只认默认键）
+
+### 工程化
+
+- **vue-tsc 接入 typecheck**：`npm run typecheck` 的 vue 半边从 `tsc`（靠 shim 把 `.vue` 当不透明组件）升级为 `vue-tsc`（`tsconfig.vue.json` include 覆盖 SFC），`<script setup>` 内部的类型错误首次被库仓自己拦住。已验证 vue-tsc@3.3.13 兼容 TS 6.0.3，且注入探针确认 SFC 内部检查真实生效；`shims-vue.d.ts` 保留作纯 tsc 场景兜底
+- **Vite 插件 watcher 三边界**：主题目录在 root 外时 `watcher.add`；路径比较归一大小写 + 前缀带分隔符（修 `D:/theme` 误匹配 `D:/theme-other`）；补 `addDir` / `unlinkDir`（删除整个配色目录不再漏刷新）
+
+### 文档
+
+- `docs/onboarding.md` §3 示例修正为 `meta` 嵌套契约（原示例照抄编译不过）；`src/vite` 两处头注释与 exports 实际对齐（运行时指 dist、类型源码直供、`.js` 后缀约定）；README 新增「单例语义」一节（微前端 / 同源多应用边界）
+
 ## 0.7.1 — 2026-10-22
 
 **发布闭环与类型覆盖补齐** —— 0.7.0 之前「发版」是本地手工活：没有人能在 CI 里复现它，也没有任何关卡保证 tag 与源码版本不漂移。本版把发布搬进 GitHub Actions，并把 `src/vue`（skinsuite/vue 的绑定层）纳入类型检查 —— 这一层此前从未被检查过。

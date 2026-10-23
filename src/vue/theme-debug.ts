@@ -30,15 +30,20 @@
 import { watch } from 'vue';
 import { collectWarnings, effectiveViewRaw, parseThemeParams } from '../views/param-audit';
 import type { ThemeUrlParams, WarningContext } from '../views/param-audit';
+import { isThemeDebugVisible, themeManifest } from '../manifest';
 import { registeredDevices } from './define-theme-device';
 import { currentQuery } from './device-domain';
 import type { ThemeIntent } from './theme-intent';
 import type { ThemeScope } from './theme-scope';
 import { pageOf } from './view-page';
 
-/** `?debug=theme` 门控（与库探针既有口径逐字一致：读地址栏，装载即判） */
+/**
+ * `?debug=theme` 门控 —— 与 `<ThemeDebugPanel>` **同一判据**：读清单单例
+ * （`theme.config.ts` 可自定义 query / value）+ 路由 query（`currentQuery()`），
+ * 而不是硬编码 `?debug=theme` —— 宿主自定义触发键后，面板与探针必须一起生效。
+ */
 function debugGateOn(): boolean {
-  return new URLSearchParams(window.location.search).get('debug') === 'theme';
+  return isThemeDebugVisible(themeManifest().debug, currentQuery());
 }
 
 /**

@@ -98,15 +98,21 @@ npm install skinsuite@~0.7.0
 import type { MauthThemePackage } from 'skinsuite';
 
 const pkg: MauthThemePackage = {
-  id: 'default',
-  name: '默认版式',
-  views: {}   // 可选：本包声明各页默认用哪个配色 / 版式
+  meta: {
+    id: 'default',            // = 目录名（只允许 [a-z0-9-]）
+    name: '默认版式',
+    description: '一句话描述，便于部署方挑选',
+    preview: { primary: '#1e293b', accent: '#2563eb' }  // 可选：面板色卡用
+  }
+  // views: { login: 'default' }  // 可选：包级版式声明（页面名 → 版式 id ≡ 包名）
 };
 
 export default pkg;
 ```
 
-> `MauthThemePackage` 的完整字段以 `skinsuite` 的 `types.ts` 为准；最小可只给 `id` + `name`。
+> `MauthThemePackage` 的完整字段以 `skinsuite` 的 `types.ts` 为准；最小可只给 `meta.id` + `meta.name`。
+> ⚠️ `id` / `name` 住在 **`meta` 嵌套层**（包定义与配色的展示信息都在 `meta` 口袋里），
+> 不要写成顶层字段 —— 类型不匹配会直接编译报错。
 
 ### 3.2 配色 `themes/default/<设备>/<页面>/colors/<配色>/index.ts`
 
@@ -114,12 +120,16 @@ export default pkg;
 import type { MauthThemeColor } from 'skinsuite';
 
 const color: MauthThemeColor = {
-  id: 'light',
-  tone: 'light',          // 'light' | 'dark' —— 明暗系别，与 mode 联动的关键
+  meta: {
+    id: 'white',              // 配色 id = 目录名（只允许 [a-z0-9-]）
+    name: '白',
+    description: '浅色底 + 深色字'
+  },
+  tone: 'light',              // 'light' | 'dark' —— 明暗系别，与 mode 联动的关键（🔴 必填）
   tokens: {
     '--mauth-bg': '#ffffff',
     '--mauth-text': '#1f2937'
-    // ... 你的设计 token
+    // ... 你的设计 token（名字与取值都过白名单校验，见 skinsuite 的 tokens.ts）
   }
 };
 

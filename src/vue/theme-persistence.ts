@@ -1,5 +1,5 @@
 /**
- * 主题状态的**持久化与 URL 解析层**（localStorage 安全读写 + 旧数据迁移 + URL 多设备意图）
+ * 主题状态的**持久化与 URL 解析层**（localStorage 安全读写 + URL 多设备意图）
  *
  * 从 `oauth21/src/stores/theme-persistence.ts` 下沉（2026-10-19）。
  *
@@ -17,9 +17,9 @@
  * @since 2026-10-19（从 oauth21/src/stores/theme-persistence.ts 下沉，参数化键名/参数前缀）
  */
 import { DEFAULT_THEME_ID } from '../constants';
-import { getDefaultThemeId, resolveThemeId } from '../registry';
+import { resolveThemeId } from '../registry';
 import type { ThemeMode } from '../scheme';
-import { deviceIds, fallbackDevice, urlKeyOf } from './define-theme-device';
+import { deviceIds, urlKeyOf } from './define-theme-device';
 
 /** localStorage 键名集合（主题机制约定；与宿主存储冲突时通过 `ThemeStateOptions` 覆盖） */
 export interface ThemeStorageKeys {
@@ -27,19 +27,40 @@ export interface ThemeStorageKeys {
   mode: string;
   /** 配色 id 键 */
   theme: string;
-  /** 旧版本存配色 id 的键，只读不写（迁移用） */
-  legacySkin: string;
-  /** 旧版本标记「用户手动选过明暗」的键，只读不写（迁移用） */
-  legacyManual: string;
 }
 
-/** 默认键名（沿用旧键，让老用户的手动选择可以平滑迁移） */
+/**
+ * 默认键名（2026-10-23 加 `mauth:` 命名空间前缀）
+ *
+ * 🔴 旧默认是裸键 `'theme'` / `'theme-id'` —— 太通用：本仓就有三个前端
+ *    （admin / firewall / phonecopy）各自用裸 `'theme'` 存自己的明暗偏好，
+ *    skinsuite 宿主与它们同源部署时会**互相覆盖**。加前缀后各应用天然隔离。
+ * 读取侧带**一次性回退迁移**（见 `readWithLegacyFallback`）：新键缺席时读旧键，
+ *    存量用户的偏好无声延续；写入只写新键，旧键不动（同源下它可能属于别的应用，删不得）。
+ */
 export const DEFAULT_STORAGE_KEYS: ThemeStorageKeys = {
-  mode: 'theme',
-  theme: 'theme-id',
-  legacySkin: 'theme-skin',
-  legacyManual: 'theme-manual'
+  mode: 'mauth:mode',
+  theme: 'mauth:theme'
 };
+
+/**
+ * 旧默认键（0.7.x 及之前）—— 只用于**读回退**，不再写入。
+ * 宿主自定义过 `storageKeys` 的部署不受影响（两键都查它自己的键，随后才查旧默认键）。
+ */
+export const LEGACY_STORAGE_KEYS: ThemeStorageKeys = {
+  mode: 'theme',
+  theme: 'theme-id'
+};
+
+/**
+ * 读一个键，缺席时回退读旧默认键（一次性迁移语义）
+ *
+ * 返回第一个「存在」的值 —— 合法性校验归调用方（与改前一致：非法值照旧走兜底）。
+ * 只读不写：不在读路径里产生副作用（写迁移交给用户下一次显式操作，落的是新键）。
+ */
+function readWithLegacyFallback(key: string, legacyKey: string): string | null {
+  return safeGet(key) ?? safeGet(legacyKey);
+}
 
 /** URL 配色意图的参数前缀（配合设备 urlKey 组成 `th_color_<urlKey>`） */
 export const DEFAULT_COLOR_PARAM = 'th_color';
@@ -63,39 +84,31 @@ export function safeSet(key: string, value: string): void {
 }
 
 /**
- * 初始化明暗模式（含旧数据迁移）
+ * 初始化明暗模式
  *
- * 旧版本把明暗写成 'light'/'dark'，另用 `legacyManual` 标记是否手动选过。
- * 迁移规则：
- *   • 存的是三态值 'system' → 直接用
- *   • 存的是 'light'/'dark' 且有 manual 标记（用户真的手动选过）→ 保留其选择
- *   • 存的是 'light'/'dark' 但没有 manual 标记 → 那只是旧版跟随系统的副产物，算 'system'
+ * 落盘的是三态值（'system' / 'light' / 'dark'）就直接用；其余（非法 / 缺失）一律 'system'。
+ * 新键缺席时回退读旧默认键 `'theme'`（0.7.x 存量迁移，见 `DEFAULT_STORAGE_KEYS` 说明）。
  */
 export function readInitialMode(keys: ThemeStorageKeys = DEFAULT_STORAGE_KEYS): ThemeMode {
-  const saved = safeGet(keys.mode);
-  if (saved === 'system') return 'system';
-  if (saved === 'light' || saved === 'dark') {
-    return safeGet(keys.legacyManual) === 'true' ? saved : 'system';
-  }
-  return 'system';
+  const saved = readWithLegacyFallback(keys.mode, LEGACY_STORAGE_KEYS.mode);
+  return saved === 'system' || saved === 'light' || saved === 'dark' ? saved : 'system';
 }
 
 /**
- * 初始化主题：旧键 `legacySkin` 兜底
+ * 初始化主题
  *
- * 未登记 / 非法一律回**兜底设备 × 默认页面 × 默认包**里的兜底配色 ——
- * 即 `DEFAULT_THEME_COLOR`（`white`）。这里不按具体设备判：落盘的只是一个
- * "用户/部署方选过的配色"，它在哪端可用由各调用点按自己的设备解析（见 scope）。
+ * 落盘值未登记 / 非法时返回占位 `DEFAULT_THEME_ID`（`'default'`）。这里**不查注册表**：
+ * "默认配色"是「包 × 设备 × 页面」作用域里的概念，而初始化时页面上下文还不存在
+ * （页面由 `<ThemeView page="…">` 稍后告知）。占位 id 会在运行时由 `getThemeRecord`
+ * 的回退链（同系别首套 → 该范围兜底色）落到具体配色，再由意图层首屏对齐校正系别。
  *
  * ⚠️ 最后兜底是 `DEFAULT_THEME_ID`（`'default'`）而**不是**设备名：拿设备名当配色 id
  *    会得到一个永远查不到的 id，排查时极具误导性。
+ *
+ * 新键缺席时回退读旧默认键 `'theme-id'`（0.7.x 存量迁移，见 `DEFAULT_STORAGE_KEYS` 说明）。
  */
 export function readInitialTheme(keys: ThemeStorageKeys = DEFAULT_STORAGE_KEYS): string {
-  return (
-    resolveThemeId(safeGet(keys.theme) ?? safeGet(keys.legacySkin)) ??
-    getDefaultThemeId({ device: fallbackDevice() }) ??
-    DEFAULT_THEME_ID
-  );
+  return resolveThemeId(readWithLegacyFallback(keys.theme, LEGACY_STORAGE_KEYS.theme)) ?? DEFAULT_THEME_ID;
 }
 
 /** URL 上按设备解析出的配色意图：只记"这台设备被**显式**指定了哪套色" */

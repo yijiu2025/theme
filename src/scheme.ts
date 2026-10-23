@@ -70,8 +70,6 @@ export function normalizeMode(raw: unknown): ThemeMode | null {
 export interface RemoteThemeConfig {
   theme?: string;
   mode?: ThemeMode;
-  /** @deprecated 旧字段名，等价于 theme */
-  skin?: string;
   tokens?: ThemeTokenOverrides;
 }
 
@@ -81,7 +79,6 @@ export function normalizeRemoteThemeConfig(data: unknown): RemoteThemeConfig | n
   const out: RemoteThemeConfig = {};
 
   if (typeof raw.theme === 'string') out.theme = raw.theme;
-  else if (typeof raw.skin === 'string') out.skin = raw.skin;
 
   const mode = normalizeMode(raw.mode);
   if (mode) out.mode = mode;
@@ -90,5 +87,5 @@ export function normalizeRemoteThemeConfig(data: unknown): RemoteThemeConfig | n
     out.tokens = raw.tokens as ThemeTokenOverrides;
   }
 
-  return out.theme || out.skin || out.mode || out.tokens ? out : null;
+  return out.theme || out.mode || out.tokens ? out : null;
 }

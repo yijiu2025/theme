@@ -52,6 +52,11 @@ const registeredDefs: DeviceDef<DeviceContainerLoader>[] = [];
  *
  * 内部只做两件事：`pageContainers(glob, fileRe, idRe)` 建容器表、按声明顺序注册。
  * 「怎么判定当前是哪台设备」不在这里 —— 由宿主 `resolveDevice` 负责。
+ *
+ * 🔴 **按 id 覆盖而非追加**：声明模块被重复求值（HMR 热替换、单测反复 import）时，
+ *    同一设备注册两遍会让 `deviceIds()` 出重复项、清单变长、兜底语义漂移。
+ *    覆盖**保持原顺序位置**（声明顺序 = 优先级，重复注册不该改变优先级）——
+ *    与页面域 `defineThemePage` 的 Map 按名覆盖同一口径。
  */
 export function defineThemeDevice(options: ThemeDeviceOptions): DeviceDef<DeviceContainerLoader> {
   const def: DeviceDef<DeviceContainerLoader> = {
@@ -64,7 +69,9 @@ export function defineThemeDevice(options: ThemeDeviceOptions): DeviceDef<Device
       options.containers.idRe
     )
   };
-  registeredDefs.push(def);
+  const existing = registeredDefs.findIndex(d => d.id === options.id);
+  if (existing >= 0) registeredDefs[existing] = def;
+  else registeredDefs.push(def);
   return def;
 }
 

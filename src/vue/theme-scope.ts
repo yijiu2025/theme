@@ -25,7 +25,7 @@
  * @since 2026-10-20（设备来源：库内判定撤出，改 `<ThemeView>` device prop 告知）
  */
 import { computed, ref } from 'vue';
-import { DEFAULT_THEME_PACKAGE, DEFAULT_THEME_PAGE } from '../constants';
+import { DEFAULT_THEME_PACKAGE } from '../constants';
 import { getThemeRecord, listThemes } from '../registry';
 import { currentQuery } from './device-domain';
 import { fallbackDevice, registeredDevices } from './define-theme-device';
@@ -94,8 +94,13 @@ export function useThemeScope(
     if (activeDevice.value !== device) activeDevice.value = device;
   }
 
-  /** 当前生效页面 / 版式（配色归属 = 包 × 设备 × 页面） */
-  const activePage = ref<string>(DEFAULT_THEME_PAGE);
+  /**
+   * 当前生效页面（配色归属 = 包 × 设备 × 页面）
+   *
+   * 初始为空串：库不认识宿主的页面词汇（不设默认页），真实页面由
+   * `<ThemeView page="…">` 经 `setActivePageView` 告知。空串期间查询走空记录兜底。
+   */
+  const activePage = ref<string>('');
   const activeView = ref<string>(DEFAULT_THEME_PACKAGE);
 
   function setActivePageView(page: string, view: string): void {
@@ -178,14 +183,25 @@ export function useThemeScope(
     return getThemeRecord({ id, device, pkg, page });
   }
 
+  /**
+   * 当前生效配色记录（**共享解析缓存**，2026-10-23）
+   *
+   * `isDark` / `activeTone` / `packageId` 三个派生值原本各自独立调 `themeRecordFor()`
+   * —— registry 查询是 O(n) 扫描（回退链最多三遍全表），一次状态变化同一记录会被
+   * 重复解析 3+ 次（runtime 的 watch 还要再来一遍）。收进一个 computed 后，
+   * 同一次变化只解析一次，其余派生读缓存。
+   * 不导出：公开面按 index.ts 的「显式清单」哲学不扩大；三个派生值才是承诺。
+   */
+  const activeRecord = computed(() => themeRecordFor());
+
   /** 最终是否深色 = 当前**生效配色**的系别（明暗 ≡ 色系） */
-  const isDark = computed(() => themeRecordFor().tone === 'dark');
+  const isDark = computed(() => activeRecord.value.tone === 'dark');
 
   /** 当前生效配色的系别 */
-  const activeTone = computed(() => themeRecordFor().tone ?? 'light');
+  const activeTone = computed(() => activeRecord.value.tone ?? 'light');
 
   /** 当前生效主题包（做成 computed 让容器的 watch 能当响应源） */
-  const packageId = computed(() => themeRecordFor().pkg);
+  const packageId = computed(() => activeRecord.value.pkg);
 
   /** 当前生效设备（只读别名） */
   const device = computed(() => activeDevice.value);

@@ -20,7 +20,7 @@
  * @since 2026-10-18
  */
 import { useParentThemeSync } from './useParentThemeSync';
-import { fetchRemoteThemeConfig } from './remote-fetch';
+import { fetchRemoteThemeConfig, isRemoteThemeEnabled } from './remote-fetch';
 import type { RemoteThemeConfig } from '../scheme';
 
 export interface ThemeSourcesOptions {
@@ -45,10 +45,16 @@ function remoteEndpoint(): string {
  * 接入两条主题意图来源（父同步 + 后端配色），返回 cleanup
  *
  * 宿主 `useThemeRuntime` 里调一次：`const disposeSources = useThemeSources({ applyThemeConfig, applyTheme })`，
- * 并在 store 的 dispose 里调 `disposeSources()`。
+ * 并在 store 的 dispose 里调 cleanup。
+ *
+ * cleanup 做两件事：摘 postMessage 监听 + **中止在途的后端拉取** —— store 被
+ * dispose 后，迟到的响应不许再写已废弃的状态（fetch 走 AbortSignal，
+ * 「已 resolve 但尚未 apply」的竞态用 disposed 标志兜住）。
  */
 export function useThemeSources(options: ThemeSourcesOptions): () => void {
   const cleanups: Array<() => void> = [];
+  const abortFetch = new AbortController();
+  let disposed = false;
 
   // 父主题同步（iframe 嵌入时父切主题子跟着切）
   const allowed = allowedParentOrigins();
@@ -62,13 +68,20 @@ export function useThemeSources(options: ThemeSourcesOptions): () => void {
     );
   }
 
-  // 拉后端配色（异步发起，失败静默，不阻塞首屏）
+  // 拉后端配色（异步发起，失败静默，不阻塞首屏；dispose 时中止）
   const endpoint = remoteEndpoint();
-  void (async () => {
-    const clientId = new URLSearchParams(window.location.search).get('client_id') || undefined;
-    const config = await fetchRemoteThemeConfig(clientId, { endpoint });
-    if (config) options.applyThemeConfig(config);
-  })();
+  if (isRemoteThemeEnabled(endpoint)) {
+    void (async () => {
+      const clientId = new URLSearchParams(window.location.search).get('client_id') || undefined;
+      const config = await fetchRemoteThemeConfig(clientId, { endpoint, signal: abortFetch.signal });
+      // disposed 标志兜住「fetch 已完成、apply 尚未执行」的窗口期竞态
+      if (config && !disposed) options.applyThemeConfig(config);
+    })();
+  }
 
-  return () => cleanups.forEach(fn => fn());
+  return () => {
+    disposed = true;
+    abortFetch.abort();
+    cleanups.forEach(fn => fn());
+  };
 }

@@ -1,19 +1,25 @@
 /**
- * 让 `tsc` 能检查 Vue 绑定层 —— 它 `export { default as ThemeView } from './ThemeView.vue'`，
- * 而 tsc 本身不认 SFC，没有这份声明就会报 "Cannot find module './ThemeView.vue'"。
+ * `.vue` 模块的兜底声明（**仅在不走 vue-tsc 的工具链里生效**）
  *
- * 🔴 **能力边界（别误读成"vue 层已全量检查"）**：
- * 这份声明把 `.vue` 当成**不透明组件**，所以
- *   · ✅ 能检查 `src/vue/**\/*.ts` 的接线（props 名、事件签名、导出面、跨文件引用）
- *   · ❌ **不检查 SFC 内部**（`<script setup>` 里的类型错误抓不到）
- * SFC 内部仍由宿主的 `vue-tsc -b` 兜底 —— 宿主是源码直供，SFC 走它的编译管线。
+ * === 现状（2026-10-23 起）===
+ * `npm run typecheck` 的 vue 半边已改走 **vue-tsc**（`vue-tsc -p tsconfig.vue.json`，
+ * include 覆盖 `src/vue` 目录下的全部 `.ts` 与 `.vue`）：SFC 内部（`<script setup>` 的
+ * 类型错误）会被真实检查 —— 已用注入探针验证过 TS2322 能在 SFC 内部报出。
  *
- * 为什么不用 vue-tsc：库仓定位是"零运行时依赖的纯内核 + 可选绑定层"，
- * 为 dev 期类型检查再引一条 vue-tsc 工具链（且与 TS 6 的兼容性未验）不划算；
- * 这里要补的是"绑定层完全不在任何检查里"这个**全盲区**，tsc 够用。
+ * 本声明仍保留，兜的是**只跑纯 tsc 的场景**（某些 IDE / 单文件检查工具不认 SFC）：
+ * 没有它，`export { default as ThemeView } from './ThemeView.vue'` 会报
+ * "Cannot find module './ThemeView.vue'"。vue-tsc 下真实文件优先于通配声明，
+ * 两者并存互不干扰（已验证）。
  *
- * 这份声明只在 `tsconfig.vue.json` 生效 —— 主 `tsconfig.json` 排除了 `src/vue/**`，
+ * ⚠️ 能力边界（纯 tsc 场景下别误读成"vue 层已全量检查"）：
+ * 这份声明把 `.vue` 当成**不透明组件**，只保接线检查（props 名、导出面），
+ * **不检查 SFC 内部** —— 那是 vue-tsc 的活。
+ *
+ * 这份声明只在 `tsconfig.vue.json` 生效 —— 主 `tsconfig.json` 排除了 `src/vue` 目录，
  * 内核检查不会被它的宽松类型污染。
+ *
+ * ⚠️ ⚠️ 别在本块注释里写出「星号紧跟斜杠」的字符组合（如 glob 写法）：它会提前
+ * 闭合注释、把后续行当代码解析（types.ts 文件头踩过，本文件 2026-10-23 又踩过一次）。
  */
 declare module '*.vue' {
   import type { DefineComponent } from 'vue';

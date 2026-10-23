@@ -12,19 +12,19 @@
  * }));
  * ```
  *
- * === 为什么这个子路径指向源码 `.ts` 而不是 `dist/` ===
- * `vite.config.ts` 由 Vite 用 esbuild 预打包后执行，裸包说明符会被当外部依赖交给
- * Node `import()`。若指向 `dist/`，就要求"包必须先构建" —— CI 里 `npm ci` 不会
- * 构建工作区包，配置会直接起不来。Vite 自己能转译 TS，源码直供就绕开这个前提，
- * 与 `skinsuite/vue` 同一手法。
+ * === 这个子路径的解析方式（与 package.json exports 对齐，2026-10-23 校正）===
+ * `exports["./vite"]` 是**双轨**：
+ *   · `import` → `dist/vite/index.js`（编译产物）—— `vite.config.ts` 由 Vite 用 esbuild
+ *     预打包后交给 Node 执行，Node 不转译 TS，运行时必须给 `.js`；
+ *   · `types` → `src/vite/index.ts`（源码直供）—— 避免 d.ts 与源码漂移，
+ *     宿主的 `allowImportingTsExtensions` / Vite 转译消化类型侧。
+ * （历史注记：早期版本运行时也指向过源码 `.ts`，靠"Vite 自己能转译"成立；改为
+ * dist 后配置加载不再要求"包必须先构建才能被 publish 消费"，CI `npm ci` 场景更稳。）
  *
- * ⚠️ 本层相对 import **必须用显式 `.ts` 后缀**（`./plugin.ts` 而非 `./plugin` 或
- *    `./plugin.js`）：
- *    这个入口是**唯一在 vite.config / vitest.config 里被 import 的子路径**，config
- *    被 Node 直接执行（Vite 的 config 加载器只 bundle config 自身），Node 既不自动补
- *    无后缀、也不把 `.js` 映射到 `.ts` 源码。而纯内核（`./tone.js`）走 NodeNext 编译、
- *    `skinsuite/vue` 走应用代码的 Vite 转译，两者都用不上这个入口的约束，所以这里
- *    自成一套后缀规则。`.ts` 后缀由宿主的 `allowImportingTsExtensions` + Vite 转译共同消化。
+ * ⚠️ 本层相对 import 用显式 **`.js` 后缀**（`./plugin.js`）：
+ *    本层由 `tsconfig.vite.json` 以 NodeNext 编译到 `dist/vite/`，产物里的相对
+ *    说明符原样保留 —— 不带 `.js` 的话 Node 原生 ESM 解析不到。TS 会把 `.js`
+ *    映射回 `.ts` 源码做类型检查，与纯内核（`skinsuite`）同一约定。
  *
  * @author yijiu2025
  * @since 2026-10-17

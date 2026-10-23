@@ -32,7 +32,6 @@ import {
   DEFAULT_THEME_COLOR,
   DEFAULT_THEME_ID,
   DEFAULT_THEME_PACKAGE,
-  DEFAULT_THEME_PAGE,
   THEME_COLOR_DEF_FILE,
   THEME_COLOR_STYLE_FILE,
   THEME_COLORS_SEGMENT,
@@ -203,6 +202,19 @@ export function buildThemeRegistry(
  * 由宿主在启动时调 `installThemeRegistry(buildThemeRegistry(...))` 一次性装入，
  * 之后所有查询函数直接可用 —— 与宿主旧实现「`export const registry = buildRegistry()`」
  * 同一形态，`export function` 签名不变，断言与调用点几乎不用改。
+ *
+ * === 索引（2026-10-23 索引化）===
+ * 旧实现的回退链与范围查询是 O(n) 全表扫描：`findRecord` 回退最多两遍、
+ * `defaultColorIdOf` 每次 filter+sort、`listColorsOf` / `listColorIdsOfTone` /
+ * `resolveThemeId` / `listColorViews` 各扫一遍 —— 而一次主题状态变化会被
+ * scope / runtime 的多个 computed / watch 各自重复触发。现在给注册表配一份
+ * **惰性索引**（WeakMap 按注册表实例缓存）：
+ *   · 首次查询时遍历注册表一次建好，此后各查询 O(1)~O(k)（k = 该 id / 该作用域的记录数）；
+ *   · `installThemeRegistry` 换表 → 新表首次查询重建索引，旧索引随 Map 实例一起 GC，
+ *     不存在"改了表忘了刷索引"的失效问题；
+ *   · 索引只从 Map 的**插入序**派生（构建时按路径排序装入），各回退链"先到先得"
+ *     的语义与旧的全表扫描逐字一致（byColorId / byScope 的列表都是路径序）；
+ *   · 精确四段键查询仍是 `Map.get`（索引不重复造这个轮子）。
  * ------------------------------------------------------------------------- */
 
 /** 模块级注册表单例（宿主 `installThemeRegistry` 装入；未装入时为空表，查询走空兜底） */
@@ -213,12 +225,73 @@ export function installThemeRegistry(registry: Map<string, MauthThemeRecord>): v
   themeRegistry = registry;
 }
 
+/** 查询索引：一次遍历注册表派生出的全部辅助结构 */
+interface RegistryIndex {
+  /** 配色 id → 该 id 的全部记录（路径序；findRecord 回退 / toneOfAnyScope / resolveThemeId 用） */
+  byColorId: Map<string, MauthThemeRecord[]>;
+  /** 作用域键 `pkg/device/page` → 该范围的记录（路径序；范围查询用） */
+  byScope: Map<string, MauthThemeRecord[]>;
+  /** 作用域键 → id 字母序清单（defaultColorIdOf 用；建索引时排一次，不再每查询 sort） */
+  sortedIdsByScope: Map<string, string[]>;
+  /** 设备/页面键 `device/page` → 已登记 pkg 集合（listColorViews 用） */
+  pkgsByDevicePage: Map<string, Set<string>>;
+  /** 设备 → 记录（listThemes 按设备过滤用） */
+  byDevice: Map<string, MauthThemeRecord[]>;
+}
+
+/** 索引缓存：按注册表实例（WeakMap）—— 换表自动失效，旧索引随 Map 一起 GC */
+const indexCache = new WeakMap<Map<string, MauthThemeRecord>, RegistryIndex>();
+
+/** 作用域键：`pkg/device/page`（与 findRecord 的精确四段键同一拼法，去掉末段 id） */
+const scopeKeyOf = (pkg: string, device: string, page: string): string =>
+  `${pkg}/${device}/${page}`;
+
+function pushTo<K>(map: Map<K, MauthThemeRecord[]>, key: K, record: MauthThemeRecord): void {
+  const list = map.get(key);
+  if (list) list.push(record);
+  else map.set(key, [record]);
+}
+
+/** 取注册表的查询索引（首次查询时构建一次，此后 O(1) 命中缓存） */
+function registryIndex(registry: Map<string, MauthThemeRecord>): RegistryIndex {
+  const cached = indexCache.get(registry);
+  if (cached) return cached;
+
+  const idx: RegistryIndex = {
+    byColorId: new Map(),
+    byScope: new Map(),
+    sortedIdsByScope: new Map(),
+    pkgsByDevicePage: new Map(),
+    byDevice: new Map()
+  };
+  // Map 迭代 = 插入序 = 构建时的路径序 —— 回退链"先到先得"与旧全表扫描逐字一致
+  for (const record of registry.values()) {
+    pushTo(idx.byColorId, record.meta.id, record);
+    pushTo(idx.byScope, scopeKeyOf(record.pkg, record.device, record.page), record);
+    pushTo(idx.byDevice, record.device, record);
+    const dpKey = `${record.device}/${record.page}`;
+    const pkgs = idx.pkgsByDevicePage.get(dpKey);
+    if (pkgs) pkgs.add(record.pkg);
+    else idx.pkgsByDevicePage.set(dpKey, new Set([record.pkg]));
+  }
+  // 排序口径与旧 defaultColorIdOf 的裸 .sort() 一致（码点序，不用 localeCompare）
+  for (const [scope, records] of idx.byScope) {
+    idx.sortedIdsByScope.set(
+      scope,
+      records.map(r => r.meta.id).sort((a, b) => (a < b ? -1 : a > b ? 1 : 0))
+    );
+  }
+  indexCache.set(registry, idx);
+  return idx;
+}
+
 /**
  * 查找一条配色记录
  *
  * 四段都必须给（包 / 设备 / 页面 / 配色）。回退链：
- *   ① 精确匹配当前包 × 当前设备 × 当前页面；
- *   ② 兜底扫描同包（切包后 pkg 还没跟上的那一帧）；
+ *   ① 精确匹配当前包 × 当前设备 × 当前页面（Map.get，O(1)）；
+ *   ② 兜底扫描同包（切包后 pkg 还没跟上的那一帧；按 meta.id 走索引候选，
+ *      兼容手工装入、键段与 meta.id 不一致的注册表）；
  *   ③ 跨包兜底回默认包（当前包没有这个 id 时）。
  */
 function findRecord(
@@ -227,23 +300,23 @@ function findRecord(
   device: string,
   page: string
 ): MauthThemeRecord | undefined {
-  return themeRegistry.get(`${pkg}/${device}/${page}/${id}`) ??
-    [...themeRegistry.values()].find(
-      r => r.meta.id === id && r.device === device && r.page === page && r.pkg === pkg
-    ) ??
-    (pkg !== DEFAULT_THEME_PACKAGE
-      ? [...themeRegistry.values()].find(
-          r => r.meta.id === id && r.device === device && r.page === page && r.pkg === DEFAULT_THEME_PACKAGE
-        )
-      : undefined);
+  const exact = themeRegistry.get(`${pkg}/${device}/${page}/${id}`);
+  if (exact) return exact;
+  const candidates = registryIndex(themeRegistry).byColorId.get(id);
+  if (!candidates) return undefined;
+  const samePkg = candidates.find(r => r.pkg === pkg && r.device === device && r.page === page);
+  if (samePkg) return samePkg;
+  return pkg !== DEFAULT_THEME_PACKAGE
+    ? candidates.find(
+        r => r.pkg === DEFAULT_THEME_PACKAGE && r.device === device && r.page === page
+      )
+    : undefined;
 }
 
 /** 某版式下的兜底配色 id：先显式默认色 `white`，没有才退回 id 字母序第一 */
 function defaultColorIdOf(device: string, page: string, pkg: string): string | null {
-  const ids = [...themeRegistry.values()]
-    .filter(r => r.device === device && r.page === page && r.pkg === pkg)
-    .map(r => r.meta.id)
-    .sort();
+  const ids = registryIndex(themeRegistry).sortedIdsByScope.get(scopeKeyOf(pkg, device, page));
+  if (!ids) return null;
   if (ids.includes(DEFAULT_THEME_COLOR)) return DEFAULT_THEME_COLOR;
   return ids[0] ?? null;
 }
@@ -264,8 +337,10 @@ function emptyRecord(device: string, page: string): MauthThemeRecord {
 
 /** 当前有哪些配色（可选按设备过滤；不传则返回全部） */
 export function listThemes(device?: string): MauthThemeMeta[] {
-  const records = [...themeRegistry.values()];
-  return (device ? records.filter(r => r.device === device) : records).map(r => r.meta);
+  const records = device
+    ? registryIndex(themeRegistry).byDevice.get(device) ?? []
+    : [...themeRegistry.values()];
+  return records.map(r => r.meta);
 }
 
 
@@ -277,10 +352,9 @@ export function listThemes(device?: string): MauthThemeMeta[] {
  * 🔴 view ≡ pkg，所以本函数只列「当前包」下的配色。
  */
 export function listColorsOf(device: string, page: string, pkg: string): MauthThemeMeta[] {
+  const records = registryIndex(themeRegistry).byScope.get(scopeKeyOf(pkg, device, page)) ?? [];
   const seen = new Map<string, MauthThemeMeta>();
-  for (const record of themeRegistry.values()) {
-    if (record.device !== device || record.page !== page) continue;
-    if (record.pkg !== pkg) continue;
+  for (const record of records) {
     if (!seen.has(record.meta.id)) seen.set(record.meta.id, record.meta);
   }
   return [...seen.values()].sort((a, b) => a.id.localeCompare(b.id));
@@ -296,12 +370,9 @@ export function toneOfColor(
   return findRecord(id, pkg, device, page)?.tone ?? null;
 }
 
-/** 某配色的系别（任意登记处）；给"槽归位"这类没有明确范围的场景用 */
+/** 某配色的系别（任意登记处，路径序第一份）；给"槽归位"这类没有明确范围的场景用 */
 export function toneOfAnyScope(id: string): ThemeTone | null {
-  for (const record of themeRegistry.values()) {
-    if (record.meta.id === id) return record.tone;
-  }
-  return null;
+  return registryIndex(themeRegistry).byColorId.get(id)?.[0]?.tone ?? null;
 }
 
 /** 某个版式下、指定系别的全部配色 id（按目录名排序） */
@@ -311,9 +382,9 @@ export function listColorIdsOfTone(
   pkg: string,
   tone: ThemeTone
 ): string[] {
+  const records = registryIndex(themeRegistry).byScope.get(scopeKeyOf(pkg, device, page)) ?? [];
   const seen = new Set<string>();
-  for (const record of themeRegistry.values()) {
-    if (record.device !== device || record.page !== page || record.pkg !== pkg) continue;
+  for (const record of records) {
     if (record.tone !== tone) continue;
     seen.add(record.meta.id);
   }
@@ -330,12 +401,18 @@ export function resolveThemeId(
   if (typeof raw !== 'string') return null;
   const id = raw.trim().toLowerCase();
   if (!id || !THEME_ID_RE.test(id)) return null;
-  const match = (record: MauthThemeRecord): boolean =>
-    record.meta.id === id &&
-    (!device || record.device === device) &&
-    (!page || record.page === page) &&
-    (!pkg || record.pkg === pkg);
-  return [...themeRegistry.values()].some(match) ? id : null;
+  // 候选 = 该 id 的全部登记处（通常 1~几条），替代旧的全表 some() 扫描
+  const candidates = registryIndex(themeRegistry).byColorId.get(id);
+  if (!candidates || candidates.length === 0) return null;
+  if (device === undefined && page === undefined && pkg === undefined) return id;
+  return candidates.some(
+    r =>
+      (!device || r.device === device) &&
+      (!page || r.page === page) &&
+      (!pkg || r.pkg === pkg)
+  )
+    ? id
+    : null;
 }
 
 /**
@@ -345,6 +422,7 @@ export function resolveThemeId(
  *
  * 🔴 内核不设「默认设备」（默认设备是哪台是宿主的词汇表），所以 `device` **必填**
  *    （无默认值）。宿主在 re-export 壳里补齐自己的默认设备。
+ * 🔴 同理不设「默认页面」：`page` **必填**（页面是宿主的词汇表，内核不认 `login`）。
  *
  * 🔴 命名参数对象（2026-10-17 收口）：此前 `(id, device, pkg, page)` 与宿主
  *    `themeRecordFor(pkg, device, page)` 参数顺序不一致（中间三段对着，但首尾互换），
@@ -354,12 +432,12 @@ export function getThemeRecord(params: {
   id: string;
   device: string;
   pkg?: string;
-  page?: string;
+  page: string;
 }): MauthThemeRecord {
   const id = params.id;
   const device = params.device;
   const pkg = params.pkg ?? DEFAULT_THEME_PACKAGE;
-  const page = params.page ?? DEFAULT_THEME_PAGE;
+  const page = params.page;
   const record = findRecord(id, pkg, device, page);
   if (record) return record;
   const tone = toneOfAnyScope(id);
@@ -373,13 +451,13 @@ export function getThemeRecord(params: {
     emptyRecord(device, page);
 }
 
-/** 该范围内默认用哪套配色；无配色时返回 null */
+/** 该范围内默认用哪套配色；无配色时返回 null。`page` 必填（页面是宿主的词汇表） */
 export function getDefaultThemeId(params: {
   device: string;
-  page?: string;
+  page: string;
   pkg?: string;
 }): string | null {
-  return defaultColorIdOf(params.device, params.page ?? DEFAULT_THEME_PAGE, params.pkg ?? DEFAULT_THEME_PACKAGE);
+  return defaultColorIdOf(params.device, params.page, params.pkg ?? DEFAULT_THEME_PACKAGE);
 }
 
 /** 该配色是否登记过（限定哪几段就要求哪几段匹配） */
@@ -390,11 +468,6 @@ export function isKnownTheme(id: unknown, device?: string, page?: string, pkg?: 
 
 /** 某设备某页面下有哪些包登记了配色（面板要按包分组） */
 export function listColorViews(device: string, page: string): string[] {
-  return [
-    ...new Set(
-      [...themeRegistry.values()]
-        .filter(r => r.device === device && r.page === page)
-        .map(r => r.pkg)
-    )
-  ].sort();
+  const pkgs = registryIndex(themeRegistry).pkgsByDevicePage.get(`${device}/${page}`);
+  return [...(pkgs ?? [])].sort();
 }

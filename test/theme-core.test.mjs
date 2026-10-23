@@ -15,7 +15,6 @@ import {
   THEME_ID_RE,
   DEFAULT_THEME_ID,
   DEFAULT_THEME_PACKAGE,
-  DEFAULT_THEME_PAGE,
   DEFAULT_THEME_COLOR,
   DEFAULT_THEME_DARK_COLOR,
   THEME_TONES,
@@ -48,7 +47,6 @@ test('兜底常量：默认配色是显式 white / black，不依赖字母序', 
   assert.equal(DEFAULT_THEME_COLOR, 'white');
   assert.equal(DEFAULT_THEME_DARK_COLOR, 'black');
   assert.equal(DEFAULT_THEME_PACKAGE, 'default');
-  assert.equal(DEFAULT_THEME_PAGE, 'login');
   // 'default' 只是空记录占位，不是配色
   assert.equal(DEFAULT_THEME_ID, 'default');
 });

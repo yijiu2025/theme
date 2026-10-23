@@ -6,7 +6,7 @@
  * cookie 策略」是宿主的部署事实。所以把它们参数化，内核提供取数骨架，宿主编好参数即可。
  *
  * === 形状归一见 `skinsuite` 的 `normalizeRemoteThemeConfig` ===
- * 「哪些字段算数、`skin` 是不是旧名字、tokens 为什么必须扁平」是契约，已收进纯内核；
+ * 「哪些字段算数、tokens 为什么必须扁平」是契约，已收进纯内核；
  * 这里只负责「怎么拿到 JSON 再交给它归一」。
  *
  * === 失败策略 ===
@@ -26,6 +26,11 @@ export interface RemoteThemeFetchOptions {
   timeoutMs?: number;
   /** 是否不带 cookie（默认 true，避免把登录态发到第三方域名） */
   omitCredentials?: boolean;
+  /**
+   * 外部取消信号（store 被 dispose 时中止在途请求）。
+   * 与内部超时合并：任一触发即中止 —— fetch 只认一个 signal，这里桥接。
+   */
+  signal?: AbortSignal;
 }
 
 /** 后端换配色是否启用（端点非空） */
@@ -55,7 +60,9 @@ export async function fetchRemoteThemeConfig(
   }
   if (clientId) url.searchParams.set('client_id', clientId);
 
+  // 超时与外部 signal 桥接到同一个 controller（fetch 只认一个 signal）
   const controller = new AbortController();
+  options.signal?.addEventListener('abort', () => controller.abort(), { once: true });
   const timer = window.setTimeout(() => controller.abort(), options.timeoutMs ?? 3000);
   try {
     const res = await fetch(url.toString(), {
@@ -66,7 +73,7 @@ export async function fetchRemoteThemeConfig(
     if (!res.ok) return null;
     return normalizeRemoteThemeConfig(await res.json());
   } catch {
-    // 网络错误 / 超时 / JSON 解析失败：一律静默
+    // 网络错误 / 超时 / 外部中止 / JSON 解析失败：一律静默
     return null;
   } finally {
     window.clearTimeout(timer);

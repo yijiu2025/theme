@@ -25,9 +25,9 @@
  * 自己抄一遍一百多行的扫描逻辑，正是"库不够强大"的典型症状。
  *
  * `vite.config.ts` 由 Vite 用 esbuild 预打包后执行，裸包说明符会被当外部依赖交给
- * Node `import()`。因此本入口**刻意用 subpath export 指向源码 `.ts`**（而非 `dist/`），
- * 与 `skinsuite/vue` 同一手法：Vite 自己能转译 TS，源码直供就绕开了
- * "包必须先构建 dist 才能被 config 引用"的脆弱前提（CI 里 `npm ci` 不会构建工作区包）。
+ * Node `import()`。本入口的运行时走 **`dist/vite/index.js`**（Node 不转译 TS，产物必须
+ * 是 `.js`），类型声明则由 `exports["./vite"].types` 直供源码 `src/vite/index.ts`
+ * （避免 d.ts 与源码漂移）。宿主消费已发布的包时不需要先构建工作区。
  *
  * === 它解决的问题 ===
  * `import.meta.glob` 的模式必须是**字面量**（Vite 在编译期静态展开），所以
@@ -397,16 +397,28 @@ export function themeAssets(options: ThemeAssetsPluginOptions): Plugin {
 
     configureServer(server) {
       const dir = resolve(root, options.dir);
+      // 主题目录在 Vite root **之外**时，chokidar 默认只 watch root —— 必须显式加进来，
+      // 否则增删主题目录的事件永远收不到（monorepo 里目录指到别的包下时就是这种形态）。
+      server.watcher.add(dir);
+      // 路径归一比较：盘符大小写在 Windows 上不稳定（C: / c:），统一小写 + 正斜杠；
+      // 前缀带分隔符 —— 不带的话 `D:/theme` 会误匹配 `D:/theme-other` 下的文件。
+      const normPrefix = dir.split(sep).join('/').toLowerCase() + '/';
+      const underThemeDir = (file: string): boolean =>
+        file.split(sep).join('/').toLowerCase().startsWith(normPrefix);
       const onChange = (file: string): void => {
-        if (!file.startsWith(dir)) return;
+        if (!underThemeDir(file)) return;
         const mod = server.moduleGraph.getModuleById(virtualId);
         if (mod) server.moduleGraph.invalidateModule(mod);
         server.ws.send({ type: 'full-reload' });
       };
       // 只监听**增删**：新增/删除主题目录或清单会改变虚拟模块的导出面；
       // 改已有文件的内容由 HMR 自己处理（那是普通模块，不必重建清单）。
+      // add/unlink 覆盖文件级增删，addDir/unlinkDir 覆盖目录级增删
+      // （删除整个配色目录时只发 unlinkDir，没有它这条刷新会漏）。
       server.watcher.on('add', onChange);
       server.watcher.on('unlink', onChange);
+      server.watcher.on('addDir', onChange);
+      server.watcher.on('unlinkDir', onChange);
     }
   };
 }

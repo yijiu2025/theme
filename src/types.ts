@@ -117,7 +117,7 @@ export interface MauthThemePackage {
    * 写错 / 未登记一律回退**当前包**的版式（由 `theme/views/<page>.ts` 判定，
    * 不会因为包写错而白屏）。
    *
-   * ⚠️ URL `?view=` 优先级更高：声明不会挡住联调时的单次覆盖。
+   * ⚠️ URL 版式参数（`?th` / `?th_<设备缩写>`）优先级更高：声明不会挡住联调时的单次覆盖。
    */
   views?: Record<string, string>;
   /**

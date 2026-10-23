@@ -7,9 +7,9 @@
  * === 消息协议 ===
  * ```
  * { type: 'THEME_CHANGE', isDark: boolean }                        // 旧版：只同步明暗
- * { type: 'THEME_CHANGE', isDark?, theme?, skin?, tokens? }        // 新版：可同时换主题
+ * { type: 'THEME_CHANGE', isDark?, theme?, tokens? }               // 新版：可同时换主题
  * ```
- * `theme` 是配色 id；`skin` 是它的旧字段名（两者等价）。
+ * `theme` 是配色 id。
  * `tokens` 是一组**扁平**的 CSS 变量覆写表，实现「父应用给子页面定制每个组件」。
  * 旧的 `{ light, dark }` 两档结构不再接受 —— 配色自带完整底色，明暗档已取消。
  *
@@ -67,11 +67,10 @@ export function useParentThemeSync(options: ParentThemeSyncOptions): () => void 
     // origin 校验：只接受白名单父应用的消息（防恶意嵌入伪造主题切换）
     if (!options.isAllowedOrigin(event.origin)) return;
 
-    const { type, isDark, theme, skin, tokens } = (event.data ?? {}) as {
+    const { type, isDark, theme, tokens } = (event.data ?? {}) as {
       type?: unknown;
       isDark?: unknown;
       theme?: unknown;
-      skin?: unknown;
       tokens?: unknown;
     };
     if (type !== 'THEME_CHANGE') return;
@@ -81,8 +80,8 @@ export function useParentThemeSync(options: ParentThemeSyncOptions): () => void 
       options.applyDark(isDark);
     }
 
-    // 主题与组件级覆写（新协议）。`skin` 是 `theme` 的旧字段名，历史父应用仍能生效。
-    const wanted = typeof theme === 'string' ? theme : typeof skin === 'string' ? skin : undefined;
+    // 主题与组件级覆写（新协议）
+    const wanted = typeof theme === 'string' ? theme : undefined;
     if (wanted !== undefined || (tokens && typeof tokens === 'object')) {
       options.apply({
         theme: wanted,
