@@ -33,7 +33,6 @@ import type { ComputedRef } from 'vue';
 import { listColorViews, listColorsOf, toneOfColor } from '../registry';
 import type { ThemeDebugActions, ThemeDebugColor, ThemeDebugModel } from './types';
 import { pageOf } from './view-page';
-import { registeredDevices } from './define-theme-device';
 import { themeStoreKey } from './theme-store';
 import type { ThemeStoreLike } from './theme-store';
 
@@ -54,10 +53,10 @@ export function useThemeDebugPanel(): {
   /** 面板上手动指定的设备（覆盖页面判定），用于在**同一台电脑**预览另一端的配色 */
   const deviceOverride = ref<string | null>(null);
 
-  /** 可选设备清单 + 显示名（来自设备域 `defineThemeDevice` 自动注册） */
-  const devices = registeredDevices().map(d => d.id);
+  /** 可选设备清单 + 显示名（来自 store 的装配期注入清单，库不自持注册表） */
+  const devices = store.devices.map(d => d.id);
   const deviceLabels: Record<string, string> = Object.fromEntries(
-    registeredDevices().map(d => [d.id, d.label])
+    store.devices.map(d => [d.id, d.label])
   );
 
   /** 当前生效设备：面板覆盖优先，否则用分发器告知 store 的（`activeDevice`） */

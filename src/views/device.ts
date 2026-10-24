@@ -27,14 +27,25 @@
  *        `deviceContext` 全删，改为宿主注入 `resolveDevice`）
  */
 
-/** 一条设备声明（`containers` 是泛型：纯逻辑侧不关心它到底是什么，只透传） */
-export interface DeviceDef<T = unknown> {
+/**
+ * 设备词汇（**注入式**清单的一台设备）
+ *
+ * store 核心只消费这一面：URL 参数键形（`?th_<urlKey>` / `?th_color_<urlKey>`）、
+ * 初始/兜底设备（清单末条）、调试面板的设备列表。清单由宿主在装配期传入
+ * （`createThemeState({ devices })`）—— 库**不自持**设备注册表（2026-10-24 起，
+ * `defineThemeDevice` 注册机制退役，「设备有哪些、容器在哪」整份是宿主事实）。
+ */
+export interface DeviceVocab {
   /** 设备 id = 主题包内的目录名，只允许 `[a-z0-9-]` */
   id: string;
   /** 中文名（调试面板 / 日志用） */
   label: string;
   /** 缩写名（URL 专属参数后缀用，如 `?th_<urlKey>` / `?th_color_<urlKey>`）；缺省回落 `id` */
   urlKey?: string;
+}
+
+/** 一条设备声明（`containers` 是泛型：纯逻辑侧不关心它到底是什么，只透传） */
+export interface DeviceDef<T = unknown> extends DeviceVocab {
   /** 该设备在某页的容器（分发器渲染它）；返回 undefined 表示「该设备没有这一页的容器」 */
   containers: ReadonlyMap<string, T>;
 }

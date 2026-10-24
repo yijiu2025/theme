@@ -36,6 +36,8 @@ export interface InstallThemeDomainOptions {
 }
 
 let routerRef: DeviceDomainRouter | null = null;
+/** 无 router 时的 query 快照（首次 currentQuery() 读一次 location.search；无路由应用的 URL 本来不变） */
+let routerlessQuery: Record<string, unknown> | null = null;
 
 /**
  * 装配设备域运行时（`app.use(theme, { router })` 时调用一次）
@@ -47,9 +49,37 @@ export function installThemeDomain(options: InstallThemeDomainOptions): void {
   routerRef = options.router;
 }
 
-/** 当前路由 query（`<ThemeView>` 读 URL 版式/配色参数、编排层同步版式意图用）；未装配时返回空对象 */
+/**
+ * 无 router 时的 query：**装载时读一次** `location.search`，转成 vue-router 的
+ * `LocationQuery` 形态（重复键折叠为数组）—— 版式侧 `readUrlViewIntent` 的 `present()`
+ * 拒绝数组 ⇒ `?th=a&th=b` 按未指定，与路由形态逐字同口径。
+ * 只读一次不追变更：无路由应用没有路由器推 history，URL 装载后不会自己变。
+ */
+function readRouterlessQuery(): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  try {
+    if (typeof window !== 'undefined' && window.location?.search) {
+      for (const [key, value] of new URLSearchParams(window.location.search)) {
+        const prev = out[key];
+        if (prev === undefined) out[key] = value;
+        else if (Array.isArray(prev)) prev.push(value);
+        else out[key] = [prev, value];
+      }
+    }
+  } catch {
+    /* SSR / 异常环境 → 空 query */
+  }
+  return out;
+}
+
+/**
+ * 当前路由 query（`<ThemeView>` 读 URL 版式/配色参数、编排层同步版式意图用）；
+ * 未装配 router 时回退 location.search 一次性快照（无路由应用，见文件头）
+ */
 export function currentQuery(): Record<string, unknown> {
-  return routerRef?.currentRoute.value.query ?? {};
+  if (routerRef) return routerRef.currentRoute.value.query;
+  if (!routerlessQuery) routerlessQuery = readRouterlessQuery();
+  return routerlessQuery;
 }
 
 /**

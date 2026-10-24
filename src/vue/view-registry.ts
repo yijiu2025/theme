@@ -21,7 +21,7 @@
  * @since 2026-10-17（从 oauth21 下沉；2026-10-17 末合并原 view-picker.ts，共 180 行）
  */
 import type { Component } from 'vue';
-import { registeredDevices } from './define-theme-device';
+import { THEME_ID_RE } from '../constants';
 
 /**
  * 版式组件加载表形态：键 → 加载器
@@ -88,9 +88,14 @@ function asText(value: unknown): string | null {
   return typeof value === 'string' && value.trim() !== '' ? value : null;
 }
 
-/** 设备名是否在设备域白名单里（`defineThemeDevice` 自动注册） */
+/**
+ * 设备段白名单：内核只认「**合法 id 形态**」（`THEME_ID_RE`）。
+ * 设备**词汇表**归宿主的注入清单（2026-10-24 起库不自持注册表）——不认识的
+ * 设备名只要形态合法就进表（渲染侧按作用域查，查不到自然不渲染），宿主关卡
+ * 负责盯「主题包里的设备目录 ⊆ 宿主设备清单」。
+ */
 function isKnownDevice(raw: unknown): raw is string {
-  return typeof raw === 'string' && registeredDevices().some(d => d.id === raw);
+  return typeof raw === 'string' && THEME_ID_RE.test(raw);
 }
 
 /** 归一化设备名：不在白名单返回空串（建表时据此跳过非法设备目录） */
@@ -194,10 +199,11 @@ export function createViewPicker(options: ViewPickerOptions): ViewPicker {
   }
 
   function asDevice(value: unknown): string {
-    // 设备名归一化：白名单命中取原值，否则兜底到末条 fallback 设备
-    if (isKnownDevice(value)) return value;
-    const defs = registeredDevices();
-    return defs[defs.length - 1]?.id ?? '';
+    // 设备词汇归宿主清单（2026-10-24）：这里只做**形态**归一 —— 合法 id 原样透传，
+    // 查不到版式由 registry.resolve 的既有回退链兜底（落当前包内置版式）；
+    // 形态非法落空串。不再「未知设备顶替末条设备」（那是注册表时代的兜底，
+    // 注册表退役后 picker 在声明期创建、拿不到宿主清单，语义随之收口为信任调用方）。
+    return isKnownDevice(value) ? value : '';
   }
 
   function pick(source: ViewPickerSource = {}): string {

@@ -34,6 +34,9 @@ npm install skinsuite
 - **完整接入指南**：[`docs/onboarding.md`](./docs/onboarding.md) —— 从安装、目录约定、写主题资产、
   写声明文件、`vite.config.ts`、`bootstrap.ts`、store、`App.vue`、路由与容器，到验证清单与常见坑，
   每一步给真实 API + 完整代码。
+- **使用示例 + 入口函数流程手册**：[`docs/usage-and-flows.md`](./docs/usage-and-flows.md) ——
+  完整可抄的接入骨架（路由版 + 无路由版），以及**每个公开入口的**「从哪到哪 / 存了什么 /
+  保存格式 / 调用链路」，含一次切肤的完整时序。
 
 先看三个入口的分工，再看下面的「30 秒上手」体会单个 API 的用法：
 

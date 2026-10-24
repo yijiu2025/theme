@@ -34,6 +34,7 @@ import { DEFAULT_COLOR_PARAM, DEFAULT_STORAGE_KEYS } from './theme-persistence';
 import { DEFAULT_VIEW_PARAM } from '../views/params';
 import { listThemes } from '../registry';
 import type { ThemeStorageKeys } from './theme-persistence';
+import type { DeviceVocab } from '../views/device';
 
 /** 宿主策略收口点（全可选，默认 = 主题机制约定，oauth21 即默认值本身） */
 export interface ThemeStateOptions {
@@ -43,6 +44,20 @@ export interface ThemeStateOptions {
   colorParam?: string;
   /** URL 版式意图参数前缀（配合设备 urlKey 组成 `th_<urlKey>`） */
   viewParam?: string;
+  /**
+   * 作用域播种（P0 无路由支持，2026-10-23）：`activePage` 的初始值。
+   * 无路由 / 纯壳层应用没有 `<ThemeView>` 告知页面，播种一个页面名（如 `'app'`）
+   * 让 token 从首帧就能解析；路由型应用无需给（`<ThemeView>` 挂载即覆盖）。
+   */
+  defaultPage?: string;
+  /**
+   * 设备词汇清单（2026-10-24 注入化）：`[{ id, label, urlKey? }]`，**数组序 = 优先级，
+   * 末条 = 兜底设备**。库不自持设备注册表（`defineThemeDevice` 已退役）——URL 参数键形
+   * （`?th_<urlKey>` / `?th_color_<urlKey>`）、初始/兜底设备、调试面板设备列表全部消费
+   * 这份注入值。与 `storageKeys` / `colorParam` 同属装配期参数化（同一架构语言）。
+   * 不给时为空清单：设备维度 URL 参数不解析、兜底设备为空串（themeId 走落盘/默认链）。
+   */
+  devices?: readonly DeviceVocab[];
 }
 
 /**
@@ -65,7 +80,7 @@ export function createThemeState(options: ThemeStateOptions = {}) {
   const viewParam = options.viewParam ?? DEFAULT_VIEW_PARAM;
 
   // ① 作用域（共享基础：activeDevice / activePage / activeView / themeRecordFor / isDark 等）
-  const scope = useThemeScope(keys, colorParam, viewParam);
+  const scope = useThemeScope(keys, colorParam, viewParam, options.defaultPage ?? '', options.devices ?? []);
   // ② 意图（明暗三态 + 记忆槽 + 色系联动 + 用户操作入口）
   const intent = useThemeIntent(scope, keys);
   // ③ 运行时（token 注入 + 附加样式 + 明暗类 + 外部配置）；必须最后创建（内部 watch immediate 依赖前两步）
@@ -112,6 +127,8 @@ export function createThemeState(options: ThemeStateOptions = {}) {
 
   return {
     // ---- 来自 scope ----
+    /** 装配期注入的设备词汇清单（调试面板用；库不自持注册表） */
+    devices: scope.devices,
     mode: intent.mode,
     isDark: scope.isDark,
     themeId: scope.themeId,

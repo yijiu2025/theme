@@ -109,7 +109,7 @@ export type {
  * 视口阈值 / UA / `?isMobile` / `?from=` 这些词汇。
  */
 export { containersOf } from './views/device.js';
-export type { DeviceDef } from './views/device.js';
+export type { DeviceDef, DeviceVocab } from './views/device.js';
 
 /**
  * 外部下发的主题配置：**只归一形状，不碰网络**

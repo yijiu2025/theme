@@ -30,9 +30,12 @@
  */
 import type { InjectionKey } from 'vue';
 import type { ThemeMode } from '../scheme';
+import type { DeviceVocab } from '../views/device';
 
 /** 主题 store 的结构契约（宿主 store 结构兼容即可传） */
 export interface ThemeStoreLike {
+  /** 装配期注入的设备词汇清单（调试面板的设备列表用；库不自持注册表） */
+  readonly devices: readonly DeviceVocab[];
   /** 当前生效主题包名（= 版式 id，一个包一种版式） */
   readonly packageId: string;
   /** 当前是否深色（= 生效配色的系别） */

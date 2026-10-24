@@ -35,8 +35,9 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json && tsc -p tsconfig.vite.json",
+    "build:vue-tests": "node scripts/build-vue-tests.mjs",
     "typecheck": "tsc -p tsconfig.json && vue-tsc -p tsconfig.vue.json",
-    "test": "npm run build && node --test",
+    "test": "npm run build && npm run build:vue-tests && node --test \"test/*.test.mjs\" \".test-dist/*.test.js\"",
     "publish:sync": "node scripts/publish-and-sync.mjs",
     "prepack": "npm run build"
   },
@@ -77,6 +78,8 @@
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
+    "esbuild": "^0.28.2",
+    "happy-dom": "^21.0.4",
     "typescript": "^6.0.3",
     "vite": "^7.0.0",
     "vue": "^3.5.38",

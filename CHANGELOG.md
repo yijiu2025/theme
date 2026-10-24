@@ -9,6 +9,63 @@
 >   旧名 `mauth-theme-core` 的 `0.1.0` / `0.1.1` 均已标记 **deprecated** 并保留可安装，不再更新 ——
 >   它们的代码与 `skinsuite@0.1.0` 完全一致，只有包名不同。
 
+## 0.9.0 — 未发布
+
+**无路由应用 + 路由树外 UI（弹窗 / 通知 / 悬浮窗）的多主题支持**（设计计划见根仓 `docs/plans/2026-10-23-theme-routerless-overlay.md`）。P0 无路由支持是纯放宽（向后兼容），P1a / P1b 是新增能力（新增组件与目录契约，不改既有行为）。
+
+### P0 无路由支持（新增能力，无行为变更）
+
+- **`app.use(theme)` 无参可用**：`ThemePluginOptions.router` 改可选。无 vue-router 的应用（纯 UI 壳 / 嵌入式小组件）不必再传假 router
+- **`currentQuery()` 无 router 回退**：未装 router 时读 `location.search` 一次性快照（重复键折叠为数组，与 vue-router `LocationQuery` 同形）——无路由应用的 URL 本来不变，一次性读取是正确语义；装了 router 的宿主行为零变化
+- **新组件 `<ThemeScope page device>`**：`<ThemeView>` 的 token-only 子集——只锚定作用域（`setActivePageView` / `setActiveDevice`），模板只有一个 `<slot />`，不查页面注册表、不加载版式组件。无路由应用与路由型应用的壳层兜底都靠它
+- **`createThemeState({ defaultPage })` 播种**：`activePage` 初始值——没有任何 `<ThemeView>` / `<ThemeScope>` 挂载时 token 也能从首帧解析（此前 activePage 空串 → 零注入）
+
+### P1a 作用域主题（同屏多主题 / 钉死配色）
+
+- **`token-runtime` 注入目标参数化**：`applyThemeLayers(layers, { target })` / `clearThemeTokens(target?)` / `getInjectedTokenNames(target?)`——注入名单改 WeakMap 按目标元素分账，多目标互不串台、差集清理只动"该目标自己写过的名字"。**缺省目标仍是 html 根，历史行为逐字不变**
+- **新组件 `<ThemeProvider page device :pkg? :color-id?>`**：给子树一套**自己的主题**——解析走内核纯查询 `getThemeRecord`（**不读不写全局 store**），token / `.dark` 类 / `data-mauth-theme` 注入到组件根元素，卸载精确清理。作用域是 **tokens-only**（theme.scss 与基线 `html.dark` 不进作用域）
+- **新 composable `useScopedTheme` / `resolveScopedRecord`**：Provider 与 ThemePart 共用的作用域注入半边；`color-id` 指定了但解析不到时 dev 警告、prod 静默兜底（Q2 口径）
+
+### P1b 部件层（主题化的弹窗 / 通知 / 悬浮窗组件本身）
+
+- **目录契约 `themes/<包>/<设备>/parts/<部件id>/`**：与页面平级的"可复用零件"层（page = 导航表面，part = 组合零件）。`index.vue` 是部件 DOM 实现（**换版式 = 换主题包**，与页面同一条法则），可选 `colors/` 是部件自己的配色域（注册进现有注册表，page 段记 `part:<部件id>` 命名空间）。🔴 parts 住在**包内**（不与 default/compact 并列）——包自足性是机制根基（计划 §2.3 坑 ④）
+- **新组件 `<ThemePart id :ctx? :device? :pkg? :color-id?>`**：渲染"当前生效的部件实现"——解析键 (包 × 设备 × 部件 id)，**绝不调 `setActivePageView` / `setActiveDevice`**（用 `<ThemeView>` 渲染弹窗会劫持全局作用域、背景换肤闪变——计划 §一「陷阱」）；default 包 eager 兜底、其余包惰性；颜色默认继承全局，`color-id` 走 P1a 作用域注入
+- **插件扫描 + 装配**：`themeAssets` 产出 `themeParts`（按部件 id 分组，default eager），`installThemeParts` / `themePartsFor` 收进单例；`theme.d.ts` 补 `virtual:theme` 的 `themeParts` 类型
+- **测试基建**：`test/vue/*.test.ts` 经 esbuild 打包到 `.test-dist`（node:test 直跑，不引 vitest），devDeps 加 happy-dom + esbuild；vue 层（作用域注入 / 无路由回退 / defaultPage 播种 / dispose）首次有库级测试
+
+### 构建插件零配置（接入仪式消除）
+
+- **`themeAssets()` 零参可用**：`ThemeAssetsPluginOptions.dir` 改可选。省略时插件在 `configResolved` 里用 Vite 已加载的 env（`config.env`，含 `.env.<mode>` / `.env.local` / CLI `--env-dir` 分层）读 `VITE_THEME_DIR`，未配置回落 `DEFAULT_THEME_DIR`；root 取权威 `config.root`。宿主 `vite.config.ts` 不再需要 `defineConfig(({ mode }) => …)` + `resolveThemeDir(mode, root)` 的三行仪式，也结构性消除了 `process.cwd()` 陷阱（从非工程根 cwd 起 vite 时手工 `loadEnv` 会读错目录、主题扫空）。显式传 `dir` 的宿主行为逐字不变（向后兼容）
+- 新导出 `THEME_DIR_ENV_KEY`（env 键名单一来源，`themeAssets()` 自解析与 `resolveThemeDir()` 共用）；`resolveThemeDir` 保留给 vite 之外的场合（e2e 关卡、Node 脚本、config 定义期就需要目录绝对路径的宿主）
+
+### vite 插件层工程化（render 重构 / 跳过警告 / 测试）
+
+- **`renderLoaderTable` 收拢重复段**：`themeViews` / `themeParts` 两段「builtin 过滤 + 分组 + eager/惰性」的近似重复拼接收成一个泛型函数；重构以**改前/改后生成模块字节级 diff 为零**验收，生成物契约零变化
+- **扫描跳过 dev 警告**：包缺 `index.ts`、页面缺 `index.vue`、配色缺 `index.ts`、部件缺 `index.vue` 四类「写歪就静默跳过」的点，现在在 dev（`command === 'serve'`）下经 `load()` 边界以 `[theme] 扫描跳过 <路径>：<原因>` **去重**警告 —— 此前纯静默、全靠宿主 e2e 关卡大喊；构建期零噪音；`.` 开头目录（.git 等）静默跳过不进警告
+- **`load()` 返回 `{ code, map: null }`**：显式声明「无 sourcemap」，虚拟模块内运行时报错不再参与任何 map 推断；将来要挂真 map 不用改钩子契约
+- **包内插件层测试**：新增 `test/vite-plugin.test.mjs`（7 例，钩子级驱动 + 运行期 tmp fixture，fixture 不入库防漂移），覆盖零参/env/缺省回落/显式 dir 优先/EMPTY_MODULE/eager-惰性形态/警告去重与 build 静默 —— 插件层首次有库内测试（此前仅 oauth21 集测兜底）
+
+### 设备清单注入化（`defineThemeDevice` 注册表退役）
+
+- **设备词汇改为装配期注入**：`ThemeStateOptions.devices: DeviceVocab[]`（`{ id, label, urlKey? }`，数组序 = 优先级、末条 = 兜底）。与 `storageKeys` / `colorParam` / `viewParam` 同一参数化语言 —— 库**不自持**设备注册表，只读取渲染。store 核心全部消费注入值：URL 参数键形（`?th_<urlKey>` / `?th_color_<urlKey>`）、初始/兜底设备（`theme-scope`）、调试面板设备列表（`theme-debug` / 面板经 `ThemeStoreLike.devices`）
+- **退役**：`defineThemeDevice` / `deviceIds` / `fallbackDevice` / `registeredDevices` / `urlKeyOf`（模块删除）。导出面改为**纯工具**：`pageContainers` / `containerOf` / `resolveContainerOf`（传 defs 版，无模块状态）——「设备 id → 容器」的布线整份归宿主清单文件
+- **`view-registry` 设备白名单退化为形态校验**：`THEME_ID_RE` 合法即可进表（内核只认「设备名是字符串」这条形态，设备词汇表归宿主）；picker 的 `asDevice` 不再用末条设备顶替未知值（声明期拿不到清单，未知设备由 `registry.resolve` 既有回退链兜底落当前包）
+- 新类型 `DeviceVocab`（内核 `skinsuite` 与 `skinsuite/vue` 双导出）；`ThemeStoreLike` 增 `devices`
+- **宿主迁移**：设备清单（词汇 + 布线一份）放宿主（如 oauth21 `src/view/devices.ts`），`createThemeState({ devices })` 注入、分发器直接 import 宿主清单（零库 import 的查询函数除外——`pageContainers` 等纯工具可复用）
+
+### 纯 JS 宿主：主题包定义支持 index.js
+
+- **包定义与配色定义接受 `index.ts` / `index.js` 两种形态**（新增共享契约 `THEME_DEF_FILE_CANDIDATES`，`.ts` 在前 = 并存时优先）：无 TS 工具链的前端也能纯 JS 写主题包（定义本质是 meta / tone / tokens / views 数据）。扫描侧（`pickDefFile`）按候选序取实际存在的文件、**键带实际文件名**；内核 `packageFromKey` / `parseColorKey` 同步认两种后缀——两侧同一来源，防「扫得到但解析不出」
+- 顺带修复 `parseColorKey` 拼接正则的**交替优先级缺陷**：多后缀裸拼 `a|b` 进大正则会被 `|` 劈成两半（单后缀时代无害、多后缀下必失效），整体包 `(?:…)` 修正——由新增的 JS 形态用例捕获
+- 边界不动：版式/部件组件恒为 `index.vue`、附加样式恒为 `theme.scss`、声明目录恒为 `views/*.ts`
+- 新增 3 个用例：registry 的 JS 键同权解析、插件的 JS fixture 扫描、`.ts`/`.js` 并存优先级
+
+### 使用建议（组合方式）
+
+- 弹窗/通知**跟随当前主题**：裸用（CSS 变量从 html 根继承，零成本，如 oauth21 MessageToast）
+- 弹窗/悬浮窗**钉死配色**：`<ThemeProvider page="app" device="standard" color-id="black">`
+- 弹窗 DOM **随包换肤**：行为容器里 `<ThemePart id="confirm-modal" :ctx="ctx" />`（行为唯一一份 + 部件实现纯呈现，容器/呈现分离见计划 §2.3 ④）
+
 ## 0.8.0 — 未发布
 
 **全面审查后的健壮性版本**：一次覆盖「生命周期清理 / 静默失败防呆 / 查询性能 / 类型检查盲区」的企业级体检修复（审查报告见根仓 `reports/theme-core-review-2026-10-23.md`）。

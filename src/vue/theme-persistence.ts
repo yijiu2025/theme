@@ -19,7 +19,7 @@
 import { DEFAULT_THEME_ID } from '../constants';
 import { resolveThemeId } from '../registry';
 import type { ThemeMode } from '../scheme';
-import { deviceIds, urlKeyOf } from './define-theme-device';
+import type { DeviceVocab } from '../views/device';
 
 /** localStorage 键名集合（主题机制约定；与宿主存储冲突时通过 `ThemeStateOptions` 覆盖） */
 export interface ThemeStorageKeys {
@@ -127,7 +127,8 @@ export type DeviceThemeIntent = Partial<Record<string, string>>;
  * 🔴 **空串 = 未指定**：`?<colorParam>_<urlKey>=` 不能把 `?<colorParam>=blue` 顶掉。
  */
 export function readUrlIntent(
-  colorParam: string = DEFAULT_COLOR_PARAM
+  colorParam: string = DEFAULT_COLOR_PARAM,
+  devices: readonly DeviceVocab[] = []
 ): { deviceTheme: DeviceThemeIntent } {
   const deviceTheme: DeviceThemeIntent = {};
   try {
@@ -137,10 +138,11 @@ export function readUrlIntent(
       raw && raw.trim() !== '' ? raw : null;
     // 无设备前缀的通用键：三端共用，任一设备没有专属键时用它
     const anyScope = present(params.get(colorParam));
-    for (const device of deviceIds()) {
-      const scoped = present(params.get(`${colorParam}_${urlKeyOf(device)}`));
+    // 设备清单由装配期注入（库不自持注册表）；urlKey 缺省回落 id，与声明时代同口径
+    for (const device of devices) {
+      const scoped = present(params.get(`${colorParam}_${device.urlKey ?? device.id}`));
       const resolved = resolveThemeId(scoped ?? anyScope);
-      if (resolved) deviceTheme[device] = resolved;
+      if (resolved) deviceTheme[device.id] = resolved;
     }
     return { deviceTheme };
   } catch {

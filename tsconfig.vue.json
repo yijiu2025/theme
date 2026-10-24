@@ -7,6 +7,6 @@
     "lib": ["ES2020", "DOM"],
     "types": ["vite/client"]
   },
-  "include": ["src/vue/**/*.ts", "src/vue/**/*.d.ts", "src/vue/**/*.vue"],
+  "include": ["src/vue/**/*.ts", "src/vue/**/*.d.ts", "src/vue/**/*.vue", "test/vue/**/*.ts"],
   "exclude": []
 }

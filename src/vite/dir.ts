@@ -40,6 +40,12 @@
  *    直接读 `process.env` 在 `npm run dev` 下恒 undefined —— 于是永远回落默认值，
  *    看着能用、改 env 却不生效，属于最难发现的一类。
  *
+ * === vite 插件场景不需要本函数（0.8.0 起）===
+ * 宿主在 `vite.config.ts` 里直接 `themeAssets()` 零参即可 —— 插件在 `configResolved`
+ * 里用 Vite 已加载的 env（`config.env`）与权威 `config.root` 自解析。本函数的
+ * 「手工 loadEnv + 显式传 root」仪式只留给 **vite 之外**的场合：e2e 关卡、Node
+ * 脚本、或需要在 config 定义期就拿到目录绝对路径的宿主。
+ *
  * @author yijiu2025
  * @since 2026-10-17
  */
@@ -54,6 +60,9 @@ import { loadEnv } from 'vite';
  * 宿主可通过 `resolveThemeDir(mode, root, { defaultDir })` 覆盖。
  */
 export const DEFAULT_THEME_DIR = 'src/theme';
+
+/** 主题根目录的 env 键名（`themeAssets()` 自解析与 `resolveThemeDir()` 共用同一来源） */
+export const THEME_DIR_ENV_KEY = 'VITE_THEME_DIR';
 
 /** 主题根目录内、主题包的子目录名（固定约定，宿主 `views/*.ts` 的字面量 glob 依赖它稳定） */
 export const THEME_PACKAGES_SUBDIR = 'themes';
@@ -76,7 +85,7 @@ export function resolveThemeDir(
   root: string = process.cwd(),
   opts: { defaultDir?: string; envKey?: string } = {}
 ): string {
-  const envKey = opts.envKey ?? 'VITE_THEME_DIR';
+  const envKey = opts.envKey ?? THEME_DIR_ENV_KEY;
   const defaultDir = opts.defaultDir ?? DEFAULT_THEME_DIR;
   // 第三个参数是前缀白名单：只读 VITE_ 开头的，避免把后端密钥之类带进来
   const env = loadEnv(mode, root, 'VITE_');

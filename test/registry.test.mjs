@@ -176,3 +176,80 @@ test('installThemeRegistry 换表：新表查询不读旧索引（索引失效�
   assert.equal(toneOfAnyScope('blue'), 'dark');
   assert.equal(listThemes().length, 3);
 });
+
+/* ---------------------------------------------------------------------------
+ * 部件配色（P1b，2026-10-23）：parts 形状的键 → page 段记 `part:<id>` 命名空间
+ * ------------------------------------------------------------------------- */
+
+test('buildThemeRegistry：部件配色键解析为 page = part:<id> 命名空间', () => {
+  const modules = {
+    packages: { './default/index.ts': { default: { meta: { id: 'default', name: '默认包' } } } },
+    colors: {
+      './default/standard/parts/confirm-modal/colors/black/index.ts': {
+        default: { meta: { id: 'black', name: '黑' }, tone: 'dark', tokens: { '--mauth-bg': '#000' } }
+      },
+      './default/standard/parts/confirm-modal/colors/white/index.ts': {
+        default: { meta: { id: 'white', name: '白' }, tone: 'light', tokens: { '--mauth-bg': '#fff' } }
+      }
+    },
+    styles: {
+      './default/standard/parts/confirm-modal/colors/black/theme.scss': async () => '.x{}'
+    }
+  };
+  const registry = buildThemeRegistry(modules);
+  installThemeRegistry(registry); // 🔴 查询函数读模块级单例，必须装入
+  assert.equal(registry.size, 2);
+
+  const black = registry.get('default/standard/part:confirm-modal/black');
+  assert.ok(black, '部件配色以 part:<id> 页段登记');
+  assert.equal(black.page, 'part:confirm-modal');
+  assert.equal(black.tone, 'dark');
+  assert.equal(typeof black.loadStyle, 'function'); // 部件 theme.scss 正常挂上
+
+  // 查询链原样可用：getThemeRecord 用 part: 页段解析
+  const rec = getThemeRecord({
+    id: 'black',
+    device: 'standard',
+    pkg: 'default',
+    page: 'part:confirm-modal'
+  });
+  assert.equal(rec.meta.id, 'black');
+  assert.equal(toneOfAnyScope('black'), 'dark');
+  // 范围兜底：white 是显式默认色
+  assert.equal(getDefaultThemeId({ device: 'standard', page: 'part:confirm-modal', pkg: 'default' }), 'white');
+});
+
+test('buildThemeRegistry：页面形态键不受 parts 解析器影响（先页面后部件）', () => {
+  const modules = {
+    packages: { './default/index.ts': { default: { meta: { id: 'default', name: '默认包' } } } },
+    colors: {
+      './default/standard/parts/colors/white/index.ts': {
+        default: { meta: { id: 'white', name: '白' }, tone: 'light' }
+      }
+    },
+    styles: {}
+  };
+  const registry = buildThemeRegistry(modules);
+  // `./pkg/dev/parts/colors/x/…`：页面名真叫 `parts` 的病理键 → 按页面形态归档（page='parts'）
+  const rec = registry.get('default/standard/parts/white');
+  assert.ok(rec);
+  assert.equal(rec.page, 'parts'); // 不是 part:colors 命名空间
+});
+
+test('buildThemeRegistry：index.js 形态的键与 index.ts 同权（纯 JS 宿主）', () => {
+  const registry = buildThemeRegistry({
+    packages: {
+      './jspkg/index.js': { default: { meta: { id: 'jspkg', name: 'JS 包' } } }
+    },
+    colors: {
+      './jspkg/mobile/login/colors/white/index.js': {
+        default: { meta: { id: 'white', name: '白' }, tone: 'light' }
+      }
+    },
+    styles: {}
+  });
+  const rec = registry.get('jspkg/mobile/login/white');
+  assert.ok(rec, 'index.js 的包/配色键应正常解析登记');
+  assert.equal(rec.pkg, 'jspkg');
+  assert.equal(rec.tone, 'light');
+});

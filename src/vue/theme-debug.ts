@@ -31,7 +31,6 @@ import { watch } from 'vue';
 import { collectWarnings, effectiveViewRaw, parseThemeParams } from '../views/param-audit';
 import type { ThemeUrlParams, WarningContext } from '../views/param-audit';
 import { isThemeDebugVisible, themeManifest } from '../manifest';
-import { registeredDevices } from './define-theme-device';
 import { currentQuery } from './device-domain';
 import type { ThemeIntent } from './theme-intent';
 import type { ThemeScope } from './theme-scope';
@@ -69,7 +68,7 @@ export function installThemeDebug(scope: ThemeScope, intent: ThemeIntent): () =>
       activePage: scope.activePage.value,
       packageId: scope.packageId.value,
       pageRegistered: !!registry,
-      devices: registeredDevices().map(d => ({ id: d.id, urlKey: d.urlKey })),
+      devices: scope.devices.map(d => ({ id: d.id, urlKey: d.urlKey })),
       hasView: (raw, pkg, device) => (registry ? registry.has(raw, pkg, device) : false),
       listViews: (device) =>
         registry

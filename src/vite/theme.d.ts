@@ -38,6 +38,18 @@ declare module 'virtual:theme' {
   >;
 
   /**
+   * 部件组件（按部件 id 分组，P1b 部件层）：`themeParts.<部件id>` = 该部件各
+   * 「包 × 设备」的版式组件加载器。
+   *
+   * 键相对主题包目录：`./<包>/<设备>/parts/<部件id>/index.vue`。default 包 eager
+   * （加载器**同步返回**模块命名空间）、非 default 包惰性（返回 Promise）。
+   */
+  export const themeParts: Record<
+    string,
+    Record<string, () => { default: Component } | Promise<{ default: Component }>>
+  >;
+
+  /**
    * 主题域清单（**已 resolve**，非 null）
    *
    * 目录里没有 `theme.config.ts` 时回落到机制默认值（`resolveThemeManifest` 兜底），

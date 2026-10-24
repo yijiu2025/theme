@@ -28,7 +28,6 @@ import { computed, ref } from 'vue';
 import { DEFAULT_THEME_PACKAGE } from '../constants';
 import { getThemeRecord, listThemes } from '../registry';
 import { currentQuery } from './device-domain';
-import { fallbackDevice, registeredDevices } from './define-theme-device';
 import { readInitialTheme, readUrlIntent } from './theme-persistence';
 import type { DeviceThemeIntent, ThemeStorageKeys } from './theme-persistence';
 import {
@@ -38,17 +37,22 @@ import {
   viewParamsSnapshot
 } from '../views/params';
 import type { DeviceViewIntent } from '../views/params';
+import type { DeviceVocab } from '../views/device';
 
 export function useThemeScope(
   keys: ThemeStorageKeys,
   colorParam: string,
-  viewParam: string = DEFAULT_VIEW_PARAM
+  viewParam: string = DEFAULT_VIEW_PARAM,
+  defaultPage: string = '',
+  devices: readonly DeviceVocab[] = []
 ) {
-  const urlIntent = readUrlIntent(colorParam);
-  // 版式意图：URL 一次读入（query 来自设备域 `currentQuery()`，设备清单来自设备域注册表）。
+  /** 兜底设备 = 注入清单末条（顺序即优先级；空清单时空串 —— themeId 走落盘/默认链） */
+  const fallbackId = devices[devices.length - 1]?.id ?? '';
+  const urlIntent = readUrlIntent(colorParam, devices);
+  // 版式意图：URL 一次读入（query 来自设备域 `currentQuery()`，设备清单来自装配期注入）。
   // 与配色侧读 `window.location.search` 同源不同径——版式意图要**跟着路由走**：/login 与
   // /register 可带不同 `th`；store 化后由编排层 watch `currentQuery()` 保持响应。
-  const urlViewIntent = readUrlViewIntent(currentQuery(), viewParam, registeredDevices());
+  const urlViewIntent = readUrlViewIntent(currentQuery(), viewParam, devices);
 
   /**
    * URL 按设备指定的配色（**响应式**）
@@ -78,10 +82,10 @@ export function useThemeScope(
    * **全局**配色 —— 只被"URL 没有覆盖这台设备"的那些设备采用。
    * 设备专属 URL 值在 `themeRecordFor` 里优先于它。
    */
-  const themeId = ref<string>(urlIntent.deviceTheme[fallbackDevice()] ?? readInitialTheme(keys));
+  const themeId = ref<string>(urlIntent.deviceTheme[fallbackId] ?? readInitialTheme(keys));
 
   /** 当前**生效设备** —— 由 `<ThemeView>` 的 device prop 告知（库不自行判定，见文件头） */
-  const activeDevice = ref<string>(fallbackDevice());
+  const activeDevice = ref<string>(fallbackId);
 
   /**
    * 告知「当前渲染视图属于哪台设备」—— **`<ThemeView>` 的职责**（宿主分发器选好设备
@@ -97,10 +101,12 @@ export function useThemeScope(
   /**
    * 当前生效页面（配色归属 = 包 × 设备 × 页面）
    *
-   * 初始为空串：库不认识宿主的页面词汇（不设默认页），真实页面由
-   * `<ThemeView page="…">` 经 `setActivePageView` 告知。空串期间查询走空记录兜底。
+   * 初始值：`defaultPage` 播种（P0 无路由支持，2026-10-23）或空串。空串期间查询走空记录
+   * 兜底——对路由型应用无害（`<ThemeView>` 挂载即覆盖）；对无路由 / 纯壳层应用，播种
+   * 一个页面名让"还没人调 setActivePageView"时 token 也能解析（否则零注入、全站只剩基线）。
+   * 页面仍是宿主词汇：库不设默认页，`defaultPage` 由宿主经 `ThemeStateOptions` 显式给。
    */
-  const activePage = ref<string>('');
+  const activePage = ref<string>(defaultPage);
   const activeView = ref<string>(DEFAULT_THEME_PACKAGE);
 
   function setActivePageView(page: string, view: string): void {
@@ -159,12 +165,12 @@ export function useThemeScope(
    *    不变 ⇒ 不会被误冲；跨页带不同 `th`（/login → /register）⇒ 同步，行为与
    *    store 化前"每次渲染现读 URL"一致。
    */
-  let lastViewSnapshot = viewParamsSnapshot(currentQuery(), viewParam, registeredDevices());
+  let lastViewSnapshot = viewParamsSnapshot(currentQuery(), viewParam, devices);
   function syncUrlViewIntent(): void {
-    const next = viewParamsSnapshot(currentQuery(), viewParam, registeredDevices());
+    const next = viewParamsSnapshot(currentQuery(), viewParam, devices);
     if (sameViewSnapshot(lastViewSnapshot, next)) return;
     lastViewSnapshot = next;
-    const fresh = readUrlViewIntent(currentQuery(), viewParam, registeredDevices());
+    const fresh = readUrlViewIntent(currentQuery(), viewParam, devices);
     deviceView.value = { ...fresh.deviceView };
     viewIntent.value = fresh.viewIntent;
   }
@@ -215,6 +221,8 @@ export function useThemeScope(
   }
 
   return {
+    /** 装配期注入的设备词汇清单（调试面板 / URL 参数解析用；库不自持注册表） */
+    devices,
     urlIntent,
     urlViewIntent,
     deviceTheme,

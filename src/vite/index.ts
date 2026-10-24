@@ -6,10 +6,11 @@
  * 收在这里，让宿主在 `vite.config.ts` 里三行接完，不必自己抄扫描逻辑：
  *
  * ```ts
- * import { themeAssets, resolveThemeDir } from 'skinsuite/vite';
- * export default defineConfig(({ mode }) => ({
- *   plugins: [themeAssets({ dir: resolveThemeDir(mode) })]
- * }));
+ * import { themeAssets } from 'skinsuite/vite';
+ * export default defineConfig({
+ *   // 目录缺省 = env VITE_THEME_DIR（含 .env.<mode>/.env.local/CLI 层），无 env 则 src/theme
+ *   plugins: [themeAssets()]
+ * });
  * ```
  *
  * === 这个子路径的解析方式（与 package.json exports 对齐，2026-10-23 校正）===
@@ -35,6 +36,7 @@ export { themeAssets } from './plugin.js';
 export type { ThemeAssetsPluginOptions } from './plugin.js';
 export {
   DEFAULT_THEME_DIR,
+  THEME_DIR_ENV_KEY,
   THEME_PACKAGES_SUBDIR,
   DEFAULT_THEME_MANIFEST,
   resolveThemeDir

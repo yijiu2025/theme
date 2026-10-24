@@ -32,9 +32,9 @@ import {
   DEFAULT_THEME_COLOR,
   DEFAULT_THEME_ID,
   DEFAULT_THEME_PACKAGE,
-  THEME_COLOR_DEF_FILE,
   THEME_COLOR_STYLE_FILE,
   THEME_COLORS_SEGMENT,
+  THEME_DEF_FILE_CANDIDATES,
   THEME_ID_RE
 } from './constants.js';
 import type {
@@ -62,7 +62,7 @@ export interface ThemeAssetModules {
   styles: Record<string, () => Promise<string>>;
 }
 
-/** 从配色键里取出的归属四段（包 / 设备 / 页面 / 配色） */
+/** 从配色键里取出的归属四段（包 / 设备 / 页面或 part: 命名空间 / 配色） */
 interface ColorKeyInfo {
   pkg: string;
   device: string;
@@ -75,48 +75,77 @@ function sortedEntries<T>(mods: Record<string, T>): [string, T][] {
   return Object.entries(mods).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
 }
 
+/** 把文件名转义成正则字面片段（`.` 等字符不当元字符用） */
+function escapeRegExp(literal: string): string {
+  return literal.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * 包定义入口键的形态：`./<包>/index.ts` **或** `./<包>/index.js`
+ * （单一来源 = `THEME_DEF_FILE_CANDIDATES`，扫描侧按同一清单取文件）
+ */
+const PACKAGE_DEF_KEY_RE = new RegExp(
+  `^\\.\\/([^/]+)\\/(?:${THEME_DEF_FILE_CANDIDATES.map(escapeRegExp).join('|')})$`
+);
+
 /** 从包定义入口的键里取出包名；不合法返回 null */
 function packageFromKey(key: string): string | null {
-  const id = /^\.\/([^/]+)\/index\.ts$/.exec(key)?.[1];
+  const id = key.match(PACKAGE_DEF_KEY_RE)?.[1];
   return id && THEME_ID_RE.test(id) ? id : null;
 }
 
 /**
  * 从配色键里取出归属；不合法返回 null
  *
- * 目录只有**一种**形态（见文件头）：
- *   `./themes/<包>/<设备>/<页面>/colors/<配色>/index.ts`
+ * 目录只有**两种**形态（见文件头）：
+ *   页面配色：`./<包>/<设备>/<页面>/colors/<配色>/index.ts`
+ *   部件配色：`./<包>/<设备>/parts/<部件id>/colors/<配色>/index.ts`（P1b，2026-10-23）
+ * 部件配色归到 `page = 'part:<部件id>'` 命名空间（冒号对内核只是普通字符——page 本就是
+ * 宿主词汇、不透明；与真实页面名不可能撞——页面名过 `THEME_ID_RE` 不含冒号）。
  * 设备段由宿主注入的 `isKnownDevice` 判断（内核不认设备词汇表）。
  *
- * 🔴 目录结构（`colors` 固定字面段 + 文件名）由 `constants.ts` 派生，与构建插件
+ * 定义文件后缀认 `THEME_DEF_FILE_CANDIDATES` 全部形态（index.ts / index.js，
+ * 纯 JS 宿主）；样式恒为 theme.scss 单形态。
+ *
+ * 🔴 目录结构（`colors` / `parts` 固定字面段 + 文件名）由 `constants.ts` 派生，与构建插件
  *    `scan()` 共享同一来源，避免"扫得到但解析不出"的静默脱节。
+ * 🔴 两种形态按**先页面后部件**的顺序尝试：`./pkg/dev/parts/colors/x/…` 这种病理键
+ *    （页面真叫 `parts`）按页面形态归档，部件解析器不再染指。
  */
-function colorFromKey(
+function parseColorKey(
   key: string,
-  suffix: string
-): ColorKeyInfo | null {
-  const file = suffix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const re = new RegExp(
-    `^\\./([^/]+)/([^/]+)/([^/]+)/${THEME_COLORS_SEGMENT}/([^/]+)/${file}$`
+  suffix: string | readonly string[]
+): { pkg: string; device: string; page: string; colorId: string } | null {
+  // 🔴 多后缀时必须整体包 (?:…)：裸拼 `a|b` 会被 | 劈成「前缀 a」或「b$」两半
+  const file = `(?:${(typeof suffix === 'string' ? [suffix] : [...suffix])
+    .map(escapeRegExp)
+    .join('|')})`;
+
+  // ① 页面形态：四段 + colors 字面段 + 文件
+  const pageMatch = key.match(
+    new RegExp(`^\\./([^/]+)/([^/]+)/([^/]+)/${THEME_COLORS_SEGMENT}/([^/]+)/${file}$`)
   );
-  const m = re.exec(key);
-  if (!m) return null;
-  const pkg = m[1];
-  const device = m[2];
-  const page = m[3];
-  const colorId = m[4];
-  if (!pkg || !device || !page || !colorId) return null;
-  // 设备段也走字符白名单（设备词汇表已收进库内设备域，这里只挡"目录名不是合法 id"；
-  // 字符合法但未声明的设备目录会被扫进注册表，但查询按设备 id 取、永不命中，无害）。
-  if (
-    !THEME_ID_RE.test(pkg) ||
-    !THEME_ID_RE.test(device) ||
-    !THEME_ID_RE.test(page) ||
-    !THEME_ID_RE.test(colorId)
-  )
-    return null;
-  // 一个主题包 = 一种版式 ⇒ 配色归属只到包段（view ≡ pkg，不再单列一段）
-  return { pkg, device, page, colorId };
+  if (pageMatch) {
+    const [, pkg, device, page, colorId] = pageMatch;
+    if (themeIdOk(pkg, device, page, colorId)) return { pkg, device, page, colorId };
+  }
+
+  // ② 部件形态：包/设备/parts 字面段/部件id + colors + 文件（页段记 part: 命名空间）
+  const partMatch = key.match(
+    new RegExp(`^\\./([^/]+)/([^/]+)/parts/([^/]+)/${THEME_COLORS_SEGMENT}/([^/]+)/${file}$`)
+  );
+  if (partMatch) {
+    const [, pkg, device, partId, colorId] = partMatch;
+    if (themeIdOk(pkg, device, partId, colorId)) {
+      return { pkg, device, page: `part:${partId}`, colorId };
+    }
+  }
+  return null;
+}
+
+/** 四段目录名全部过字符白名单（部件形态里 page 段是 partId，同一条白名单） */
+function themeIdOk(...segments: string[]): boolean {
+  return segments.every(seg => !!seg && THEME_ID_RE.test(seg));
 }
 
 /**
@@ -150,7 +179,7 @@ export function buildThemeRegistry(
 
   // ② 各包下的配色 —— 每条记录都带 pkg + device + page 三段归属
   for (const [key, mod] of sortedEntries(colorModules)) {
-    const parsed = colorFromKey(key, THEME_COLOR_DEF_FILE);
+    const parsed = parseColorKey(key, THEME_DEF_FILE_CANDIDATES);
     const def = mod?.default;
     if (!parsed || !def || typeof def !== 'object' || !def.meta) continue;
     // 包定义缺失（包本身写坏）：该配色无处可依，跳过
@@ -185,7 +214,7 @@ export function buildThemeRegistry(
 
   // ③ 附加样式：按与 ② 相同的键挂上去，避免歧义
   for (const [key, loader] of sortedEntries(colorStyles)) {
-    const parsed = colorFromKey(key, THEME_COLOR_STYLE_FILE);
+    const parsed = parseColorKey(key, THEME_COLOR_STYLE_FILE);
     if (!parsed) continue;
     const record = registry.get(keyOf(parsed));
     // 有 theme.scss 但没 index.ts 的目录视为残缺，忽略其样式

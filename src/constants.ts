@@ -119,6 +119,18 @@ export const THEME_COLOR_STYLE_FILE = 'theme.scss';
 export const THEME_PACKAGE_DEF_FILE = 'index.ts';
 
 /**
+ * 定义文件（包定义 / 配色定义）可接受的**全部形态**，按优先级排列
+ *
+ * `.ts` 在前 = 两种并存时 `.ts` 优先（确定性）；`.js` 让**纯 JS 宿主**
+ * （无 TS 工具链的前端）不必为写主题包引入 TypeScript——主题包定义本质是
+ * 数据（meta / tone / tokens / views），`.js` 完全承载得了。
+ * 扫描侧（`skinsuite/vite` 的 scan）按此清单取第一个存在的文件，键带**实际**
+ * 文件名；解析侧（内核 `packageFromKey` / `parseColorKey`）同步认全部形态。
+ * 🔴 两边必须同一来源：否则「扫得到但解析不出」（或反之）静默脱节。
+ */
+export const THEME_DEF_FILE_CANDIDATES: readonly string[] = ['index.ts', 'index.js'];
+
+/**
  * 主题包目录的**取值目录段**（`themes/` 之下、从包到配色叶子的真实目录层）
  *
  * 与 `THEME_COLORS_SEGMENT`（固定字面段）、`THEME_COLOR_DEF_FILE` /
@@ -130,4 +142,21 @@ export const THEME_PACKAGE_DEF_FILE = 'index.ts';
  * 用它拼正则（键 = `./` + 这些段，`page` 与 `colorId` 之间插入 `THEME_COLORS_SEGMENT`）。
  * 改目录结构（配色下再分层、`colors` 改名）只动这一处。
  */
+
+/**
+ * 部件目录的**固定字面段**（P1b 部件层，2026-10-23）：`themes/<包>/<设备>/parts/<部件id>/`
+ *
+ * 部件 = 可复用 UI 零件（弹窗 / 通知 / 悬浮窗），与页面平级但语义分开：
+ *   · page  = 导航表面（一页一版式 `index.vue`，路由语义）
+ *   · part  = 复用零件（`parts/<partId>/index.vue`，组合语义），同设备所有页面共用
+ * 目录形态：
+ * ```
+ * themes/<包>/<设备>/parts/<partId>/{index.vue, colors/<配色>/{index.ts, theme.scss}}
+ * ```
+ * 部件配色（可选）注册进现有配色注册表，`page` 段记 `part:<partId>` 命名空间
+ * （冒号对内核只是普通字符 —— page 本就是宿主词汇，不透明）。
+ * 🔴 parts 必须住在**包内**（不与 default/compact 并列）：包自足性是机制根基，
+ *    详见计划 docs/plans/2026-10-23-theme-routerless-overlay.md §2.3 坑 ④。
+ */
+export const THEME_PARTS_SEGMENT = 'parts';
 export const THEME_DIR_LEVELS = ['pkg', 'device', 'page', 'colorId'] as const;

@@ -14,7 +14,9 @@
  */
 
 export { default as ThemeDebugPanel } from './ThemeDebugPanel.vue';
+export { default as ThemePart } from './ThemePart.vue';
 export { default as ThemeRoot } from './ThemeRoot.vue';
+export { default as ThemeScope } from './ThemeScope.vue';
 export { default as ThemeView } from './ThemeView.vue';
 export { themeStoreKey } from './theme-store';
 export type { ThemeStoreLike } from './theme-store';
@@ -44,25 +46,24 @@ export { defineThemePage, isThemePage, pageOf, registeredPageNames } from './vie
 export type { ThemePage, ThemePageOptions } from './view-page';
 export { installThemeViews, themeViewsFor } from './theme-views';
 
+// ---- 部件层（P1b，2026-10-23：主题化的弹窗/通知/悬浮窗组件本身，DOM 随包换）----
+export { installThemeParts, themePartsFor } from './theme-parts';
+export type { PartModuleLoader, PartModuleMap } from './theme-parts';
+
 // ---- 设备容器机制（「设备 id → 容器组件」的组件半边，2026-10-17 下沉）----
-// 🔴 containerOf / resolveContainerOf 的「传 defs」低层版不对外导出 —— 对外只留
-//    pageContainers（建容器表）与设备域单例版（见下），宿主不再写「传 registeredDefs」转发。
-export { pageContainers } from './device-containers';
+// 设备容器是**宿主布线**（2026-10-24 起设备清单整份归宿主，库不自持注册表）：
+// 这里只留**纯工具** —— pageContainers（glob 结果 →「页面 → 加载器」表）与
+// containerOf / resolveContainerOf（**传 defs** 版，无模块状态）。宿主在自己的
+// 设备清单文件里组装 defs 数组，分发器经宿主模块消费。
+export { pageContainers, containerOf, resolveContainerOf } from './device-containers';
 export type { DeviceContainerLoader } from './device-containers';
 
-// ---- 设备域（声明工厂 + 查询派生 + 运行时，2026-10-18 下沉）----
+// ---- 设备词汇（注入式，2026-10-24：defineThemeDevice 注册表退役）----
 // 🔴 设备**判定**不在库内（2026-10-20）：宿主分发器按自己的口径选设备容器，
 //    设备身份由 `<ThemeView page="login" device="mini">` props 告知 store
-//    （`setActiveDevice`）；库只保留 `currentQuery` / `replaceQuery` 两条 URL 通道。
-export {
-  defineThemeDevice,
-  deviceIds,
-  fallbackDevice,
-  registeredDevices,
-  resolveContainerOf,
-  urlKeyOf
-} from './define-theme-device';
-export type { ThemeDeviceOptions } from './define-theme-device';
+//    （`setActiveDevice`）。设备清单同样不在库内：`createThemeState({ devices })`
+//    装配期注入（词汇 + 顺序 + 兜底 = 宿主事实），库只读取渲染。
+export type { DeviceVocab } from '../views/device';
 export { currentQuery, installThemeDomain, replaceQuery } from './device-domain';
 export type {
   DeviceDomainRouter,
@@ -79,12 +80,20 @@ export { createThemeState } from './create-theme-state';
 export type { ThemeStateOptions } from './create-theme-state';
 
 // ---- token 运行时（「分层 token → DOM」的注入半边，2026-10-17 下沉）----
+// 🔴 P1a（2026-10-23）起 applyThemeLayers 支持注入目标（options.target），缺省仍为
+//    html 根（全局，向后兼容）；clearThemeTokens / getInjectedTokenNames 同口径参数化。
 export {
   applyThemeLayers,
   applyThemeTokens,
   clearThemeTokens,
   getInjectedTokenNames
 } from './token-runtime';
+export type { ApplyThemeLayersOptions } from './token-runtime';
+
+// ---- 作用域主题（P1a，2026-10-23：钉死/并行主题，纯查询不碰 store）----
+export { default as ThemeProvider } from './ThemeProvider.vue';
+export { resolveScopedRecord, useScopedTheme } from './use-scoped-theme';
+export type { ScopedThemeParams } from './use-scoped-theme';
 
 // ---- 后端主题配置取数（「fetch + 超时 + 归一」骨架，2026-10-17 下沉）----
 export { fetchRemoteThemeConfig, isRemoteThemeEnabled } from './remote-fetch';
