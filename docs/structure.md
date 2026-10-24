@@ -73,7 +73,7 @@ kernel 内部 ──→ constants / types（叶子）
 
 | 文件 | 职责 |
 | --- | --- |
-| `ThemeRoot.vue` | 纯外观壳：provide store 给子树 + 挂 `.dark` 类 + body 底色 token |
+| `ThemeRoot.vue` | **provide 点**：必须传 `:themeStore`（`ThemeView` / `ThemeDebugPanel` / `ThemePart` 全靠 `inject` 取 store，不传即抛错）——库不 import 宿主 Pinia，只约定 `ThemeStoreLike` 结构（字段兼容即可传）。此外挂 `.dark` 类 + body 底色 token |
 | `ThemeView.vue` | 渲染某页「当前生效版式」：pick（URL > 包声明 > 包名）→ epoch 防抖加载 → `setActivePageView` / `setActiveDevice`（设备身份的唯一告知通道） |
 | `ThemeScope.vue` | 无路由应用的 token-only 锚点（不查版式注册表，只告知作用域） |
 | `ThemeProvider.vue` | 钉死/并行主题容器（P1a）：子树一套自己的配色，纯查询不碰全局 store |

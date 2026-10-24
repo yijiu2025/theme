@@ -20,7 +20,7 @@ npm install skinsuite
 
 ## 快速上手（Vue + Vite）
 
-从零六步。完整可抄样例见 [docs/onboarding.md](./docs/onboarding.md)，每个公开入口的调用链路见 [docs/usage-and-flows.md](./docs/usage-and-flows.md)，逐文件职责地图见 [docs/structure.md](./docs/structure.md)。
+从零七步。完整可抄样例见 [docs/onboarding.md](./docs/onboarding.md)，每个公开入口的调用链路见 [docs/usage-and-flows.md](./docs/usage-and-flows.md)，逐文件职责地图见 [docs/structure.md](./docs/structure.md)。
 
 ### 1. 挂构建插件
 
@@ -181,7 +181,29 @@ import { theme } from 'skinsuite/vue';
 app.use(theme, { router });   // 0.9 起 router 可选（无路由应用见下）
 ```
 
-### 5. 渲染页面
+### 5. App 层挂 ThemeRoot（provide 点）
+
+```vue
+<!-- src/App.vue -->
+<script setup lang="ts">
+import { ThemeRoot, ThemeDebugPanel } from 'skinsuite/vue';
+import { useThemeStore } from '@/stores/theme';
+
+const themeStore = useThemeStore();
+</script>
+
+<template>
+  <!-- 🔴 :themeStore 必传：它是 provide 点，ThemeView / 调试面板靠 inject 取
+       store，不传直接抛错。库不 import 宿主 Pinia（零 pinia 依赖），只约定
+       ThemeStoreLike 结构 —— 传「字段兼容的对象」即可，不必真是那个 store。 -->
+  <ThemeRoot :themeStore="themeStore">
+    <router-view />
+  </ThemeRoot>
+  <ThemeDebugPanel />
+</template>
+```
+
+### 6. 渲染页面
 
 ```vue
 <!-- src/view/app/login/index.vue —— 设备容器（你的代码、你的业务逻辑） -->
@@ -198,7 +220,7 @@ const ctx = { /* 版式需要的任何上下文 */ };
 
 `ThemeView` 按「当前包 × 设备 × 页面」解析版式（注册表回退链兜底）：内置包 eager 加载（首屏零请求），其余包惰性 chunk；随后把配色的 tokens + `.dark` 类 + `data-mauth-theme` 属性注入作用域。
 
-### 6. 每页选设备（分发器）
+### 7. 每页选设备（分发器）
 
 「当前是哪台设备」**库不判定**——视口阈值、UA、`?device=` 锁定都是宿主口径。典型分发器：
 

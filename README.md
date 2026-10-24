@@ -20,7 +20,7 @@ Three entry points, import what you need:
 
 ## Quick start (Vue + Vite)
 
-Six steps from zero. A complete working sample lives in [docs/onboarding.md](./docs/onboarding.md); every public API's call chain is documented in [docs/usage-and-flows.md](./docs/usage-and-flows.md); the per-file responsibilities map lives in [docs/structure.md](./docs/structure.md).
+Seven steps from zero. A complete working sample lives in [docs/onboarding.md](./docs/onboarding.md); every public API's call chain is documented in [docs/usage-and-flows.md](./docs/usage-and-flows.md); the per-file responsibilities map lives in [docs/structure.md](./docs/structure.md).
 
 ### 1. Register the build plugin
 
@@ -183,7 +183,30 @@ import { theme } from 'skinsuite/vue';
 app.use(theme, { router });   // router is optional in 0.9+ (no-router apps)
 ```
 
-### 5. Render a page
+### 5. Mount ThemeRoot at the app level (the provide point)
+
+```vue
+<!-- src/App.vue -->
+<script setup lang="ts">
+import { ThemeRoot, ThemeDebugPanel } from 'skinsuite/vue';
+import { useThemeStore } from '@/stores/theme';
+
+const themeStore = useThemeStore();
+</script>
+
+<template>
+  <!-- 🔴 :themeStore is required: ThemeRoot is the provide point — ThemeView and
+       the debug panel take the store via inject and throw without it. The library
+       never imports your Pinia store (zero pinia dependency); it only requires the
+       ThemeStoreLike shape, so any object with compatible fields works. -->
+  <ThemeRoot :themeStore="themeStore">
+    <router-view />
+  </ThemeRoot>
+  <ThemeDebugPanel />
+</template>
+```
+
+### 6. Render a page
 
 ```vue
 <!-- src/view/app/login/index.vue — the device container (your code, your logic) -->
@@ -200,7 +223,7 @@ const ctx = { /* anything your layouts need */ };
 
 `ThemeView` resolves the layout for `(active package, device, page)` — falls back across the registry's chain — loads the builtin package eagerly (zero-request first paint) and non-builtin packages lazily, then injects the color's tokens plus `.dark` class and `data-mauth-theme` attribute onto the scope.
 
-### 6. Pick the device per page (dispatcher)
+### 7. Pick the device per page (dispatcher)
 
 The library never decides "which device is this" — viewport thresholds, UA, `?device=` locks are **host policy**. Typical dispatcher:
 
