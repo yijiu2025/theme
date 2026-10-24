@@ -134,3 +134,40 @@ jobs:
           else
             node scripts/publish-and-sync.mjs --publish-only
           fi
+
+  # ---------------------------------------------------------------------------
+  # GitHub Release —— npm 发布成功后，用 CHANGELOG 对应版本段建 Release（2026-10-24）
+  #
+  # 串行（needs: publish）：npm 发布失败时不建 Release，避免「registry 没有这个
+  # 版本、GitHub 上却有发布说明」的错位。正文由 scripts/release-notes.mjs 从
+  # CHANGELOG.md 抽当前版本段 —— Release 说明只此一处来源，不手写第二份。
+  # permissions 收在 job 级（contents: write 只给这个 job，publish job 保持只读）。
+  # ---------------------------------------------------------------------------
+  github-release:
+    name: 建 GitHub Release（正文取自 CHANGELOG）
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: publish
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: 抽取 CHANGELOG 版本段
+        env:
+          INPUT_TAG: ${{ inputs.tag }}
+        run: |
+          TAG="${INPUT_TAG:-${GITHUB_REF_NAME}}"
+          VERSION="${TAG#v}"
+          node scripts/release-notes.mjs "$VERSION" > release-body.md
+
+      - name: 建 GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          body_path: release-body.md
