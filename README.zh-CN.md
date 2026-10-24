@@ -20,7 +20,7 @@ npm install skinsuite
 
 ## 快速上手（Vue + Vite）
 
-从零六步。完整可抄样例见 [docs/onboarding.md](./docs/onboarding.md)，每个公开入口的调用链路见 [docs/usage-and-flows.md](./docs/usage-and-flows.md)。
+从零六步。完整可抄样例见 [docs/onboarding.md](./docs/onboarding.md)，每个公开入口的调用链路见 [docs/usage-and-flows.md](./docs/usage-and-flows.md)，逐文件职责地图见 [docs/structure.md](./docs/structure.md)。
 
 ### 1. 挂构建插件
 

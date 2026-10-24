@@ -20,7 +20,7 @@ Three entry points, import what you need:
 
 ## Quick start (Vue + Vite)
 
-Six steps from zero. A complete working sample lives in [docs/onboarding.md](./docs/onboarding.md); every public API's call chain is documented in [docs/usage-and-flows.md](./docs/usage-and-flows.md).
+Six steps from zero. A complete working sample lives in [docs/onboarding.md](./docs/onboarding.md); every public API's call chain is documented in [docs/usage-and-flows.md](./docs/usage-and-flows.md); the per-file responsibilities map lives in [docs/structure.md](./docs/structure.md).
 
 ### 1. Register the build plugin
 
