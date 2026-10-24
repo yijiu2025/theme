@@ -1,175 +1,296 @@
 # skinsuite
 
-多主题 / 多版式机制的实现库：**主题包 × 设备 × 页面 × 配色** 四段键 + 明暗联动 + token 安全校验 + 设备维度 URL 参数。零运行时依赖，Vue / React / Node / SSR 通用。
+[English](./README.md) | [简体中文](./README.zh-CN.md)
+
+Implementation library for a multi-theme / multi-layout system: a **package × device × page × color** four-segment key, light/dark mode linked to color families, safe CSS-variable token validation, and device-scoped URL parameters. Zero runtime dependencies — works with Vue, React, plain Node, or SSR.
 
 ```bash
 npm install skinsuite
 ```
 
-包分三个入口，按需 import：
+Three entry points, import what you need:
 
-| 入口 | 内容 |
+| Entry | Contents |
 | --- | --- |
-| `skinsuite` | 纯内核：常量白名单、`mode` / `tone`、token 校验、设备参数解析（无 DOM、无框架依赖） |
-| `skinsuite/vue` | Vue 绑定：`createThemeState` 状态机、`<ThemeView>` / `<ThemeRoot>` / `<ThemeScope>`、调试面板 |
-| `skinsuite/vite` | 构建插件：`themeAssets()` 扫主题目录生成 `virtual:theme` |
+| `skinsuite` | Pure kernel: id whitelists, `mode` / `tone`, token validation, device-scoped params (no DOM, no framework) |
+| `skinsuite/vue` | Vue bindings: `createThemeState` store, `<ThemeView>` / `<ThemeRoot>` / `<ThemeScope>` / `<ThemeProvider>` / `<ThemePart>`, debug panel |
+| `skinsuite/vite` | Build plugin: `themeAssets()` scans your theme directory into the `virtual:theme` module |
 
 ---
 
-## 快速上手（Vue + Vite）
+## Quick start (Vue + Vite)
 
-**1. vite.config.ts 挂插件**——零参数，主题目录默认 `src/theme`（可用 env `VITE_THEME_DIR` 改）：
+Six steps from zero. A complete working sample lives in [docs/onboarding.md](./docs/onboarding.md); every public API's call chain is documented in [docs/usage-and-flows.md](./docs/usage-and-flows.md).
+
+### 1. Register the build plugin
 
 ```ts
+// vite.config.ts
+import { defineConfig } from 'vite';
+import vue from '@vitejs/plugin-vue';
 import { themeAssets } from 'skinsuite/vite';
 
 export default defineConfig({
+  // Zero arguments: the theme root defaults to src/theme.
+  // Override with env VITE_THEME_DIR (relative to project root).
   plugins: [themeAssets(), vue()]
 });
 ```
 
-**2. 宿主设备清单**——设备是**你的**词汇表（mobile / standard / mini …），一份清单同时供 store（词汇）与页面分发器（容器布线）消费：
+The plugin scans your theme directory at build time and generates the virtual module `virtual:theme` — the single data source for the whole theme system. A missing directory degrades to an empty registry (the app still boots); malformed entries are skipped with a dev-only `[theme] 扫描跳过 …` warning.
+
+### 2. Declare your devices
+
+Devices are **your** vocabulary (`mobile` / `standard` / `mini` / `tablet` …) — the library never hardcodes device names. One list serves both the store (vocabulary) and your page dispatchers (container wiring):
 
 ```ts
-// src/view/devices.ts —— 数组序 = 优先级，末条 = 兜底设备
-export const DEVICES = [
-  { id: 'mobile', label: '手机端', urlKey: 'mobile' },
-  { id: 'standard', label: '桌面端', urlKey: 'std' }
+// src/view/devices.ts — array order = priority, LAST entry = fallback device
+import type { Component } from 'vue';
+import { THEME_ID_RE } from 'skinsuite';
+import { pageContainers } from 'skinsuite/vue';
+import type { DeviceContainerLoader } from 'skinsuite/vue';
+
+export interface HostDeviceDef {
+  id: string;        // = directory name inside each theme package
+  label: string;     // shown in the debug panel
+  urlKey: string;    // URL param suffix: ?th_<urlKey> / ?th_color_<urlKey>
+  containers: ReadonlyMap<string, DeviceContainerLoader>;  // page → component
+}
+
+export const DEVICES: readonly HostDeviceDef[] = [
+  {
+    id: 'mobile',
+    label: 'Mobile',
+    urlKey: 'mobile',
+    containers: pageContainers(
+      import.meta.glob<{ default: Component }>('/src/view/app/*/index.vue'),
+      /^index\.vue$/,
+      THEME_ID_RE
+    )
+  },
+  {
+    id: 'standard',
+    label: 'Desktop',
+    urlKey: 'std',
+    containers: pageContainers(
+      import.meta.glob<{ default: Component }>('/src/view/web/*/Standard*.vue'),
+      /^Standard/,
+      THEME_ID_RE
+    )
+  }
 ];
+
+export const deviceIds = (): string[] => DEVICES.map(d => d.id);
+export const fallbackDevice = (): string => DEVICES[DEVICES.length - 1]?.id ?? '';
 ```
 
-**3. 装 store + 渲染**：
+Container location convention: the **parent directory name is the page name** (`view/app/login/index.vue` → page `login`).
+
+### 3. Create the theme directory
+
+```
+src/theme/                      ← theme root (= VITE_THEME_DIR)
+├── theme.config.ts             debug switches (see below)
+├── views/                      page contracts (side-effect registration)
+│   └── login.ts                defineThemePage({ page: 'login' })
+└── themes/
+    └── default/                ← one theme package = one layout ("view")
+        ├── index.ts            package definition (meta + optional views)
+        └── mobile/
+            └── login/
+                ├── index.vue   the layout component for this (pkg, device, page)
+                └── colors/
+                    ├── white/  color definition: tokens + optional theme.scss
+                    │   ├── index.ts
+                    │   └── theme.scss
+                    └── black/
+                        └── index.ts
+```
+
+Real file contents:
 
 ```ts
-import { createThemeState } from 'skinsuite/vue';
+// themes/default/index.ts — package definition (index.js also accepted)
+export default {
+  meta: { id: 'default', name: 'Default' },
+  // Optional: per-page default view id declared by this package's colors.
+  // Usually omitted — with view ≡ package, the package id IS the view id.
+  views: undefined
+};
+```
+
+```ts
+// themes/default/mobile/login/colors/white/index.ts — color definition
+export default {
+  meta: { id: 'white', name: 'White' },
+  tone: 'light',                    // 'light' | 'dark' — required, drives dark-mode linking
+  tokens: {
+    '--mauth-canvas': '#f7f8fa',    // flat CSS variables; names must match --mauth-<kebab>
+    '--mauth-text': '#1f2329',
+    '--mauth-primary': '#2e6ef7',
+    '--mauth-radius': '8px'
+  }
+  // views: { login: 'compact' }    // optional per-color view override
+};
+```
+
+```scss
+/* themes/default/mobile/login/colors/white/theme.scss — optional stylesheet.
+   Use for anything tokens cannot express: url() assets, pseudo-elements,
+   keyframes. Scoped automatically via html[data-mauth-theme='white']. */
+```
+
+```ts
+// views/login.ts — page contract (registers the page; no logic allowed here)
+import { defineThemePage } from 'skinsuite/vue';
+
+defineThemePage({ page: 'login' });
+```
+
+```ts
+// theme.config.ts — theme-domain manifest (debug switches)
+import { defineThemeManifest } from 'skinsuite';
+
+export default defineThemeManifest({
+  // 'off' | 'url' | 'always'; with 'url' the panel appears only when the
+  // query below matches (default gate) — customize query/value as you like.
+  debug: { enabled: 'url', query: 'debug', value: 'theme' }
+});
+```
+
+Uniqueness scope of a color id is **package × device × page** — `white` may exist in every scope. Both `index.ts` and `index.js` are accepted for definitions (`.ts` wins when both exist), so JS-only hosts need no TypeScript toolchain.
+
+### 4. Assemble the store
+
+```ts
+// src/stores/theme.ts
 import { defineStore } from 'pinia';
+import { createThemeState } from 'skinsuite/vue';
 import { DEVICES } from '@/view/devices';
+import 'virtual:theme';   // side effect: installs registry + views + manifest
 
 export const useThemeStore = defineStore('theme', () =>
-  createThemeState({ devices: DEVICES })
+  createThemeState({
+    devices: DEVICES          // vocabulary injection; the library holds no device registry
+    // storageKeys, colorParam, viewParam, defaultPage — see options below
+  })
 );
 ```
 
+```ts
+// src/bootstrap.ts (router apps)
+import { theme } from 'skinsuite/vue';
+app.use(theme, { router });   // router is optional in 0.9+ (no-router apps)
+```
+
+### 5. Render a page
+
 ```vue
-<ThemeRoot :themeStore="useThemeStore()" />
-<ThemeView page="login" device="mobile" :ctx="ctx" />
+<!-- src/view/app/login/index.vue — the device container (your code, your logic) -->
+<script setup lang="ts">
+import { ThemeView } from 'skinsuite/vue';
+const ctx = { /* anything your layouts need */ };
+</script>
+
+<template>
+  <!-- The container owns business logic; the layout component owns presentation. -->
+  <ThemeView page="login" device="mobile" :ctx="ctx" />
+</template>
 ```
 
-页面分发器按自己的口径（视口 / `?device=`）选设备容器，容器内的 `<ThemeView>` 用 props 告知作用域——**判定在宿主，库只读取渲染**。
+`ThemeView` resolves the layout for `(active package, device, page)` — falls back across the registry's chain — loads the builtin package eagerly (zero-request first paint) and non-builtin packages lazily, then injects the color's tokens plus `.dark` class and `data-mauth-theme` attribute onto the scope.
 
-完整接入（目录约定、声明文件、路由、验证清单、常见坑）见
-[docs/onboarding.md](./docs/onboarding.md)；每个入口的调用链路见
-[docs/usage-and-flows.md](./docs/usage-and-flows.md)。
+### 6. Pick the device per page (dispatcher)
+
+The library never decides "which device is this" — viewport thresholds, UA, `?device=` locks are **host policy**. Typical dispatcher:
+
+```ts
+// src/view/web/login/index.vue (route component)
+import { useRenderDevice } from '@/composables/useRenderDevice';   // your judgment
+import { deviceIds, fallbackDevice, resolveContainerOf } from '@/view/devices';
+
+const device = useRenderDevice();   // e.g. viewport + ?device= + iframe-source rules → device id
+const deviceComponents = new Map(
+  deviceIds().map(id => [id, defineAsyncComponent(resolveContainerOf(id, 'login'))])
+);
+const activeComponent = computed(
+  () => deviceComponents.get(device.value) ?? deviceComponents.get(fallbackDevice())!
+);
+```
+
+Device identity reaches the theme store **only** through `<ThemeView device="…">` props. Judgment lives in the host, the library only reads and renders.
 
 ---
 
-## 心智模型
+## URL parameters
 
-```
-themes/<主题包>/<设备>/<页面>/colors/<配色>/
-       │          │        │          │
-       │          │        │          └─ 配色：一套扁平 token（+ 可选 theme.scss）
-       │          │        └──────────── 页面：login / register …（宿主词汇）
-       │          └───────────────────── 设备：宿主词汇（mobile / standard / mini …）
-       └──────────────────────────────── 一个主题包 = 一种版式
-```
+Format is unified with underscores; device-specific keys win over generic keys; an empty value means "not specified" (never overrides the generic key).
 
-| 维度 | 谁定义 | 要点 |
+| Param | Meaning | Chain |
 | --- | --- | --- |
-| 设备 | **宿主** | 库不认识具体设备名；清单经 `createThemeState({ devices })` 注入，库不自持注册表 |
-| 页面 | 宿主 | 每页一份版式组件，只在「当前包 × 当前设备」下查找 |
-| 配色 | 主题包 | 自带 `tone`（light / dark）；唯一性作用域 = 同包 × 同设备 × 同页面 |
-| 明暗 | 用户偏好 | 与配色正交，经 `tone` 联动：切「暗」落黑系配色，切「明」回白系 |
+| `?th=<pkg>` | view (package) intent, all devices | `th_<urlKey>` → `th` → package default |
+| `?th_mobile=<pkg>` | view intent for one device | same chain, per device |
+| `?th_color=<id>` | color intent, all devices | `th_color_<urlKey>` → `th_color` → stored preference → scope default |
+| `?th_color_std=<id>` | color intent for one device | same chain, per device |
 
-⚠️ **明暗 ≡ 色系**：明暗切换的本质是「切到哪一系配色」，不是两套规则。
+Examples: `/login?th=compact`, `/login?th_mobile=default&th_std=compact` (each device its own package), `/login?th_color=blue`. Invalid values never lock anything — they are dropped with a dev warning and fall back down the chain.
 
-主题包定义与配色定义接受 `index.ts` 或 `index.js`（`.ts` 优先）——纯 JS 项目无需引入 TypeScript。
+Mode (light/dark) has **no** URL entry by design — it is a user preference, persisted in localStorage (`mauth:mode` / `mauth:theme`; legacy bare keys from 0.7.x are read-migrated once).
 
----
+## Modes and tones
 
-## 内核 API（`skinsuite`）
+- `mode` = user intent: `'system' | 'light' | 'dark'` (`MODE_CYCLE` is the toggle order)
+- `tone` = a property **each color declares**: `'light' | 'dark'`
+- Switching dark = "switch to the dark-family color"; switching back restores your previous light-family color (dual memory slots). Picking a color never flips the mode — the two dimensions are orthogonal and linked one-way.
 
-显式具名导出，表里没有的名字不承诺稳定。
+## Options & advanced usage
 
-### 常量
-
-| 导出 | 值 | 说明 |
-| --- | --- | --- |
-| `THEME_ID_RE` | `/^[a-z0-9-]+$/` | 所有 id / 目录名的白名单（会进属性选择器） |
-| `DEFAULT_THEME_PACKAGE` | `'default'` | 内置默认包（首屏静态引入） |
-| `DEFAULT_THEME_COLOR` / `DEFAULT_THEME_DARK_COLOR` | `'white'` / `'black'` | 默认配色 / 暗系配对值 |
-| `DEFAULT_THEME_ID` | `'default'` | 空注册表的占位 id，**不是**默认配色 |
-| `BASE_VIEW_ID` | `'base'` | 版式注册表的逻辑 id，不该出现在配色键里 |
-
-### 明暗 mode 与色系 tone
-
-- `ThemeMode = 'system' | 'light' | 'dark'`；`MODE_CYCLE` 切换循环；`normalizeMode(raw)` 非法返回 `null` 不抛错
-- `ThemeTone = 'light' | 'dark'`（配色自带属性，无 `system`）；`normalizeTone` 同口径
-- `THEME_TONES` / `TONE_LABELS` / `isThemeMode` / `isThemeTone` 辅助判断
-
-### token 安全校验
-
-```js
-const { tokens, rejected } = sanitizeOverrides(payload);
+```ts
+createThemeState({
+  devices,                                  // required for device-scoped params/panel
+  storageKeys: { mode: 'my:mode', theme: 'my:theme' },  // avoid same-origin collisions
+  colorParam: 'brand',                      // → ?brand=<id> / ?brand_<urlKey>=<id>
+  viewParam: 'layout',                      // → ?layout=<pkg> / ?layout_<urlKey>=<pkg>
+  defaultPage: 'app'                        // no-router seeding: tokens resolve from first frame
+})
 ```
 
-- 名字必须是 `--mauth-<小写短横线>`；取值走**白名单**（`#hex` / `rgb()` / `hsl()` / 长度 / `var(--mauth-*)`）
-- 非法条目**逐条丢弃**（`rejected` 说明原因），不整体拒绝
-- 刻意不放行：CSS 颜色名、`url()`、`;` `{}` `<>` 反斜杠、注释、`@import`
-- `--mauth-font-family` 是唯一放宽项（字体栈天然含空格逗号引号）
+- **No-router apps**: `app.use(theme)` without router; wrap shells in `<ThemeScope page device>` (token-only anchoring, renders just a slot); seed `defaultPage` so tokens resolve before any view mounts.
+- **Pinned-scope theming** (a popover that must keep its own colors): `<ThemeProvider page device :pkg :color-id>` — resolves via pure queries, never touches the global store.
+- **Themeable widgets** (the modal/notification component itself): `<ThemePart id="confirm-modal" :ctx />` — renders the part implementation from `themes/<pkg>/<device>/parts/<id>/index.vue`; one layout per package, same law as pages.
+- **Debug panel**: append `?debug=theme` in dev — inspect store state, switch colors/views, see URL-effect warnings.
+- **Kernel-only (React / Node / SSR)**: `sanitizeOverrides(payload)` for any externally-supplied CSS variables; `readDeviceParam(query, name, deviceKey)` for the device-scoped chain; `THEME_ID_RE` / defaults for validation. No DOM required.
 
-### 设备维度参数
+## What is deliberately not in the package
 
-```js
-readDeviceParam(query, 'th', 'mobile');
-// query['th_mobile'] → query['th'] → undefined（设备专属优先，空串 = 未指定）
-```
-
-只决定取哪个键，合法性校验是宿主的事（需要「当前包里有没有」的知识）。
-
-### 契约类型
-
-`MauthThemeMeta` / `MauthThemePackage` / `MauthThemeColor` / `MauthThemeRecord` / `DeviceVocab` 等，文档注释即规格。
-
----
-
-## 什么不在包里
-
-内核不认识宿主——这是它可复用的前提：
-
-| 不在包里 | 由谁提供 |
+| Not here | Provided by |
 | --- | --- |
-| `import.meta.glob` / 构建 | `skinsuite/vite` 的 `themeAssets()`（其他构建器写自己的适配） |
-| DOM / localStorage / 路由 | 宿主（`skinsuite/vue` 提供 Vue 版默认实现，键名可经 `storageKeys` 覆盖） |
-| 设备清单 | 宿主文件 + `createThemeState({ devices })` 注入 |
-| 业务资产（`themes/**`） | 随应用走 |
+| `import.meta.glob` / bundler specifics | `skinsuite/vite` (other bundlers write their own adapter) |
+| DOM / localStorage / router | Host, or `skinsuite/vue` defaults (overridable keys) |
+| Device inventory | Your list + `createThemeState({ devices })` injection |
+| Business assets (`themes/**`) | Your app |
 
-## 安全边界
+## Security boundary
 
-CSS 自定义属性能直接改变渲染，未校验的 `setProperty` 等于交出两个口子：**外发请求**（`url()` 探测内网 / 追踪）与**样式注入**（闭合规则注入任意 CSS）。所以用白名单过滤。判据：**必须写 `url()` 或需要伪元素 / keyframes 的，走 `theme.scss`（构建期真实 CSS），不走 token。**
+CSS custom properties directly alter rendering. Unvalidated `setProperty` hands outsiders two capabilities: **outbound requests** (`url()` probes / tracking) and **style injection** (rule-closing payloads). Hence whitelist-only validation: names must be `--mauth-<kebab>`; values allow `#hex` / `rgb()` / `hsl()` / lengths / `var(--mauth-*)`; color keywords, `url()`, and rule-breaking characters are rejected per-entry (`sanitizeOverrides` returns `{ tokens, rejected }` — one bad value never discards the rest). The rule of thumb: **if it needs `url()`, pseudo-elements, or keyframes, it belongs in `theme.scss`, not tokens.**
 
-## 单例语义（微前端必读）
+## Singleton semantics (micro-frontends)
 
-`installThemeRegistry` / `installThemeManifest` / `installThemeViews` 等是模块级单例，token 注入写 `document.documentElement`。承诺形态：**每个 JS realm + 每份 document = 一个主题域**。
-
-- ✅ 一个 SPA、一个 iframe、SSR 每次渲染：各自独立
-- ⚠️ 微前端共享模块实例：后注册整体覆盖先注册，token 注入互清——子应用需各自模块隔离，或只用纯内核自行管理注入
-- ⚠️ 同源多应用：localStorage 键与 `th` / `th_color` 参数是共享命名空间，用 `createThemeState({ storageKeys, colorParam, viewParam })` 细分
+`installThemeRegistry` / `installThemeManifest` / `installThemeViews` are module-level singletons; token injection writes to `document.documentElement`. Contract: **one JS realm + one document = one theme domain.** SPAs, iframes, and per-request SSR renders are independent. Micro-frontends sharing one module instance will overwrite each other (last registration wins, tokens cleared cross-app) — isolate modules per sub-app, or use the pure kernel and manage injection yourself. Same-origin apps share the `th` / `th_color` param namespace and localStorage keys — disambiguate via `storageKeys` / `colorParam` / `viewParam`.
 
 ---
 
-## 开发
+## Development
 
 ```bash
 npm run typecheck   # tsc + vue-tsc
 npm run build       # tsc → dist/
-npm test            # 构建 + node:test（内核 .mjs + vue 层编译产物）
+npm test            # build + node:test (kernel .mjs + compiled vue tests)
 ```
 
-- `src/` 相对 import **必须带 `.js` 后缀**（NodeNext 编译，产物原样保留说明符）
-- exports 双轨：`types` 指向 `src/`（源码直供防类型双身份），`.` 与 `./vite` 的 `import` 指向 `dist/`，`./vue` 源码形态发布（tsc 编不出 SFC）
+Relative imports inside `src/` **must carry `.js` suffixes** (NodeNext compilation preserves specifiers). Exports are dual-track: `types` points at `src/` (source-of-truth typing), `import` points at `dist/` for `.` and `./vite`; `./vue` ships as source (tsc cannot compile SFCs).
 
-0.x 阶段次要版本可能包含重命名（公开出口是显式具名导出，改名即 semver-minor）。
+During 0.x, minor versions may rename exports (explicit named exports make renames semver-minor).
 
 ## License
 
