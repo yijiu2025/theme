@@ -86,7 +86,7 @@ export interface ThemeAssetsPluginOptions {
    * **推荐省略**：省略时插件在 `configResolved` 里用 Vite 自己加载的 env
    * （`.env` / `.env.<mode>` / `.env.local` / CLI `--env-dir` 的合并结果）读
    * `VITE_THEME_DIR`，未配置则回落 `DEFAULT_THEME_DIR`（`src/theme`）。
-   * 相比宿主自己 `resolveThemeDir(mode, root)`：root 取 `config.root`（权威值，
+   * 相比宿主自己 `loadEnv(mode, root)` 手工读：root 取 `config.root`（权威值，
    * 无 `process.cwd()` 陷阱）、env 分层与 Vite 实际行为天然一致、宿主 config
    * 零参数。显式传入仍用于「同仓多套主题目录」「目录与 env 无关的固定场景」。
    */
@@ -235,7 +235,7 @@ function pickDefFile(dir: string): string | undefined {
  * 「包 / 设备 / 页面 / colors / 配色」这五段里，`colors` 是**固定字面段**、其余四段
  * 是**取值段**（取值由文件系统与宿主设备清单决定，本插件不认识具体值）。这段结构的
  * 唯一来源是 `constants.ts` 的 `THEME_DIR_LEVELS`（取值目录段）+ `THEME_COLORS_SEGMENT`
- * （固定字面段）+ `THEME_COLOR_DEF_FILE` / `THEME_COLOR_STYLE_FILE`（叶子文件）。
+ * （固定字面段）+ `THEME_DEF_FILE_CANDIDATES` / `THEME_COLOR_STYLE_FILE`（叶子文件）。
  * 本函数用 `walk` 按 `THEME_DIR_LEVELS` 做**通用递归下降**——目录加一层、或 `colors`
  * 改名，只动那一份契约，这里与注册表的 `colorFromKey()` 一起跟着变，不再有
  * "扫得到但解析不出"或反之的静默脱节。

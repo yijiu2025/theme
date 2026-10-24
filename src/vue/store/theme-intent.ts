@@ -15,10 +15,10 @@
  * @since 2026-10-19（从 oauth21/src/stores/theme-intent.ts 下沉，keys 参数化）
  */
 import { ref, watch } from 'vue';
-import { DEFAULT_THEME_COLOR, DEFAULT_THEME_DARK_COLOR } from '../constants';
-import { MODE_CYCLE } from '../scheme';
-import type { ThemeMode, ThemeTone } from '../scheme';
-import { isKnownTheme, listColorIdsOfTone, resolveThemeId, toneOfAnyScope } from '../registry';
+import { DEFAULT_THEME_COLOR, DEFAULT_THEME_DARK_COLOR } from '../../constants';
+import { MODE_CYCLE } from '../../scheme';
+import type { ThemeMode, ThemeTone } from '../../scheme';
+import { isKnownTheme, listColorIdsOfTone, resolveThemeId, toneOfAnyScope } from '../../registry';
 import { readInitialMode, safeSet } from './theme-persistence';
 import type { ThemeStorageKeys } from './theme-persistence';
 import type { ThemeScope } from './theme-scope';

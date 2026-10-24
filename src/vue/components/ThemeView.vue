@@ -26,9 +26,9 @@
  */
 import { computed, inject, markRaw, shallowRef, watch } from 'vue';
 import type { Component } from 'vue';
-import { pageOf } from './view-page';
-import { themeStoreKey } from './theme-store';
-import type { ThemeStoreLike } from './theme-store';
+import { pageOf } from '../registry/view-page';
+import { themeStoreKey } from '../store/theme-store';
+import type { ThemeStoreLike } from '../store/theme-store';
 
 const props = defineProps<{
   /** 页面名（`'login'`），内部从页面域取 `loginPage`（与主题包搭配） */

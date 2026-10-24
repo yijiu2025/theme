@@ -22,9 +22,9 @@
  * @since 2026-10-23（计划 docs/plans/2026-10-23-theme-routerless-overlay.md §2.1 P0 ②）
  */
 import { computed, inject, watch } from 'vue';
-import { DEFAULT_THEME_PACKAGE } from '../constants';
-import { themeStoreKey } from './theme-store';
-import type { ThemeStoreLike } from './theme-store';
+import { DEFAULT_THEME_PACKAGE } from '../../constants';
+import { themeStoreKey } from '../store/theme-store';
+import type { ThemeStoreLike } from '../store/theme-store';
 
 const props = defineProps<{
   /** 页面名（主题目录里的普通页面目录，如 `'app'`；配色归属 = 包 × 设备 × 页面） */

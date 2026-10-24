@@ -21,7 +21,7 @@
  * @since 2026-10-17（从 oauth21 下沉；2026-10-17 末合并原 view-picker.ts，共 180 行）
  */
 import type { Component } from 'vue';
-import { THEME_ID_RE } from '../constants';
+import { THEME_ID_RE } from '../../constants';
 
 /**
  * 版式组件加载表形态：键 → 加载器

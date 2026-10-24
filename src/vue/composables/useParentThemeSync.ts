@@ -34,7 +34,7 @@
  * @author yijiu2025
  * @since 2026-08-30
  */
-import type { RemoteThemeConfig } from '../scheme';
+import type { RemoteThemeConfig } from '../../scheme';
 
 /** 宿主适配器 */
 export interface ParentThemeSyncOptions {

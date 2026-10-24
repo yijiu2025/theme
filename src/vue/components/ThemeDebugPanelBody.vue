@@ -36,9 +36,9 @@
  * @since 2026-09-23（2026-10-18 无 host 化；再拆「门卫 + 主体」，可见性判断移出门卫）
  */
 import { computed, ref } from 'vue';
-import { MODE_LABELS, TONE_LABELS } from '../scheme';
-import { useThemeDebugPanel } from './useThemeDebugPanel';
-import type { ThemeDebugColor } from './types';
+import { MODE_LABELS, TONE_LABELS } from '../../scheme';
+import { useThemeDebugPanel } from '../composables/useThemeDebugPanel';
+import type { ThemeDebugColor } from '../types';
 
 const TITLE = '主题调试';
 const HINT = '?debug=theme';

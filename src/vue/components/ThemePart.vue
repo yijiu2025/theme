@@ -30,11 +30,11 @@
  */
 import { computed, inject, markRaw, onUnmounted, ref, shallowRef, watch } from 'vue';
 import type { Component } from 'vue';
-import { DEFAULT_THEME_PACKAGE } from '../constants';
-import { themePartsFor } from './theme-parts';
-import { resolveScopedRecord, useScopedTheme } from './use-scoped-theme';
-import { themeStoreKey } from './theme-store';
-import type { ThemeStoreLike } from './theme-store';
+import { DEFAULT_THEME_PACKAGE } from '../../constants';
+import { themePartsFor } from '../registry/theme-parts';
+import { resolveScopedRecord, useScopedTheme } from '../composables/use-scoped-theme';
+import { themeStoreKey } from '../store/theme-store';
+import type { ThemeStoreLike } from '../store/theme-store';
 
 const props = defineProps<{
   /** 部件 id（= `parts/` 下的目录名，`[a-z0-9-]`；调用侧展示变体走 ctx 字段，不是 id 维度） */

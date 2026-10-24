@@ -20,8 +20,8 @@
  * @since 2026-10-18
  */
 import { useParentThemeSync } from './useParentThemeSync';
-import { fetchRemoteThemeConfig, isRemoteThemeEnabled } from './remote-fetch';
-import type { RemoteThemeConfig } from '../scheme';
+import { fetchRemoteThemeConfig, isRemoteThemeEnabled } from '../runtime/remote-fetch';
+import type { RemoteThemeConfig } from '../../scheme';
 
 export interface ThemeSourcesOptions {
   /** 把外部配置落到宿主 store（含 null = 撤销外部覆写） */

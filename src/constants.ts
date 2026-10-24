@@ -111,12 +111,8 @@ export const DEFAULT_THEME_DARK_COLOR = 'black';
 /** 配色键里的**固定字面段**：`colors` 是目录结构的一部分，不是取值段 */
 export const THEME_COLORS_SEGMENT = 'colors';
 
-/** 配色定义文件（`<配色>/index.ts`）与附加样式（`<配色>/theme.scss`）的文件名 */
-export const THEME_COLOR_DEF_FILE = 'index.ts';
+/** 附加样式文件名（`<配色>/theme.scss`；定义文件形态见 `THEME_DEF_FILE_CANDIDATES`） */
 export const THEME_COLOR_STYLE_FILE = 'theme.scss';
-
-/** 主题包定义入口（`<包>/index.ts`）的文件名 */
-export const THEME_PACKAGE_DEF_FILE = 'index.ts';
 
 /**
  * 定义文件（包定义 / 配色定义）可接受的**全部形态**，按优先级排列
@@ -133,7 +129,7 @@ export const THEME_DEF_FILE_CANDIDATES: readonly string[] = ['index.ts', 'index.
 /**
  * 主题包目录的**取值目录段**（`themes/` 之下、从包到配色叶子的真实目录层）
  *
- * 与 `THEME_COLORS_SEGMENT`（固定字面段）、`THEME_COLOR_DEF_FILE` /
+ * 与 `THEME_COLORS_SEGMENT`（固定字面段）、`THEME_DEF_FILE_CANDIDATES` /
  * `THEME_COLOR_STYLE_FILE`（叶子文件名）共同构成「目录长什么样」的完整契约。
  * 顺序即目录深度：`['pkg','device','page','colorId']` 对应
  * `themes/<pkg>/<device>/<page>/colors/<colorId>/`。

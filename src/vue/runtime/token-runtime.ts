@@ -25,8 +25,8 @@
  * @since 2026-10-17（从 oauth21/src/theme/runtime.ts 下沉）
  * @since 2026-10-23（P1a：注入目标参数化，名单按 target 分账管理）
  */
-import { sanitizeOverrides } from '../tokens';
-import type { ThemeTokenLayers, ThemeTokenOverrides } from '../tokens';
+import { sanitizeOverrides } from '../../tokens';
+import type { ThemeTokenLayers, ThemeTokenOverrides } from '../../tokens';
 
 /** 注入目标选项：缺省 = html 根（全局，历史行为） */
 export interface ApplyThemeLayersOptions {

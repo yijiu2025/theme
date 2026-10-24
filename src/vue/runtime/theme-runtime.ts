@@ -22,12 +22,12 @@
  * @since 2026-10-19（从 oauth21/src/stores/theme-runtime.ts 下沉，签名不变）
  */
 import { ref, watch } from 'vue';
-import { getDefaultThemeId, getThemeRecord, resolveThemeId, toneOfAnyScope } from '../registry';
-import type { ThemeTokenOverrides } from '../tokens';
+import { getDefaultThemeId, getThemeRecord, resolveThemeId, toneOfAnyScope } from '../../registry';
+import type { ThemeTokenOverrides } from '../../tokens';
 import { applyThemeLayers } from './token-runtime';
-import { useThemeSources } from './useThemeSources';
-import type { ThemeScope } from './theme-scope';
-import type { ThemeIntent } from './theme-intent';
+import { useThemeSources } from '../composables/useThemeSources';
+import type { ThemeScope } from '../store/theme-scope';
+import type { ThemeIntent } from '../store/theme-intent';
 
 /** 承载主题附加样式（theme.scss）的 <style> 元素 id，切换主题时整体替换 */
 const STYLE_ELEMENT_ID = 'mauth-theme-css';

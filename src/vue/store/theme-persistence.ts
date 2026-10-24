@@ -1,25 +1,15 @@
 /**
- * 主题状态的**持久化与 URL 解析层**（localStorage 安全读写 + URL 多设备意图）
+ * 主题持久化 —— localStorage 安全读写 + URL 配色意图读取
  *
- * 从 `oauth21/src/stores/theme-persistence.ts` 下沉（2026-10-19）。
- *
- * === 为什么下沉 ===
- * 这些是「明暗 ≡ 配色系别」状态机的**纯函数半边**：不依赖 store 实例、无闭包、无副作用顺序。
- * 它配合 scope / intent / runtime 一起构成完整状态机，五个前端（oauth21 / retroweb / firewall /
- * admin / posecraft）都应复用同一份，而不是各抄一遍。键名与 URL 参数是**主题机制的约定**，
- * 下沉后作为默认值，允许宿主通过 `ThemeStateOptions.storageKeys` / `colorParam` 覆盖（与自身
- * 存储冲突时）。
- *
- * ⚠️ 这些函数**不自带 DOM 守卫**（如 `typeof window !== 'undefined'`）：SPA 场景下
- *    window 必然存在。下沉不改变这一点。
+ * 从 `oauth21/src/stores/theme-persistence.ts` 下沉（2026-10-19，键名/参数前缀参数化）。
  *
  * @author yijiu2025
- * @since 2026-10-19（从 oauth21/src/stores/theme-persistence.ts 下沉，参数化键名/参数前缀）
+ * @since 2026-10-19（从 oauth21 下沉，参数化键名/参数前缀）
  */
-import { DEFAULT_THEME_ID } from '../constants';
-import { resolveThemeId } from '../registry';
-import type { ThemeMode } from '../scheme';
-import type { DeviceVocab } from '../views/device';
+import { DEFAULT_THEME_ID } from '../../constants';
+import { resolveThemeId } from '../../registry';
+import type { ThemeMode } from '../../scheme';
+import type { DeviceVocab } from '../../types';
 
 /** localStorage 键名集合（主题机制约定；与宿主存储冲突时通过 `ThemeStateOptions` 覆盖） */
 export interface ThemeStorageKeys {
@@ -36,7 +26,8 @@ export interface ThemeStorageKeys {
  *    （admin / firewall / phonecopy）各自用裸 `'theme'` 存自己的明暗偏好，
  *    skinsuite 宿主与它们同源部署时会**互相覆盖**。加前缀后各应用天然隔离。
  * 读取侧带**一次性回退迁移**（见 `readWithLegacyFallback`）：新键缺席时读旧键，
- *    存量用户的偏好无声延续；写入只写新键，旧键不动（同源下它可能属于别的应用，删不得）。
+ *    存量用户偏好无声延续；写入只写新键、不删旧键（同源下旧键可能属于别的应用）。
+ * 自定义过 `storageKeys` 的部署不受影响（两键都查它自己的键，随后才查旧默认键）。
  */
 export const DEFAULT_STORAGE_KEYS: ThemeStorageKeys = {
   mode: 'mauth:mode',

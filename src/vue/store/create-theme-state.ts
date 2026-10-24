@@ -27,14 +27,14 @@
 import { watch } from 'vue';
 import { useThemeScope } from './theme-scope';
 import { useThemeIntent } from './theme-intent';
-import { useThemeRuntime } from './theme-runtime';
-import { installThemeDebug } from './theme-debug';
-import { currentQuery } from './device-domain';
+import { useThemeRuntime } from '../runtime/theme-runtime';
+import { installThemeDebug } from '../debug/theme-debug';
+import { currentQuery } from '../device/device-domain';
 import { DEFAULT_COLOR_PARAM, DEFAULT_STORAGE_KEYS } from './theme-persistence';
-import { DEFAULT_VIEW_PARAM } from '../views/params';
-import { listThemes } from '../registry';
+import { DEFAULT_VIEW_PARAM } from '../../views/params';
+import { listThemes } from '../../registry';
 import type { ThemeStorageKeys } from './theme-persistence';
-import type { DeviceVocab } from '../views/device';
+import type { DeviceVocab } from '../../types';
 
 /** 宿主策略收口点（全可选，默认 = 主题机制约定，oauth21 即默认值本身） */
 export interface ThemeStateOptions {

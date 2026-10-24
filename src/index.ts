@@ -38,9 +38,8 @@ export {
   DEFAULT_THEME_DARK_COLOR,
   THEME_DIR_LEVELS,
   THEME_COLORS_SEGMENT,
-  THEME_COLOR_DEF_FILE,
   THEME_COLOR_STYLE_FILE,
-  THEME_PACKAGE_DEF_FILE
+  THEME_DEF_FILE_CANDIDATES
 } from './constants.js';
 
 export { THEME_TONES, TONE_LABELS, isThemeTone, normalizeTone } from './scheme.js';
@@ -103,13 +102,11 @@ export type {
 } from './views/param-audit.js';
 
 /**
- * 设备清单机制（只有事实与查询，**判定不在这里**）
- *
- * 「当前属于哪台设备」由宿主注入 `resolveDevice`（`skinsuite/vue`），库不认识
- * 视口阈值 / UA / `?isMobile` / `?from=` 这些词汇。
+ * 设备词汇（注入式清单的一台设备）：store 核心消费的形状。
+ * 设备清单本身是**宿主事实**（2026-10-24 起经 `createThemeState({ devices })` 注入，
+ * 库不自持注册表）；判定也在宿主 —— 库不认识视口阈值 / UA / `?isMobile` / `?from=`。
  */
-export { containersOf } from './views/device.js';
-export type { DeviceDef, DeviceVocab } from './views/device.js';
+export type { DeviceVocab } from './types.js';
 
 /**
  * 外部下发的主题配置：**只归一形状，不碰网络**

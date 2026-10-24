@@ -16,8 +16,8 @@ import { after, before, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Window } from 'happy-dom';
 
-import { currentQuery, installThemeDomain } from '../../src/vue/device-domain';
-import type { DeviceDomainRouter } from '../../src/vue/device-domain';
+import { currentQuery, installThemeDomain } from '../../src/vue/device/device-domain';
+import type { DeviceDomainRouter } from '../../src/vue/device/device-domain';
 
 let window: Window;
 

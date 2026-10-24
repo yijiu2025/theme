@@ -9,6 +9,23 @@
 >   旧名 `mauth-theme-core` 的 `0.1.0` / `0.1.1` 均已标记 **deprecated** 并保留可安装，不再更新 ——
 >   它们的代码与 `skinsuite@0.1.0` 完全一致，只有包名不同。
 
+## 0.10.0 — 未发布
+
+### Vue 绑定层按文件类型重构（内部结构；公开面只减不增）
+
+- `src/vue/` 29 个平铺文件按类型分组：`components/`（7 个 SFC）、`composables/`（use* 组合式）、
+  `store/`（状态机 scope/intent/persistence/编排/契约）、`runtime/`（token 注入 / 主题运行时 / 远程取数）、
+  `registry/`（版式 / 页面 / 部件注册表）、`debug/`（调试句柄 + 面板独立入口）、`device/`（URL 通道）；
+  `plugin.ts` / `types.ts` / `shims-vue.d.ts` 留根。公开面（`skinsuite/vue` 桶）逐字不变，宿主零改动
+- **死代码移除**（唯一宿主 oauth21 已自带同口径实现，库内零使用）：
+  - `pageContainers` / `containerOf` / `resolveContainerOf` / `DeviceContainerLoader`（`skinsuite/vue` 导出移除；
+    容器布线归属宿主设备模块）——`vue/device-containers.ts` 与 `views/device.ts` 整文件删除
+  - `resolveThemeDir`（`skinsuite/vite` 导出移除；`themeAssets()` 零参自解析已覆盖，
+    手工 loadEnv 仪式不再保留）——`vite/dir.ts` 收敛为纯常量
+  - `BASE_VIEW_ID` / `THEME_PACKAGE_DEF_FILE` / `THEME_COLOR_DEF_FILE` 常量（零使用或被
+    `THEME_DEF_FILE_CANDIDATES` 取代）
+- `DeviceVocab` 类型从 `views/device.ts` 迁至根 `types.ts`（store 核心消费的形状，随类型层走）
+
 ## 0.9.2 — 2026-10-24
 
 ### 文档

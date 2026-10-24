@@ -18,8 +18,8 @@ import { Window } from 'happy-dom';
 import { buildThemeRegistry, installThemeRegistry } from '../../src/registry';
 import type { ThemeAssetModules } from '../../src/registry';
 
-import { createThemeState } from '../../src/vue/create-theme-state';
-import { getInjectedTokenNames } from '../../src/vue/token-runtime';
+import { createThemeState } from '../../src/vue/store/create-theme-state';
+import { getInjectedTokenNames } from '../../src/vue/runtime/token-runtime';
 
 let window: Window;
 

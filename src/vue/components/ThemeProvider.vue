@@ -21,7 +21,7 @@
  * @since 2026-10-23（计划 §2.2 P1a ②）
  */
 import { computed, onUnmounted, ref } from 'vue';
-import { resolveScopedRecord, useScopedTheme } from './use-scoped-theme';
+import { resolveScopedRecord, useScopedTheme } from '../composables/use-scoped-theme';
 
 const props = defineProps<{
   /** 页面名（作用域配色归属 = 包 × 设备 × 页面） */

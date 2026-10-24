@@ -7,8 +7,8 @@
  * 宿主写一个 `host` 对象注入；现在它们都已收进库内「域」，本文件**无参**地从域取：
  *
  *   · store       → `<ThemeRoot :themeStore>` provide，`inject`（`ThemeStoreLike`）
- *   · 设备        → `registeredDevices()`（`defineThemeDevice` 自动注册）+ store
- *     `activeDevice`（2026-10-20：设备由分发器判定后告知，库不自行判定）
+ *   · 设备        → store 注入的设备词汇清单（`createThemeState({ devices })`）
+ *     + store `activeDevice`（2026-10-20：设备由分发器判定后告知，库不自行判定）
  *   · 页面        → 页面域 `pageOf()`（`defineThemePage` 自动注册）+ store `activePage`（ThemeView 维护）
  *   · 配色查询    → 内核注册表单例（`listColorsOf` / `toneOfColor` / `listColorViews`）
  *   · 版式意图    → store `deviceViewOf` / `setDeviceView`（2026-10-20 store 化：
@@ -30,11 +30,11 @@
  */
 import { computed, inject, ref } from 'vue';
 import type { ComputedRef } from 'vue';
-import { listColorViews, listColorsOf, toneOfColor } from '../registry';
-import type { ThemeDebugActions, ThemeDebugColor, ThemeDebugModel } from './types';
-import { pageOf } from './view-page';
-import { themeStoreKey } from './theme-store';
-import type { ThemeStoreLike } from './theme-store';
+import { listColorViews, listColorsOf, toneOfColor } from '../../registry';
+import type { ThemeDebugActions, ThemeDebugColor, ThemeDebugModel } from '../types';
+import { pageOf } from '../registry/view-page';
+import { themeStoreKey } from '../store/theme-store';
+import type { ThemeStoreLike } from '../store/theme-store';
 
 /** 只把「非空字符串」当有效参数 —— query 值可能是数组 */
 function asText(value: unknown): string {

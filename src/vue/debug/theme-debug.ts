@@ -1,40 +1,33 @@
 /**
- * 主题调试句柄（dev-only）—— URL 参数静默失败警告 + `__MAUTH_STORE__` 探针
+ * 主题调试句柄（dev-only）—— `window.__MAUTH_STORE__` 探针 + 右下角角标 + URL 参数审计
  *
- * === 为什么落库不落宿主（2026-10-21 定论）===
- * 第一版放在 oauth21 宿主（`src/utils/theme-debug.ts`），评审时被纠正，理由：
- *   · 判定用的知识全是**库的**：版式合法性 = `pageOf(page).views.has()`（库机制）、
- *     设备白名单 = `registeredDevices()`（库域）、参数键形由 `views/params.ts` 定义；
- *   · 被诊断的静默失败是**库的行为**：`pick()` 的 `resolve(url,…) ?? pkg` 回落、
- *     未知设备落兜底 —— 坑是库静默吞的，警告却要每个宿主各写一遍，正是
- *     「抄 N 份必然漂移」（params.ts / view-picker / registry 都因此沉过内核）；
- *   · 复用同一机制的前端（firewall / posecraft …）落库即免费获得，宿主零接线。
- * 纯判定在内核 `views/param-audit.ts`（零 import，可单测 / 可被 CI 直接调用做
- * 链接体检）；本文件只做 Vue 绑定层的接线（watch + DOM + 探针）。
+ * 从 `oauth21/src/theme/debug.ts` 下沉（2026-10-21）。放置在库内的理由：
+ * 「URL 主题参数是否合法」的判定知识（白名单键、设备词汇、版式注册）全在库内，
+ * 留在宿主就要反向 import 库的内部 —— 违反依赖方向。
  *
- * === 它做什么 ===
- *   1. **dev 无条件**（不需要 `?debug=theme`）把 URL 主题参数的静默失败喊进
- *      console：非法版式值 / 未知设备锁定 / 重复键 —— 静默失败不靠「记得开开关」防；
- *   2. `?debug=theme` 时挂 `window.__MAUTH_STORE__`（store 内部 11 个 getter
- *      **原样保留** + `url` / `effectiveView` / `warnings` 三个链路键）与右下角角标；
- *   3. 响应式刷新：watch store 六值 + `watch(currentQuery, {deep})`（与编排层的
- *      版式意图同步同源）—— 不轮询。
+ * === 三个职责 ===
+ *   1. `installThemeDebug(scope, intent)`：store 六值 + URL 变化即刷新，把问题打 console
+ *      （**无门控** —— 静默失败不靠「记得开开关」防），并把探针挂到 window；
+ *   2. 探针 `__MAUTH_STORE__`：11 个 store getter + `url` / `effectiveView` / `warnings`
+ *      三个链路键（地址栏原始值 → store 意图 → 生效结果，联调一眼定位断在哪一环）；
+ *   3. 右下角角标：设备 / 页 / 版式 / 包 + 警告计数（红 = 当前有问题）。
  *
- * === 边界（知悉即可）===
- *   · 配色合法性不检（生效配色是 URL 覆盖 + 持久化 + 用户操作的合成，见 param-audit 头注）；
- *   · 通用键 `?th` 只对**当前设备**判定（部署方常有意只保一端；原始值在快照里看得到）。
+ * === 可见性（探针与角标何时挂）===
+ * `debugGateOn()` = 清单 `debug` 开关（`theme.config.ts` 的 `debug.enabled` / `debug.query`）
+ * + 路由 query —— 与 `<ThemeDebugPanel>` 同一判据；**警告不受门控**（dev 下恒开）。
+ * prod 早退：`import.meta.env.DEV` 静态替换后整个函数体消失，产物字节不变。
  *
  * @author yijiu2025
- * @since 2026-10-21（第二批 #5；从 oauth21 宿主下沉）
+ * @since 2026-10-21（第二批 #5 从宿主下沉；2026-10-23 探针门控改读 manifest）
  */
 import { watch } from 'vue';
-import { collectWarnings, effectiveViewRaw, parseThemeParams } from '../views/param-audit';
-import type { ThemeUrlParams, WarningContext } from '../views/param-audit';
-import { isThemeDebugVisible, themeManifest } from '../manifest';
-import { currentQuery } from './device-domain';
-import type { ThemeIntent } from './theme-intent';
-import type { ThemeScope } from './theme-scope';
-import { pageOf } from './view-page';
+import { collectWarnings, effectiveViewRaw, parseThemeParams } from '../../views/param-audit';
+import type { ThemeUrlParams, WarningContext } from '../../views/param-audit';
+import { isThemeDebugVisible, themeManifest } from '../../manifest';
+import { currentQuery } from '../device/device-domain';
+import type { ThemeIntent } from '../store/theme-intent';
+import type { ThemeScope } from '../store/theme-scope';
+import { pageOf } from '../registry/view-page';
 
 /**
  * `?debug=theme` 门控 —— 与 `<ThemeDebugPanel>` **同一判据**：读清单单例

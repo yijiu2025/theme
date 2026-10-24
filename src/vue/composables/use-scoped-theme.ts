@@ -21,10 +21,10 @@
  */
 import { watch } from 'vue';
 import type { Ref } from 'vue';
-import { DEFAULT_THEME_PACKAGE } from '../constants';
-import { getDefaultThemeId, getThemeRecord } from '../registry';
-import type { MauthThemeRecord } from '../types';
-import { applyThemeLayers, clearThemeTokens } from './token-runtime';
+import { DEFAULT_THEME_PACKAGE } from '../../constants';
+import { getDefaultThemeId, getThemeRecord } from '../../registry';
+import type { MauthThemeRecord } from '../../types';
+import { applyThemeLayers, clearThemeTokens } from '../runtime/token-runtime';
 
 /** 作用域解析的输入（`pkg`/`colorId` 都可缺省，见 `resolveScopedRecord`） */
 export interface ScopedThemeParams {

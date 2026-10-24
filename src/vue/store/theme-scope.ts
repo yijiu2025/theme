@@ -13,7 +13,7 @@
  * 「当前渲染视图属于哪台设备」由**宿主分发器**决定（如 `login/index.vue` 按视口 /
  * `?device=` 锁定选设备容器），容器里的 `<ThemeView page="login" device="mini">` props
  * 把设备身份告知本 scope。库不自行判定（不认视口 / UA / `?device=` / `?from=` 这些
- * 宿主词汇）—— 设备域（`device-domain.ts`）只保留 `currentQuery()` 给版式意图同步用。
+ * 宿主词汇）—— 设备域（`device/device-domain.ts`）只保留 `currentQuery()` 给版式意图同步用。
  *
  * === 依赖方向（拆分的骨架）===
  *   scope ← intent（明暗意图，读 activeDevice/activePage/activeView/themeId）
@@ -25,9 +25,9 @@
  * @since 2026-10-20（设备来源：库内判定撤出，改 `<ThemeView>` device prop 告知）
  */
 import { computed, ref } from 'vue';
-import { DEFAULT_THEME_PACKAGE } from '../constants';
-import { getThemeRecord, listThemes } from '../registry';
-import { currentQuery } from './device-domain';
+import { DEFAULT_THEME_PACKAGE } from '../../constants';
+import { getThemeRecord, listThemes } from '../../registry';
+import { currentQuery } from '../device/device-domain';
 import { readInitialTheme, readUrlIntent } from './theme-persistence';
 import type { DeviceThemeIntent, ThemeStorageKeys } from './theme-persistence';
 import {
@@ -35,9 +35,9 @@ import {
   readUrlViewIntent,
   sameViewSnapshot,
   viewParamsSnapshot
-} from '../views/params';
-import type { DeviceViewIntent } from '../views/params';
-import type { DeviceVocab } from '../views/device';
+} from '../../views/params';
+import type { DeviceViewIntent } from '../../views/params';
+import type { DeviceVocab } from '../../types';
 
 export function useThemeScope(
   keys: ThemeStorageKeys,

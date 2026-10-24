@@ -24,8 +24,8 @@
  * @since 2026-10-23（router 改可选：`app.use(theme)` 无参支持无路由应用）
  */
 import type { App, Plugin } from 'vue';
-import { installThemeDomain } from './device-domain';
-import type { DeviceDomainRouter } from './device-domain';
+import { installThemeDomain } from './device/device-domain';
+import type { DeviceDomainRouter } from './device/device-domain';
 
 export interface ThemePluginOptions {
   /**

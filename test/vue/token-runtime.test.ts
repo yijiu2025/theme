@@ -18,7 +18,7 @@ import {
   applyThemeLayers,
   clearThemeTokens,
   getInjectedTokenNames
-} from '../../src/vue/token-runtime';
+} from '../../src/vue/runtime/token-runtime';
 
 // document 类型用 lib.dom 的 Document（与 token-runtime 的签名一致）；
 // happy-dom 的 DOM 类型与之是两套，边界处 cast 一次消歧。

@@ -21,8 +21,8 @@
  * @since 2026-10-17（2026-10-18 退化为纯外观壳：删 host / 父同步 / 后端拉取 / 调试面板）
  */
 import { computed, provide } from 'vue';
-import { themeStoreKey } from './theme-store';
-import type { ThemeStoreLike } from './theme-store';
+import { themeStoreKey } from '../store/theme-store';
+import type { ThemeStoreLike } from '../store/theme-store';
 
 const props = defineProps<{
   /** 主题 store（结构类型，宿主 Pinia store 结构兼容即可传；`provide` 给 <ThemeView>/<ThemeDebugPanel>） */

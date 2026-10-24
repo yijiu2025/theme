@@ -12,5 +12,5 @@
  *
  * @author yijiu2025
  */
-export { default as ThemeDebugPanel } from './ThemeDebugPanel.vue';
-export { default } from './ThemeDebugPanel.vue';
+export { default as ThemeDebugPanel } from '../components/ThemeDebugPanel.vue';
+export { default } from '../components/ThemeDebugPanel.vue';

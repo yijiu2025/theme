@@ -29,8 +29,8 @@
  * @since 2026-10-18
  */
 import type { InjectionKey } from 'vue';
-import type { ThemeMode } from '../scheme';
-import type { DeviceVocab } from '../views/device';
+import type { ThemeMode } from '../../scheme';
+import type { DeviceVocab } from '../../types';
 
 /** 主题 store 的结构契约（宿主 store 结构兼容即可传） */
 export interface ThemeStoreLike {

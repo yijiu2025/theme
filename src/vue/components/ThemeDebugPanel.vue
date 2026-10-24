@@ -18,8 +18,8 @@
  * @since 2026-09-23（2026-10-18 拆「门卫 + 主体」：off 档连 chunk 都不下载）
  */
 import { computed, defineAsyncComponent } from 'vue';
-import { isThemeDebugVisible, themeManifest } from '../manifest';
-import { currentQuery } from './device-domain';
+import { isThemeDebugVisible, themeManifest } from '../../manifest';
+import { currentQuery } from '../device/device-domain';
 
 /** 面板此刻是否该显示（清单 debug 开关 + URL 触发参数） */
 const visible = computed(() => isThemeDebugVisible(themeManifest().debug, currentQuery()));
