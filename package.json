@@ -37,7 +37,7 @@
     "build": "tsc -p tsconfig.build.json && tsc -p tsconfig.vite.json",
     "build:vue-tests": "node scripts/build-vue-tests.mjs",
     "typecheck": "tsc -p tsconfig.json && vue-tsc -p tsconfig.vue.json",
-    "test": "npm run build && npm run build:vue-tests && node --test \"test/*.test.mjs\" \".test-dist/*.test.js\"",
+    "test": "npm run build && npm run build:vue-tests && node scripts/run-tests.mjs",
     "publish:sync": "node scripts/publish-and-sync.mjs",
     "prepack": "npm run build"
   },
