@@ -1,6 +1,6 @@
 {
   "name": "skinsuite",
-  "version": "0.7.1",
+  "version": "0.9.0",
   "description": "多主题 / 多版式机制的纯内核（零运行时依赖）：目录名与默认值的白名单常量、主题包契约类型、明暗 mode 与色系 tone、CSS 变量 token 的安全校验、设备维度 URL 参数读取。不碰 DOM / 构建器 / 路由，可在任意前端（Vue / React / Node / SSR）复用。",
   "type": "module",
   "main": "./dist/index.js",
