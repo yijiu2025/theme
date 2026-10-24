@@ -9,6 +9,13 @@
 >   旧名 `mauth-theme-core` 的 `0.1.0` / `0.1.1` 均已标记 **deprecated** 并保留可安装，不再更新 ——
 >   它们的代码与 `skinsuite@0.1.0` 完全一致，只有包名不同。
 
+## 0.10.1 — 2026-10-24
+
+### 修复
+
+- **exports 补注册 `./vue/panel` 子路径**：0.9.x 起该子路径就没进 exports（monorepo 宿主靠 alias 直指源码掩盖），standalone 形态裸 import 会 `ERR_PACKAGE_PATH_NOT_EXPORTED`。0.10.0 的 vue 层重构把 `panel.ts` 移入 `debug/` 子目录后，宿主 aliases 的物理探测也失效（CI standalone 关卡红）。现 exports 与物理路径对齐为 `./src/vue/debug/panel.ts`
+- 宿主同步：oauth21 的 `config/aliases.ts` 探测 rel 路径与 `tsconfig.app.json` paths 同步指向 `src/vue/debug/panel.ts`
+
 ## 0.10.0 — 2026-10-24
 
 ### Vue 绑定层按文件类型重构（内部结构；公开面只减不增）
