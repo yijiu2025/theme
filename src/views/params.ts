@@ -38,8 +38,8 @@
  *   · `readUrlViewIntent(query, viewParam, devices)` —— **全设备一次性读入**：把 URL 上
  *     所有 `th*` 原始值解析成 `{ deviceView, viewIntent }`，供主题 store 初始化（与配色侧
  *     `readUrlIntent` 同形）。theme-scope 的 `deviceView` / `viewIntent` 由它播种。
- *     设备清单由调用方传入（`registeredDevices()`）—— 本文件保持**零 import**，
- *     与 `readDeviceParam` 的 urlKey 传入同构。 *
+ *     设备清单由调用方传入（宿主设备清单经 `createThemeState({ devices })` 注入）——
+ *     本文件保持**零 import**，与 `readDeviceParam` 的 urlKey 传入同构。 *
  * @author yijiu2025
  * @since 2026-09-26（2026-10-18 改下划线 + urlKey：`?view.` → `?th_`、`?theme.` → `?th_color_`；
  *                     2026-10-20 加 `readUrlViewIntent`：版式意图 store 化的读入半边）
@@ -71,7 +71,7 @@ function isPresent(value: unknown): boolean {
  *
  * @param query     路由 query（`route.query`）
  * @param name      参数名（`'th'` / `'th_color'`）
- * @param deviceKey 设备**缩写名（urlKey）** —— 由调用方用 `urlKeyOf(deviceId)` 从设备清单查
+ * @param deviceKey 设备**缩写名（urlKey）** —— 由调用方从自己的设备清单查（宿主清单的 urlKey 字段）
  * @returns `query['<name>_<deviceKey>']` 优先；缺席或空值时退 `query[name]`；
  *          两者都没有则返回 undefined，表示"**这台设备**没有被显式指定"
  *
@@ -81,7 +81,7 @@ function isPresent(value: unknown): boolean {
  * ⚠️ 空串视为"未指定"：`?th_std=` 不该把 `?th=compact` 顶掉 ——
  *    部署方常把参数留空当作"这台设备不特殊指定"。
  * ⚠️ 缩写名是**宿主**的词汇表（本包不认识具体取值），所以这里只把它当字符串拼键；
- *    「这个缩写名认不认得」由宿主的设备清单归一（`urlKeyOf`）。
+ *    「这个缩写名认不认得」由宿主的设备清单归一。
  */
 export function readDeviceParam(
   query: Record<string, unknown> | undefined,
@@ -115,8 +115,8 @@ export function readDeviceParam(
  *
  * @param query     路由 query（设备域 `currentQuery()`；单测可直接传对象，不依赖 window）
  * @param viewParam 版式参数前缀（缺省 `th`）
- * @param devices   设备清单（`{ id, urlKey? }`；调用方传 `registeredDevices()`。
- *                   `urlKey` 缺省回落 `id`，与 `urlKeyOf()` 同口径）
+ * @param devices   设备清单（`{ id, urlKey? }`；调用方传入宿主注入清单。
+ *                   `urlKey` 缺省回落 `id`，与设备词汇解析同口径）
  */
 export function readUrlViewIntent(
   query: Record<string, unknown> | undefined,
@@ -152,7 +152,7 @@ export function readUrlViewIntent(
  *
  * @param query     路由 query
  * @param viewParam 版式参数前缀（缺省 `th`）
- * @param devices   设备清单（`{ id, urlKey? }`；调用方传 `registeredDevices()`）
+ * @param devices   设备清单（`{ id, urlKey? }`；调用方传入宿主注入清单）
  */
 export function viewParamsSnapshot(
   query: Record<string, unknown> | undefined,

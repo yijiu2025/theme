@@ -11,7 +11,7 @@
  * === 判定为什么敢下结论 ===
  * 版式合法性由调用方注入 `hasView`（宿主传库公开 API `pageOf(page).views.has`）——
  * 本模块**不复制 pick 逻辑**，只做「输入 → 判定 → 文案」。设备合法性用调用方传入的
- * 设备清单（来自 `registeredDevices()`）。
+ * 设备清单（宿主设备清单经 `createThemeState({ devices })` 注入 store 后随 scope 传入）。
  * 🔴 配色合法性**不检**：生效配色 = URL 设备覆盖 + localStorage + 用户显式操作 +
  *    跨包兜底的合成结果，脱离 store 单看 URL 会误报（已知边界）。
  *
@@ -53,7 +53,7 @@ export interface ThemeUrlParams {
   repeated: RepeatedParam[];
 }
 
-/** 设备清单条目（urlKey 缺省回落 id，与 `urlKeyOf` 同口径） */
+/** 设备清单条目（urlKey 缺省回落 id，与设备词汇的解析口径一致） */
 export interface ParamAuditDevice {
   readonly id: string;
   readonly urlKey?: string;
@@ -78,7 +78,7 @@ export interface WarningContext {
   packageId: string;
   /** 当前页是否已注册（未注册页没有 registry 就没有判据 —— 不判，不误报） */
   pageRegistered: boolean;
-  /** 设备清单（id + urlKey；调用方传 `registeredDevices()`） */
+  /** 设备清单（id + urlKey；调用方传入 —— 宿主侧来自 store 注入的 devices） */
   devices: readonly ParamAuditDevice[];
   /** 版式「有无」判定（注入库 `pageOf(page).views.has`；测试用假实现） */
   hasView(raw: string, pkg: string, device: string): boolean;
@@ -144,7 +144,7 @@ export function parseThemeParams(query: Record<string, unknown> = {}): ThemeUrlP
  * 与 `readUrlViewIntent` 的取值链同口径（专属优先、空串未指定）；这里只做
  * 「取哪个值」，合法性判定在 collectWarnings。
  *
- * @param urlKey 设备缩写名（未声明缩写的设备回落 id，与库 `urlKeyOf` 同口径）
+ * @param urlKey 设备缩写名（未声明缩写的设备回落 id，与设备词汇解析同口径）
  */
 export function effectiveViewRaw(params: ThemeUrlParams, urlKey: string): string | null {
   return params.scoped[urlKey] ?? params.th ?? null;
