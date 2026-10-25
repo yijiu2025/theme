@@ -57,6 +57,8 @@ kernel 内部 ──→ constants / types（叶子）
 | `index.ts` | 子路径**桶出口**（公开面承诺，显式具名导出） |
 | `plugin.ts` | Vue 插件 `app.use(theme, { router? })`：router 可选（0.9 无路由支持），只装设备域的 URL 通道 |
 | `types.ts` | Vue 层契约：`ThemeDebugModel/Actions/Color`（调试面板的数据形状） |
+| `shims-vue.d.ts` | `.vue` 模块兜底声明（仅纯 tsc 场景；vue-tsc 下真实文件优先） |
+| `env.d.ts` | `import.meta.env` 自包含兜底类型（不依赖 vite 安装；与 vite/client 声明合并兼容） |
 
 ### `store/` —— 状态机（scope → intent → runtime 三层编排）
 
