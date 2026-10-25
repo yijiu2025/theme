@@ -1,25 +1,15 @@
 /**
- * 主题运行时（runtime）—— token 注入 + 附加样式 + 明暗类 + 外部配置
+ * 主题运行时 —— token 注入 + 附加样式 + 明暗类 + 外部配置
  *
- * 从 `oauth21/src/stores/theme-runtime.ts` 下沉（2026-10-19）。本文件只负责「把生效配色**作用到 DOM/副作用**」：
- *   · token 分层注入（`applyThemeLayers` → html inline 变量）+ `html.dark` 类；
- *   · 附加样式 `theme.scss` 的惰性加载（带 epoch 防串台）；
- *   · `data-mauth-theme` 属性写入；
- *   · 切版式自动重置配色；
- *   · 外部配置（后端 / 父应用）合入。
+ * 把生效配色作用到 DOM：token 分层注入 html inline 变量 + html.dark 类 +
+ * data-mauth-theme 属性 + theme.scss 惰性加载（epoch 防串台）+ 切版式重置配色 +
+ * 外部配置合入。依赖 scope 与 intent，不反向 —— 编排链的最末端。
  *
- * === 依赖方向 ===
- *   runtime 依赖 scope（themeRecordFor / activeDevice / isDark / themeId / deviceTheme）
- *   和 intent（mode 的写入口），不反向 —— 它是编排链的最末端。
- *
- * === 🔴 TDZ 顺序（拆分后仍必须严格保持）===
- *   `styleEpoch` 与 `loadThemeStyle` 必须声明在 `watch([themeId…], {immediate})` **之前**：
- *   immediate watcher 会在 `watch()` 当场同步跑一遍 loadThemeStyle，若 `let styleEpoch`
- *   还未求值就踩 TDZ，抛出的 ReferenceError 被 async 转成 rejected promise 又 `void` 丢掉，
- *   现象是「只有首屏那次附加样式加载不到，之后手动切主题都正常」—— 极难从表象定位。
- *
- * @author yijiu2025
- * @since 2026-10-19（从 oauth21/src/stores/theme-runtime.ts 下沉，签名不变）
+ * 🔴 TDZ 顺序必须严格保持：styleEpoch 与 loadThemeStyle 必须声明在
+ *    watch([themeId…], {immediate}) 之前 —— immediate watcher 当场同步跑
+ *    loadThemeStyle，若 let styleEpoch 未求值会踩 TDZ，ReferenceError 被 async
+ *    转成 rejected promise 又 void 丢掉，现象是「只有首屏附加样式加载不到」，
+ *    极难定位。
  */
 import { ref, watch } from 'vue';
 import { getDefaultThemeId, getThemeRecord, resolveThemeId, toneOfAnyScope } from '../../registry';

@@ -1,32 +1,12 @@
 /**
- * 主题（配色）注册表 —— **构建层 + 查询层**（内核唯一实现）
+ * 配色注册表 —— 构建层（加载表 → 注册表）+ 查询层（内核唯一实现）
  *
- * 把「虚拟模块 `virtual:theme` 扫出来的三个加载表」构建成一张可查询的注册表，
- * 并提供全部查询函数。原先这两层住在宿主（`oauth21/src/theme/{registry,index}.ts`），
- * 2026-10-17 下沉到内核 —— 它们是「主题配色」的**纯机制**，与业务、与框架都无关，
- * 任何前端（Vue / React / SSR）都能复用。
+ * 把 virtual:theme 扫出的三个加载表构建成 Map，键为「包/设备/页面/配色」四段
+ * （view ≡ pkg，没有独立版式段）。纯机制、与框架无关，任何前端可复用。
  *
- * === 为什么能下沉、设备白名单怎么处理 ===
- * 构建层的唯一「宿主事实」是**设备取值集合**（哪些目录名算合法设备）。内核不绑定
- * 某个应用的设备词汇表（见 `constants.ts` 的说明），所以 `buildRegistry` 把它收成
- * **参数** `isKnownDevice(raw): boolean` —— 宿主把自己的 `asThemeDevice` 或设备清单
- * 传进来，内核据此判断「设备段是否合法」。
- *
- * === 目录骨架（唯一形态）===
- * ```
- * themes/<包>/<设备>/<页面>/colors/<配色>/{index.ts, theme.scss}
- * ```
- * 一个主题包 = 一种版式（`view ≡ pkg`），所以配色键是「包/设备/页面/配色」**四段**，
- * 没有独立的「版式」段。目录结构契约见 `constants.ts` 的 `THEME_DIR_LEVELS` /
- * `THEME_COLORS_SEGMENT` / `THEME_COLOR_*`。
- *
- * === 键的唯一性作用域 ===
- * 配色 id 唯一性作用域 = 「同包 × 同设备 × 同页面」。跨设备 / 跨包 / 跨页面可以同名
- * （同名 ≠ 冲突：取一份配色时这三段必然同时给出）。同范围内重名按路径排序先到先得
- * 并告警，不静默覆盖。
- *
- * @author yijiu2025
- * @since 2026-10-17（从 oauth21/src/theme 下沉）
+ * 设备段只做形态校验（THEME_ID_RE）—— 设备词汇表是宿主事实，内核不绑定。
+ * 配色 id 唯一性作用域 = 同包 × 同设备 × 同页面；跨设备 / 跨包 / 跨页面可同名。
+ * 同范围内重名按路径排序先到先得并告警，不静默覆盖。
  */
 import {
   DEFAULT_THEME_COLOR,
@@ -97,20 +77,12 @@ function packageFromKey(key: string): string | null {
 /**
  * 从配色键里取出归属；不合法返回 null
  *
- * 目录只有**两种**形态（见文件头）：
- *   页面配色：`./<包>/<设备>/<页面>/colors/<配色>/index.ts`
- *   部件配色：`./<包>/<设备>/parts/<部件id>/colors/<配色>/index.ts`（P1b，2026-10-23）
- * 部件配色归到 `page = 'part:<部件id>'` 命名空间（冒号对内核只是普通字符——page 本就是
- * 宿主词汇、不透明；与真实页面名不可能撞——页面名过 `THEME_ID_RE` 不含冒号）。
- * 设备段由宿主注入的 `isKnownDevice` 判断（内核不认设备词汇表）。
- *
- * 定义文件后缀认 `THEME_DEF_FILE_CANDIDATES` 全部形态（index.ts / index.js，
- * 纯 JS 宿主）；样式恒为 theme.scss 单形态。
- *
- * 🔴 目录结构（`colors` / `parts` 固定字面段 + 文件名）由 `constants.ts` 派生，与构建插件
- *    `scan()` 共享同一来源，避免"扫得到但解析不出"的静默脱节。
- * 🔴 两种形态按**先页面后部件**的顺序尝试：`./pkg/dev/parts/colors/x/…` 这种病理键
- *    （页面真叫 `parts`）按页面形态归档，部件解析器不再染指。
+ * 键只有两种形态：
+ *   页面配色：./<包>/<设备>/<页面>/colors/<配色>/index.ts
+ *   部件配色：./<包>/<设备>/parts/<部件id>/colors/<配色>/index.ts → page 段记 part:<部件id>
+ * （冒号对内核只是普通字符；页面名过 THEME_ID_RE 不含冒号，与真实页面名不可能撞。）
+ * 🔴 目录结构由 constants.ts 派生，与构建插件 scan() 同源，防「扫得到但解析不出」。
+ * 🔴 两种形态按先页面后部件的顺序尝试：页面真叫 parts 的病理键按页面形态归档。
  */
 function parseColorKey(
   key: string,
@@ -227,23 +199,12 @@ export function buildThemeRegistry(
 /* ---------------------------------------------------------------------------
  * 查询层
  *
- * 查询函数都读**模块级单例 `themeRegistry`**（主题配色注册表本来就是全局单例）。
- * 由宿主在启动时调 `installThemeRegistry(buildThemeRegistry(...))` 一次性装入，
- * 之后所有查询函数直接可用 —— 与宿主旧实现「`export const registry = buildRegistry()`」
- * 同一形态，`export function` 签名不变，断言与调用点几乎不用改。
+ * 查询函数都读模块级单例 themeRegistry（主题配色注册表本来就是全局单例），由宿主
+ * 启动时调 installThemeRegistry(...) 一次性装入。
  *
- * === 索引（2026-10-23 索引化）===
- * 旧实现的回退链与范围查询是 O(n) 全表扫描：`findRecord` 回退最多两遍、
- * `defaultColorIdOf` 每次 filter+sort、`listColorsOf` / `listColorIdsOfTone` /
- * `resolveThemeId` / `listColorViews` 各扫一遍 —— 而一次主题状态变化会被
- * scope / runtime 的多个 computed / watch 各自重复触发。现在给注册表配一份
- * **惰性索引**（WeakMap 按注册表实例缓存）：
- *   · 首次查询时遍历注册表一次建好，此后各查询 O(1)~O(k)（k = 该 id / 该作用域的记录数）；
- *   · `installThemeRegistry` 换表 → 新表首次查询重建索引，旧索引随 Map 实例一起 GC，
- *     不存在"改了表忘了刷索引"的失效问题；
- *   · 索引只从 Map 的**插入序**派生（构建时按路径排序装入），各回退链"先到先得"
- *     的语义与旧的全表扫描逐字一致（byColorId / byScope 的列表都是路径序）；
- *   · 精确四段键查询仍是 `Map.get`（索引不重复造这个轮子）。
+ * 索引：回退链与范围查询走惰性索引（WeakMap 按注册表实例缓存，换表自动失效），
+ * 各查询 O(1)~O(k)；索引只从 Map 的插入序（= 构建时的路径序）派生，各回退链
+ * 「先到先得」的语义与全表扫描一致；精确四段键查询仍是 Map.get。
  * ------------------------------------------------------------------------- */
 
 /** 模块级注册表单例（宿主 `installThemeRegistry` 装入；未装入时为空表，查询走空兜底） */

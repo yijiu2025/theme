@@ -1,10 +1,8 @@
 /**
  * 主题持久化 —— localStorage 安全读写 + URL 配色意图读取
  *
- * 从 `oauth21/src/stores/theme-persistence.ts` 下沉（2026-10-19，键名/参数前缀参数化）。
- *
- * @author yijiu2025
- * @since 2026-10-19（从 oauth21 下沉，参数化键名/参数前缀）
+ * 读写全部 try/catch（隐私模式 / 禁用存储不能把应用带崩）；键名与参数前缀可由
+ * ThemeStateOptions 覆盖。
  */
 import { DEFAULT_THEME_ID } from '../../constants';
 import { resolveThemeId } from '../../registry';

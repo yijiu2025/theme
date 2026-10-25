@@ -1,32 +1,15 @@
 /**
- * 调试面板的**适配器**（无参）—— 把应用状态翻译成面板的 `model` / `actions`
+ * 调试面板的适配器 —— 把应用状态翻译成面板的 model / actions
  *
- * === 无 host：一切从「域」自动取 ===
- * 面板主体（`ThemeDebugPanelBody.vue`）是纯展示：不读路由、不读 store。但「当前是哪一页、
- * 有哪些版式、点了之后改哪个 URL」需要宿主的 store / 路由 / 页面机制。早先这些事实靠
- * 宿主写一个 `host` 对象注入；现在它们都已收进库内「域」，本文件**无参**地从域取：
+ * 面板主体是纯展示；「当前是哪页、有哪些版式、点了之后改什么」这些事实全部从库内
+ * 域自动取（无参）：store（ThemeRoot provide）、设备清单（store.devices）、页面域
+ * （pageOf）、配色查询（内核注册表单例）、版式意图（store.deviceViewOf / setDeviceView）。
+ * 宿主零接线：App.vue 一行 <ThemeDebugPanel />。
  *
- *   · store       → `<ThemeRoot :themeStore>` provide，`inject`（`ThemeStoreLike`）
- *   · 设备        → store 注入的设备词汇清单（`createThemeState({ devices })`）
- *     + store `activeDevice`（2026-10-20：设备由分发器判定后告知，库不自行判定）
- *   · 页面        → 页面域 `pageOf()`（`defineThemePage` 自动注册）+ store `activePage`（ThemeView 维护）
- *   · 配色查询    → 内核注册表单例（`listColorsOf` / `toneOfColor` / `listColorViews`）
- *   · 版式意图    → store `deviceViewOf` / `setDeviceView`（2026-10-20 store 化：
- *     URL 一次读入，debug 改写只写 store、不碰路由）
+ * 可见性判断不在本文件（在门卫 ThemeDebugPanel.vue）；本文件只负责「显示什么」。
  *
- * 于是宿主**零接线**：App.vue 里一行 `<ThemeDebugPanel />`，其余全在库内自动完成。
- *
- * ⚠️ 可见性判断（清单 `debug` 开关 + `?debug=theme`）**不在本文件** —— 已移到门卫
- *    `ThemeDebugPanel.vue`（它算 `visible` 再异步加载面板主体）。本文件只负责「显示什么」。
- *
- * === 为什么「生效配色」走 `store.themeRecordFor` 而不是内核 registry ===
- * `themeRecordFor` 的语义包含「URL 设备覆盖 + 用户显式操作清除覆盖」，这是宿主的运行时
- * 状态（`deviceTheme` 初始自 URL、之后 `setTheme` 会清掉），不是实时读 URL 能还原的。
- * 内核 registry 只能查「给定 id 有没有、什么系别」，算不出「当前生效哪套」，所以这一处
- * 从 store 读（其余配色清单 / 系别都走内核 registry）。
- *
- * @author yijiu2025
- * @since 2026-10-17（2026-10-18 无 host 化：删 host 注入，改从域自动取）
+ * 「生效配色」走 store.themeRecordFor 而非内核 registry：它的语义包含「URL 设备覆盖 +
+ * 用户显式清除覆盖」的运行时状态，实时读 URL 还原不出来；其余清单 / 系别走 registry。
  */
 import { computed, inject, ref } from 'vue';
 import type { ComputedRef } from 'vue';

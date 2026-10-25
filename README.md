@@ -41,20 +41,25 @@ The plugin scans your theme directory at build time and generates the virtual mo
 
 ### 2. Declare your devices
 
-Devices are **your** vocabulary (`mobile` / `standard` / `mini` / `tablet` …) — the library never hardcodes device names. One list serves both the store (vocabulary) and your page dispatchers (container wiring):
+Devices are **your** vocabulary (`mobile` / `standard` / `mini` / `tablet` …) — the library never hardcodes device names, and container wiring lives in the host too. One list serves both the store (vocabulary injection) and your page dispatchers (container lookup):
 
 ```ts
 // src/view/devices.ts — array order = priority, LAST entry = fallback device
 import type { Component } from 'vue';
-import { THEME_ID_RE } from 'skinsuite';
-import { pageContainers } from 'skinsuite/vue';
-import type { DeviceContainerLoader } from 'skinsuite/vue';
+import type { DeviceVocab } from 'skinsuite/vue';
 
-export interface HostDeviceDef {
-  id: string;        // = directory name inside each theme package
-  label: string;     // shown in the debug panel
-  urlKey: string;    // URL param suffix: ?th_<urlKey> / ?th_color_<urlKey>
-  containers: ReadonlyMap<string, DeviceContainerLoader>;  // page → component
+export interface HostDeviceDef extends DeviceVocab {
+  containers: ReadonlyMap<string, () => Promise<{ default: Component }>>;  // page → container
+}
+
+/** glob result → "page name → loader" map: second-to-last path segment = page name */
+function containerMap(glob: Record<string, () => Promise<{ default: Component }>>) {
+  const map = new Map<string, () => Promise<{ default: Component }>>();
+  for (const [path, loader] of Object.entries(glob)) {
+    const page = path.split('/').at(-2);
+    if (page) map.set(page, loader);
+  }
+  return map;
 }
 
 export const DEVICES: readonly HostDeviceDef[] = [
@@ -62,29 +67,27 @@ export const DEVICES: readonly HostDeviceDef[] = [
     id: 'mobile',
     label: 'Mobile',
     urlKey: 'mobile',
-    containers: pageContainers(
-      import.meta.glob<{ default: Component }>('/src/view/app/*/index.vue'),
-      /^index\.vue$/,
-      THEME_ID_RE
-    )
+    containers: containerMap(import.meta.glob<{ default: Component }>('/src/view/app/*/index.vue'))
   },
   {
     id: 'standard',
     label: 'Desktop',
     urlKey: 'std',
-    containers: pageContainers(
-      import.meta.glob<{ default: Component }>('/src/view/web/*/Standard*.vue'),
-      /^Standard/,
-      THEME_ID_RE
-    )
+    containers: containerMap(import.meta.glob<{ default: Component }>('/src/view/web/*/Standard*.vue'))
   }
 ];
 
 export const deviceIds = (): string[] => DEVICES.map(d => d.id);
 export const fallbackDevice = (): string => DEVICES[DEVICES.length - 1]?.id ?? '';
+export function resolveContainerOf(id: string, page: string) {
+  const device = DEVICES.find(d => d.id === id) ?? DEVICES[DEVICES.length - 1];
+  const loader = device?.containers.get(page);
+  if (!loader) throw new Error(`[devices] no container for page "${page}" on ${device?.id}`);
+  return loader;
+}
 ```
 
-Container location convention: the **parent directory name is the page name** (`view/app/login/index.vue` → page `login`).
+Container location convention: the **parent directory name is the page name** (`view/app/login/index.vue` → page `login`). Globs and file-naming per device are your own convention (mobile taking `index.vue`, standard taking `Standard*.vue` above is just an example).
 
 ### 3. Create the theme directory
 

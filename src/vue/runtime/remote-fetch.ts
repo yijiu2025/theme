@@ -1,20 +1,9 @@
 /**
- * 后端主题配置取数（**参数化内核版**）—— 拉取后端下发的主题配置并归一形状
+ * 后端主题配置取数 —— fetch + 超时 + 失败静默 + 归一形状的骨架
  *
- * === 为什么取数也能下沉 ===
- * 「fetch + 超时 + 失败静默 + 归一形状」这个骨架是通用的；只有「端点 / 超时上限 /
- * cookie 策略」是宿主的部署事实。所以把它们参数化，内核提供取数骨架，宿主编好参数即可。
- *
- * === 形状归一见 `skinsuite` 的 `normalizeRemoteThemeConfig` ===
- * 「哪些字段算数、tokens 为什么必须扁平」是契约，已收进纯内核；
- * 这里只负责「怎么拿到 JSON 再交给它归一」。
- *
- * === 失败策略 ===
- * 超时 / 非 200 / 结构不符 一律静默返回 null（用内置配色继续）。主题是锦上添花，
- * 绝不能因为拉不到配色而挡住登录。
- *
- * @author yijiu2025
- * @since 2026-10-17（从 oauth21/src/theme/remote.ts 下沉）
+ * 只有端点 / 超时上限 / cookie 策略是宿主的部署事实，参数化进来；
+ * 形状归一在内核 normalizeRemoteThemeConfig（哪些字段算数是契约）。
+ * 超时 / 非 200 / 结构不符一律静默返回 null：主题是锦上添花，绝不能挡住登录。
  */
 import { normalizeRemoteThemeConfig } from '../../scheme';
 import type { RemoteThemeConfig } from '../../scheme';

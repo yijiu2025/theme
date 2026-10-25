@@ -1,32 +1,20 @@
 <script setup lang="ts">
 /**
- * `<ThemePart id>` —— 渲染某个**部件**（弹窗/通知/悬浮窗）「当前生效的实现」（P1b，2026-10-23）
+ * `<ThemePart id>` —— 渲染某个部件（弹窗/通知/悬浮窗）「当前生效的实现」
  *
  * 部件 = 可复用 UI 零件，DOM 实现住在主题包里、按 (包 × 设备) 各写各的
- * （`themes/<包>/<设备>/parts/<部件id>/index.vue`）—— 换版式 = 换主题包，
- * 与页面版式同一条法则（版式 ≡ 包）。
+ * （themes/<包>/<设备>/parts/<部件id>/index.vue）—— 换版式 = 换包，与页面同一条法则。
  *
- * === 与 `<ThemeView>` 的三点本质差异 ===
- *   1. 解析键是 (pkg × device × partId)，**不查页面注册表**（`pageOf`），不要求
- *      `defineThemePage`——部件不是导航表面；
- *   2. 🔴 **绝不调 setActivePageView / setActiveDevice** —— 全局作用域纹丝不动。
- *      用 `<ThemeView page="modal-x">` 渲染弹窗会把背景页面的配色域劫持到弹窗页
- *      （弹窗一开背景换肤闪变），本组件就是为此存在（计划 §一「陷阱」）；
- *   3. 颜色默认**继承全局 token**（零成本，与 MessageToast 同理）；显式给
- *      `color-id` 时把部件自己的配色注入到本组件根元素（`useScopedTheme` 纯查询，
- *      不碰 store）—— 钉死配色的悬浮窗。
+ * 与 <ThemeView> 的三点本质差异：
+ *   1. 解析键是 (pkg × device × partId)，不查页面注册表、不要求 defineThemePage；
+ *   2. 🔴 绝不调 setActivePageView / setActiveDevice —— 用 <ThemeView> 渲染弹窗会把
+ *      背景页面的配色域劫持到弹窗页（弹窗一开背景换肤闪变），本组件为此存在；
+ *   3. 颜色默认继承全局 token（零成本）；显式给 color-id 时注入部件自己的配色到
+ *      本组件根元素（useScopedTheme 纯查询，不碰 store）。
  *
- * === 版式选择链（与 ThemeView 的 pick 同构）===
- *   当前包（store.packageId，**只读**）有该部件 → 用它；否则回落 default 包实现
- *   （default 是 eager + 兜底包，`builtin()` 同步可得）。当前包与 default 都没有：
- *   渲染缺省 + dev 警告（部件缺失是显式失败，不静默白屏也不劫持作用域）。
- *
- * === 行为放哪（计划 §2.3 ④ 容器/呈现分离）===
- *   弹窗的开关状态 / Teleport / z-index / 焦点圈 / 动画归**宿主的行为容器**
- *   （唯一一份）；本组件渲染的部件实现只吃 `ctx`、只调 `ctx.actions`。
- *
- * @author yijiu2025
- * @since 2026-10-23（计划 §2.3 P1b ②）
+ * 实现选择：当前包（store.packageId，只读）有该部件就用它；否则回落 default 包
+ * （eager）。都没有：渲染缺省 + dev 警告（显式失败，不静默白屏）。
+ * 行为放宿主的行为容器（唯一一份）；部件实现只吃 ctx、只调 ctx.actions。
  */
 import { computed, inject, markRaw, onUnmounted, ref, shallowRef, watch } from 'vue';
 import type { Component } from 'vue';

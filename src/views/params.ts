@@ -1,48 +1,16 @@
 /**
- * 版式 / 配色参数的**设备维度**解析 —— `?th` / `?th_color`（下划线 + 设备缩写名）
+ * 版式 / 配色参数的设备维度解析 —— ?th / ?th_color（下划线 + 设备缩写）
  *
- * === 参数命名（2026-10-18 定稿，统一用下划线、禁用点号）===
- *   版式：`?th`（三端通用）          `?th_<设备缩写>`（某设备专属）
- *   配色：`?th_color`（三端通用）     `?th_color_<设备缩写>`（某设备专属）
- *   设备专属键的后缀是**设备缩写名（urlKey）**，不是设备 id —— 由设备清单声明
- *   （`defineThemeDevice` 的 `urlKey`，缺省回落 `id`），内核不硬编码任何缩写。
+ * 键形（缩写 urlKey 由宿主设备清单声明，缺省回落设备 id）：
+ *   版式：?th（通用）        ?th_<urlKey>（某设备专属）
+ *   配色：?th_color（通用）   ?th_color_<urlKey>（某设备专属）
  *
- * === 解决什么 ===
- * 同一条链接要能给三台设备各指定一套版式：
- * ```
- * /login?th=compact                             三端共用（哪端没有就自动下沉到当前包）
- * /login?th_mobile=default&th_std=compact       各端各指定（mini 走通用/包默认）
- * /login?th_mobile=default&th=default           设备专属优先，通用键兜底
- * ```
+ * 每台设备一条取值链：专属键 → 通用键 → 未指定（由调用方走包声明 → 当前包）。
+ * 同一条链接即可给多台设备各指定一套：/login?th_mobile=default&th_std=compact
  *
- * === 取值链（每台设备各一条）===
- *   `th_<urlKey>`  →  `th`  →  （返回 undefined：由调用方走包声明 → 当前包）
- *
- * === 为什么收在内核（而不是各页文件里）===
- * 三个页面（login / register / forgot-password）各有**一份**注册表文件，但"哪个 query
- * key 属于哪台设备"这件事与页面无关 —— 抄三份必然漂移。各页的 `pick*ViewId` 只负责
- * "拿到原始值之后怎么解析（落在哪个包、是否合法）"，取哪个键这一步交给本模块。
- * 2026-09-26 抽包 Stage 1 起它住在 `skinsuite`：任何复用这套机制的前端
- * 都直接拿到这份实现，而不是再抄一遍。
- *
- * === 与配色侧同形（很重要）===
- * 配色侧（`oauth21/src/stores/theme.ts` 的 `readUrlIntent`）用同样的键形
- * （`th_color_<urlKey>` / `th_color`）与同样的"设备专属优先"链。**两侧必须同形**，
- * 否则配置者要记两套规则，`?th_color_mobile=blue&th_std=compact` 这种混搭就写不出来。
- * 但两侧读的入口不同：配色侧读 `window.location.search`（store 是全局的，不依赖路由），
- * 版式侧读**路由 query**（容器手上只有 `route.query`）—— 所以不是同一个函数，是同一套规则。
- *
- * === 本文件的两个读取形态（2026-10-20 store 化后）===
- *   · `readDeviceParam(query, name, urlKey)` —— **单设备**取一个键的值（原样，不校验）；
- *     版式 store 化前的容器/面板读取入口，仍是公开 API（宿主自建壳可用）。
- *   · `readUrlViewIntent(query, viewParam, devices)` —— **全设备一次性读入**：把 URL 上
- *     所有 `th*` 原始值解析成 `{ deviceView, viewIntent }`，供主题 store 初始化（与配色侧
- *     `readUrlIntent` 同形）。theme-scope 的 `deviceView` / `viewIntent` 由它播种。
- *     设备清单由调用方传入（宿主设备清单经 `createThemeState({ devices })` 注入）——
- *     本文件保持**零 import**，与 `readDeviceParam` 的 urlKey 传入同构。 *
- * @author yijiu2025
- * @since 2026-09-26（2026-10-18 改下划线 + urlKey：`?view.` → `?th_`、`?theme.` → `?th_color_`；
- *                     2026-10-20 加 `readUrlViewIntent`：版式意图 store 化的读入半边）
+ * 与配色侧（theme-persistence 的 readUrlIntent）刻意同形但入口不同：配色侧读
+ * location.search（store 全局、不依赖路由），版式侧读路由 query —— 不是同一个
+ * 函数，是同一套规则。设备清单由调用方传入（本文件零 import）。
  */
 
 /** 支持设备维度的参数名（与配色侧 `readUrlIntent` 的键保持一致） */
@@ -94,29 +62,19 @@ export function readDeviceParam(
 }
 
 /**
- * 读取 URL 上的**版式**意图（全设备一次性读入）—— 与 `readUrlIntent`（配色）同形
+ * 读取 URL 上的版式意图（全设备一次性读入）—— 与配色侧 readUrlIntent 同形
  *
- * === 每台设备各一条取值链 ===
- *   `?th_<urlKey>`  →  `?th`  → （缺则这台设备无显式意图）
- * 即"**设备专属优先，缺了退到通用键**"，与 `readDeviceParam` 逐字同构。
+ * 每台设备一条链：?th_<urlKey> → ?th → 无显式意图。
+ * 与配色侧的两个刻意差别：
+ *  ① 不做合法性校验：版式 id 合不合法取决于「当前包里有没有」，由 pick() 渲染期兜底；
+ *  ② 通用键不下发到每台设备：它原样进 viewIntent，由 scope 的 deviceViewOf 兜底。
  *
- * === 与配色侧 `readUrlIntent` 的两个刻意差别 ===
- *  ① **不做合法性校验**：版式 id 合不合法取决于"当前包里有没有这套版式"——渲染期
- *      知识，由 `pick()`（`registry.resolve`）兜底。与 `readDeviceParam` 口径一致
- *      （只决定"取哪个键"）。
- *  ② **通用键不下发**到每台设备：它原样进 `viewIntent`，由 scope 的 `deviceViewOf`
- *      的 `deviceView[device] ?? viewIntent` 兜底。配色侧之所以下发，是因为 `themeId`
- *      有独立的持久化 / 用户操作语义（`deviceTheme` 是"URL 覆盖层"）；版式没有持久化层。
+ * 🔴 空串 = 未指定（?th_<urlKey>= 不能把 ?th=compact 顶掉）。
+ * 🔴 重复键（router 给数组）= 未指定 —— 与配色侧只取首值的净效果一致：都落声明档，不猜。
  *
- * 🔴 **空串 = 未指定**：`?th_<urlKey>=` 不能把 `?th=compact` 顶掉（与 `readDeviceParam`
- *    的 `isPresent()`、配色侧 `present()` 同一口径）。
- * 🔴 **重复键（`?th=a&th=b`，vue-router 给数组）视为未指定**：与配色侧
- *    `URLSearchParams.get()` 只取首值的净效果一致——都落声明档，不猜用户想要哪个。
- *
- * @param query     路由 query（设备域 `currentQuery()`；单测可直接传对象，不依赖 window）
- * @param viewParam 版式参数前缀（缺省 `th`）
- * @param devices   设备清单（`{ id, urlKey? }`；调用方传入宿主注入清单。
- *                   `urlKey` 缺省回落 `id`，与设备词汇解析同口径）
+ * @param query     路由 query（单测可直接传对象，不依赖 window）
+ * @param viewParam 版式参数前缀（缺省 th）
+ * @param devices   设备清单（{ id, urlKey? }；urlKey 缺省回落 id）
  */
 export function readUrlViewIntent(
   query: Record<string, unknown> | undefined,
@@ -140,19 +98,13 @@ export function readUrlViewIntent(
 }
 
 /**
- * 取 query 里版式相关键的**原始值快照**（`th` + 各设备 `th_<urlKey>`）
+ * 取 query 里版式相关键的原始值快照（th + 各设备 th_<urlKey>）
  *
- * 供 theme-scope 的"仅当 URL 原始值变化才同步进 store"判等用：debug 改写只碰 store
- * （不写 URL），快照不变 ⇒ 不同步；跨页带不同 `th`（/login → /register）⇒ 同步。
+ * 供「仅当 URL 原始值变化才同步进 store」的判等用：debug 改写只碰 store 不写 URL，
+ * 快照不变 ⇒ 不同步；跨页带不同 th（/login → /register）⇒ 同步。
  *
- * 🔴 键白名单 = `viewParam` 本身 + `viewParam_<urlKey>`（urlKey 来自设备清单）——
- *    **不能**用 `startsWith(viewParam + '_')`：那会把配色键 `th_color` /
- *    `th_color_<urlKey>` 也收进来（`color` 不是任何设备的 urlKey，白名单天然排除），
- *    导致"换了一条带不同配色的链接"误触发版式同步。
- *
- * @param query     路由 query
- * @param viewParam 版式参数前缀（缺省 `th`）
- * @param devices   设备清单（`{ id, urlKey? }`；调用方传入宿主注入清单）
+ * 🔴 键白名单 = viewParam 本身 + viewParam_<urlKey>——不能用前缀匹配，那会把配色键
+ *    th_color 也收进来，「换了带不同配色的链接」会误触发版式同步。
  */
 export function viewParamsSnapshot(
   query: Record<string, unknown> | undefined,

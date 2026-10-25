@@ -1,25 +1,14 @@
 <script setup lang="ts">
 /**
- * `<ThemeScope page device>` —— 轻量作用域锚点（P0 无路由支持，2026-10-23）
+ * `<ThemeScope page device>` —— 轻量作用域锚点（token-only）
  *
- * `<ThemeView>` 的"token-only"子集：**只锚定作用域，不渲染版式组件**。
- * 没有页面注册要求（`defineThemePage`）、没有版式组件加载（主题目录无需 `.vue`），
- * 模板只有一个 `<slot />`。两类场景：
- *   · 无路由应用（纯 UI 壳 / 工具页 / 嵌入式小组件）：App 层挂一个，token 全站可解析；
- *   · 路由型应用的壳层兜底：`<ThemeView>` 挂载后 `setActivePageView` 覆盖这里的值，
- *     卸载（回到无 ThemeView 的壳层路由）时这里重新锚定。
+ * <ThemeView> 的「token-only」子集：只锚定作用域、不渲染版式组件（无页面注册要求、
+ * 无版式加载，主题目录无需 .vue），模板只有一个 <slot />。两类场景：
+ *   · 无路由应用：App 层挂一个，token 全站可解析；
+ *   · 路由型应用的壳层兜底：<ThemeView> 挂载后覆盖这里的值，卸载时这里重新锚定。
  *
- * === 与 `<ThemeView>` 的差异（为什么不是加个开关）===
- * ThemeView 的报错语义（页面未注册 / 版式缺失）是**页面链路的防呆**，壳层链路不该被
- * 这些约束卡住——两个组件、两套契约，比一个开关两条路径干净。
- *
- * === 版式档位（与 ThemeView 的 pick 同构，但不查版式注册表）===
- *   URL 意图（store 版式档 `deviceViewOf`）→ 包/配色声明（`viewFor`）→ 当前包名。
- *   值的合法性不做本地校验：非法包名由 `getThemeRecord` 的回退链兜底（静默回落
- *   default 包记录），dev 下另有 URL 参数审计（theme-debug）显影。
- *
- * @author yijiu2025
- * @since 2026-10-23（计划 docs/plans/2026-10-23-theme-routerless-overlay.md §2.1 P0 ②）
+ * 版式档位与 ThemeView 的 pick 同构（URL 意图 → 包/配色声明 → 当前包名），但不查
+ * 版式注册表；非法包名由 getThemeRecord 回退链兜底，dev 下另有 URL 参数审计显影。
  */
 import { computed, inject, watch } from 'vue';
 import { DEFAULT_THEME_PACKAGE } from '../../constants';

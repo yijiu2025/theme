@@ -1,28 +1,13 @@
 /**
  * 主题作用域（scope）—— 设备 / 页面 / 版式三个查找维度 + 配色解析入口
  *
- * 从 `oauth21/src/stores/theme-scope.ts` 下沉（2026-10-19）。
- * 本文件只负责「作用域」这件事：
- *   · 设备身份 `activeDevice`：由 `<ThemeView>` 的 `device` prop 告知（`setActiveDevice`，
- *     2026-10-20 起库内不再自行判定设备 —— 判定是宿主分发器的职责，见文件头 §设备来源）；
- *   · 页面 / 版式 `activePage` / `activeView`：由容器在 setup 里告知；
- *   · `themeRecordFor`：把「配色意图（themeId / deviceTheme）+ 作用域」解析成可渲染配色；
- *   · 派生值：`isDark`（= 生效配色 tone）、`activeTone`、`packageId`、`device`。
+ *   · activeDevice：由 <ThemeView> 的 device prop 告知（setActiveDevice 是唯一写入口，
+ *     判定在宿主分发器，库不认视口 / UA / ?device= 这些宿主词汇）；
+ *   · activePage / activeView：由容器在 setup 里告知（setActivePageView）；
+ *   · themeRecordFor：把「配色意图（themeId / deviceTheme）+ 作用域」解析成可渲染配色；
+ *   · 派生值：isDark（= 生效配色 tone）、activeTone、packageId、device。
  *
- * === 设备来源（2026-10-20：判定归宿主分发器，库只接收）===
- * 「当前渲染视图属于哪台设备」由**宿主分发器**决定（如 `login/index.vue` 按视口 /
- * `?device=` 锁定选设备容器），容器里的 `<ThemeView page="login" device="mini">` props
- * 把设备身份告知本 scope。库不自行判定（不认视口 / UA / `?device=` / `?from=` 这些
- * 宿主词汇）—— 设备域（`device/device-domain.ts`）只保留 `currentQuery()` 给版式意图同步用。
- *
- * === 依赖方向（拆分的骨架）===
- *   scope ← intent（明暗意图，读 activeDevice/activePage/activeView/themeId）
- *   scope ← runtime（token 注入 / 附加样式，读 themeRecordFor/isDark/activeDevice/themeId/deviceTheme）
- * 本文件**不反向依赖** intent / runtime —— 它是唯一的共享基础。
- *
- * @author yijiu2025
- * @since 2026-10-19（从 oauth21/src/stores/theme-scope.ts 下沉，keys/colorParam 参数化）
- * @since 2026-10-20（设备来源：库内判定撤出，改 `<ThemeView>` device prop 告知）
+ * 依赖方向：scope ← intent / runtime（它们读 scope），scope 不反向依赖 —— 唯一的共享基础。
  */
 import { computed, ref } from 'vue';
 import { DEFAULT_THEME_PACKAGE } from '../../constants';
@@ -190,13 +175,10 @@ export function useThemeScope(
   }
 
   /**
-   * 当前生效配色记录（**共享解析缓存**，2026-10-23）
+   * 当前生效配色记录（共享解析缓存）
    *
-   * `isDark` / `activeTone` / `packageId` 三个派生值原本各自独立调 `themeRecordFor()`
-   * —— registry 查询是 O(n) 扫描（回退链最多三遍全表），一次状态变化同一记录会被
-   * 重复解析 3+ 次（runtime 的 watch 还要再来一遍）。收进一个 computed 后，
-   * 同一次变化只解析一次，其余派生读缓存。
-   * 不导出：公开面按 index.ts 的「显式清单」哲学不扩大；三个派生值才是承诺。
+   * isDark / activeTone / packageId 三个派生值共用这一份 computed：一次状态变化
+   * 只解析一次，其余派生读缓存。不导出：公开面按 index.ts 的显式清单哲学不扩大。
    */
   const activeRecord = computed(() => themeRecordFor());
 

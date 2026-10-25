@@ -1,27 +1,12 @@
 /**
- * 页面工厂 —— 「这一页接入可换 UI 机制」的**唯一写法**（内核版）
+ * 页面工厂 —— 「这一页接入可换 UI 机制」的唯一写法
  *
- * === 它收掉的是什么 ===
- * 三个页面文件原先各自抄了一遍同样的机制：声明 glob → `createViewRegistry` →
- * `createViewPicker` → 两个转发函数。机制逐字相同，改一条口径要改三处。现在机制只在
- * 这里写一次，页面文件退化成「一份契约 + 一次声明」。
+ * 机制（建注册表 + picker）只在这里写一次，页面文件退化为「一份契约类型 + 一次声明」。
+ * 版式组件清单由 themeViewsFor(page) 惰性解析（virtual:theme 装单例），注册时零依赖，
+ * 不会踩「页面契约 → virtual:theme」的循环。
  *
- * === 版式组件从哪来 ===
- * `themeViews` 来自 `virtual:theme` 插件（主题目录 = `VITE_THEME_DIR`，构建期扫
- * `themes/<包>/<设备>/<页面>/index.vue` 按页面分组）。页面文件**不自己 glob、也不 import
- * `virtual:theme`**：`loaders` 在取名（渲染期）由 `themeViewsFor(page)` 惰性解析 ——
- * 注册时零依赖，`virtual:theme` 反过来副作用 import 页面文件时才不会踩循环。
- *
- * === 页面名从哪来 ===
- * 页面名同时是：目录名、`views/<页面>.ts` 的文件名、路由 path 的末段。三处必须字面一致。
- *
- * === 页面身份与路由的关系（2026-10-18 解耦）===
- * 页面清单是**宿主事实**（router 固定声明 `/<page>` 等主路由），本工厂只注册
- * 「页面名 → 版式」，**不驱动路由、不声明标题**（`document.title` 归路由）。容器里
- * `<ThemeView page="...">` 的 `page` 与路由 path 靠字面一致对齐。
- *
- * @author yijiu2025
- * @since 2026-10-17（从 oauth21/src/theme/views/page.ts 下沉；2026-10-18 惰性 loader 解析）
+ * 页面名 = 目录名 = views/<页面>.ts 文件名 = 路由 path 末段，三处字面一致。
+ * 本工厂只注册「页面名 → 版式」，不驱动路由、不声明标题（document.title 归路由）。
  */
 import type { ViewRegistry, ViewPickerSource } from './view-registry';
 import { createViewRegistry, createViewPicker } from './view-registry';
@@ -46,17 +31,9 @@ export interface ThemePage {
 const registeredPages = new Map<string, ThemePage>();
 
 /**
- * 声明一个页面
- *
- * 用法（页面文件里就这么多）：
- * ```ts
- * defineThemePage({ page: 'login' });
- * ```
- *
- * 无 `device` 字段：设备归一化由设备域自动提供。
- * 无 `envView` 字段：部署级默认版式（`VITE_<PAGE>_VIEW`）机制已取消。
- * 无 `title` 字段：标题（`document.title`）是路由职责，由宿主路由表声明（router 与主题分层）。
- * 无 `loaders` 字段：版式组件清单由 `themeViewsFor(page)` 惰性解析（`virtual:theme` 装单例）。
+ * 声明一个页面：页面文件里就一行 `defineThemePage({ page: 'login' })`。
+ * 版式组件清单由 themeViewsFor(page) 惰性解析；无 device / title / loaders 字段
+ * （设备词汇归宿主清单，标题归宿主路由表）。
  */
 export function defineThemePage(options: ThemePageOptions): ThemePage {
   const { page } = options;

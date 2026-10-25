@@ -1,15 +1,9 @@
 /**
- * 部件加载表（`themeParts`）的**运行时单例** —— 构建产物 → 运行时的手递手收口点
+ * 部件加载表（themeParts）的运行时单例 —— 与 theme-views.ts 同一范式
  *
- * 与 `theme-views.ts`（页面版式加载表）同一范式：`virtual:theme` 模块体把 `themeParts`
- * **装入本单例**，`<ThemePart>` 在渲染期按 (包 × 设备 × 部件 id) 从这里取 loader。
- * 未装入时为空表（部件解析落空 → 渲染缺省 + dev 警告，不抛错）。
- *
- * 键形（与 `virtual:theme` 的 themeParts 一致）：
- *   `./<包>/<设备>/parts/<部件id>/index.vue`（相对 `themes/`，`./` 开头）
- *
- * @author yijiu2025
- * @since 2026-10-23（P1b 部件层，计划 §2.3 ③）
+ * virtual:theme 模块体把 themeParts 装入本单例，<ThemePart> 渲染期按 (包 × 设备 ×
+ * 部件 id) 从这里取 loader；未装入时为空表（渲染缺省 + dev 警告，不抛错）。
+ * 键形：./<包>/<设备>/parts/<部件id>/index.vue（相对 themes/，./ 开头）。
  */
 import type { Component } from 'vue';
 

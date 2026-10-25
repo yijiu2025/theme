@@ -1,22 +1,13 @@
 /**
- * 版式加载表（`themeViews`）的**运行时单例** —— 构建产物 → 运行时的手递手收口点
+ * 版式加载表（themeViews）的运行时单例 —— 构建产物 → 运行时的手递手收口点
  *
- * === 它解决什么 ===
- * 页面契约文件（`views/<page>.ts`）需要「本页有哪些版式组件」才能建注册表，而这份清单
- * 来自构建期插件扫出的虚拟模块 `virtual:theme` 的 `themeViews`。若页面文件直接
- * `import { themeViews } from 'virtual:theme'`，则「页面契约 → virtual:theme」这一条依赖
- * 会在 `virtual:theme` 反过来副作用 import 页面契约时形成循环（页面文件在 `themeViews`
- * 求值前读到 undefined）。
+ * 页面契约文件需要「本页有哪些版式组件」，而这份清单来自 virtual:theme 的
+ * themeViews。若页面文件直接 import virtual:theme，会在它反过来副作用 import 页面
+ * 契约时形成循环。所以同一范式（installThemeRegistry / installThemeManifest）：
+ * virtual:theme 模块体把 themeViews 装入本单例，defineThemePage 只在渲染期才取
+ * loader —— 注册时零依赖、永不踩循环。
  *
- * 所以这里采用与配色注册表（`installThemeRegistry`）、清单（`installThemeManifest`）同一
- * 范式：`virtual:theme` 模块体把 `themeViews` **装入本单例**，`defineThemePage` 只在**取名
- * 的那一刻**（渲染期）从这里取 loader —— 注册时零依赖、永不踩循环。
- *
- * === 为什么不在纯内核 `skinsuite`，而在 `skinsuite/vue` ===
- * `themeViews` 的装载器返回 Vue `Component`，纯内核零 Vue 依赖，装不下这份类型。
- *
- * @author yijiu2025
- * @since 2026-10-18
+ * 放在 skinsuite/vue 而非纯内核：装载器返回 Vue Component，纯内核零 Vue 依赖。
  */
 import type { ViewModuleMap } from './view-registry';
 

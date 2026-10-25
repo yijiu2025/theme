@@ -40,20 +40,25 @@ export default defineConfig({
 
 ### 2. 声明设备清单
 
-设备是**你的**词汇表（`mobile` / `standard` / `mini` / `tablet` …）——库不硬编码任何设备名。一份清单同时供 store（词汇）与页面分发器（容器布线）消费：
+设备是**你的**词汇表（`mobile` / `standard` / `mini` / `tablet` …）——库不硬编码任何设备名，容器布线也在宿主。一份清单同时供 store（词汇注入）与页面分发器（容器查询）消费：
 
 ```ts
 // src/view/devices.ts —— 数组序 = 优先级，末条 = 兜底设备
 import type { Component } from 'vue';
-import { THEME_ID_RE } from 'skinsuite';
-import { pageContainers } from 'skinsuite/vue';
-import type { DeviceContainerLoader } from 'skinsuite/vue';
+import type { DeviceVocab } from 'skinsuite/vue';
 
-export interface HostDeviceDef {
-  id: string;        // = 主题包内的目录名
-  label: string;     // 调试面板显示名
-  urlKey: string;    // URL 参数后缀：?th_<urlKey> / ?th_color_<urlKey>
-  containers: ReadonlyMap<string, DeviceContainerLoader>;  // 页面 → 组件
+export interface HostDeviceDef extends DeviceVocab {
+  containers: ReadonlyMap<string, () => Promise<{ default: Component }>>;  // 页面 → 容器
+}
+
+/** glob 结果 → 「页面名 → 加载器」表：路径倒数第二段 = 页面名 */
+function containerMap(glob: Record<string, () => Promise<{ default: Component }>>) {
+  const map = new Map<string, () => Promise<{ default: Component }>>();
+  for (const [path, loader] of Object.entries(glob)) {
+    const page = path.split('/').at(-2);
+    if (page) map.set(page, loader);
+  }
+  return map;
 }
 
 export const DEVICES: readonly HostDeviceDef[] = [
@@ -61,29 +66,27 @@ export const DEVICES: readonly HostDeviceDef[] = [
     id: 'mobile',
     label: '手机端',
     urlKey: 'mobile',
-    containers: pageContainers(
-      import.meta.glob<{ default: Component }>('/src/view/app/*/index.vue'),
-      /^index\.vue$/,
-      THEME_ID_RE
-    )
+    containers: containerMap(import.meta.glob<{ default: Component }>('/src/view/app/*/index.vue'))
   },
   {
     id: 'standard',
     label: '桌面端',
     urlKey: 'std',
-    containers: pageContainers(
-      import.meta.glob<{ default: Component }>('/src/view/web/*/Standard*.vue'),
-      /^Standard/,
-      THEME_ID_RE
-    )
+    containers: containerMap(import.meta.glob<{ default: Component }>('/src/view/web/*/Standard*.vue'))
   }
 ];
 
 export const deviceIds = (): string[] => DEVICES.map(d => d.id);
 export const fallbackDevice = (): string => DEVICES[DEVICES.length - 1]?.id ?? '';
+export function resolveContainerOf(id: string, page: string) {
+  const device = DEVICES.find(d => d.id === id) ?? DEVICES[DEVICES.length - 1];
+  const loader = device?.containers.get(page);
+  if (!loader) throw new Error(`[devices] ${device?.id} 端没有页面「${page}」的容器`);
+  return loader;
+}
 ```
 
-容器位置约定：**文件上一级目录名 = 页面名**（`view/app/login/index.vue` → 页面 `login`）。
+容器位置约定：**文件上一级目录名 = 页面名**（`view/app/login/index.vue` → 页面 `login`）。不同设备的 glob 与文件名约定由你自己的清单决定（上面 mobile 取 `index.vue`、standard 取 `Standard*.vue` 只是示例）。
 
 ### 3. 建主题目录
 

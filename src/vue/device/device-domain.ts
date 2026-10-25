@@ -1,21 +1,11 @@
 /**
- * 设备域运行时 —— **只保留「当前路由 query」这一条通道**（设备判定在宿主侧，2026-10-20）
+ * 设备域运行时 —— 只保留「当前路由 query」这一条通道
  *
- * === 为什么判定不在这里 ===
- * 「当前渲染视图属于哪台设备」由**宿主的分发器**决定（如 `login/index.vue` 按视口 /
- * `?device=` 锁定选设备容器），设备身份由容器里的 `<ThemeView page="login" device="mini">`
- * props 告知主题 store（`setActiveDevice`）。库因此**不认识**视口阈值、UA、`?isMobile`、
- * `?from=mini`、`?device=` 这些词汇 —— 那些是宿主的产品约定。
+ * 设备判定整条线在宿主侧（分发器按视口 / ?device= 等口径选容器，设备身份由
+ * <ThemeView device> props 告知 store），库不认识这些词汇。
  *
- * === 现在还留着什么 ===
- * `installThemeDomain({ router })` 装配后，`currentQuery()` 给版式意图（`th` / `th_<urlKey>`）
- * 的 store 化同步用（`create-theme-state` watch 它）；`replaceQuery` 留给需要改 URL 的场景。
- *
- * @author yijiu2025
- * @since 2026-10-18
- * @since 2026-10-19（`matchMedia` / 视口 / `resolveDeviceOverride` 撤出，改 `resolveDevice` + `refreshDevice`）
- * @since 2026-10-20（判定整条线撤出：`resolveDevice` / `currentDevice` / `refreshDevice` / `currentPath`
- *                     删除，设备由 ThemeView props 告知；本模块只剩 currentQuery / replaceQuery）
+ * 这里只剩：installThemeDomain({ router }) 装配后 currentQuery() 给版式意图的
+ * store 化同步用（create-theme-state watch 它）；replaceQuery 留给需要改 URL 的场景。
  */
 
 /** 路由的最小结构（库不 import vue-router，只认这些字段） */

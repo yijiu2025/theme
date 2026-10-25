@@ -1,33 +1,12 @@
 /**
- * `skinsuite` 的**唯一公开出口**
+ * `skinsuite` 的唯一公开出口 —— 纯内核：白名单、契约类型、mode/tone、token 校验、
+ * 设备维度参数读取。纯函数 + 数据，无 DOM、无框架依赖，任何前端可用。
  *
- * === 这里装什么 ===
- * 主题机制里**与业务、与框架都无关**的那一半：取值白名单、契约类型、系别/明暗取值、
- * 设备维度参数读取、token 形态与校验。它是纯函数 + 数据，可以在任何前端（Vue / React /
- * 单测 / 将来的 SSR）里被同一套代码驱动。
+ * 只用显式具名导出（不用 export *）：这里就是「包承诺了什么」的清单，
+ * 新增导出要手工补一行 —— 刻意的摩擦。
  *
- * ### 不在这里装什么（重要）
- *   • **DOM 与注入**（`documentElement`、`localStorage`、`matchMedia`）→ 由宿主适配器提供
- *   • **构建器耦合**（`import.meta.glob` / `import.meta.env`）→ 由宿主适配器提供
- *   • **路由**（vue-router）→ 应用自己的世界观
- *   • **业务资产**（`themes/**` 的版式与配色实现）→ 随应用走
- * 见 `docs/standards/theme-package-extraction.md` 的「〇、一条原则」与「五、四个注入点契约」。
- *
- * === 为什么用显式具名导出，而不是 `export *` ===
- * 立项文档 §四 有一张"公开 API 面"的表，本文件就是那张表的**落地**：表里没有的名字
- * 就不该从这里出去（如内部用的正则、解析器）。用 `export *` 会让"包到底承诺了什么"
- * 变成一份隐式清单，加一个内部导出就悄悄扩大了对外承诺。
- * 代价是新增导出要手工补一行 —— 这是刻意的摩擦。
- *
- * ⚠️ 相对 import **必须带 `.js` 后缀**（`from './tone.js'` 而不是 `'./tone'`）：
- *    包以 `moduleResolution: NodeNext` 编译到 `dist/`，TS 会把 `.js` 映射回 `.ts` 源码，
- *    而**产物**里的相对说明符是原样保留的 —— 不带后缀的话浏览器与 Node 的原生 ESM
- *    都解析不到。Vite / webpack 侧的别名消费源码时同样认这条 TS 约定，所以不用改两遍。
- *
- * ⚠️ 公开面一旦发出就是承诺：改名/删名要先想清楚下游（当前只有 `oauth21` 一个消费者，
- *    所以现在改是免费的，见立项文档 §八）。
- *
- * @author yijiu2025
+ * ⚠️ 相对 import 必须带 `.js` 后缀：本包以 NodeNext 编译到 dist/，产物里的
+ *    说明符原样保留，不带后缀浏览器与 Node 的原生 ESM 都解析不到。
  */
 
 export {
@@ -88,7 +67,7 @@ export {
 } from './views/params.js';
 export type { DeviceScopedParam, DeviceViewIntent } from './views/params.js';
 
-// URL 主题参数的静默失败审计（纯函数；Vue 绑定层的调试句针消费它，宿主 / CI 也可自用）
+// URL 主题参数的静默失败审计（纯函数；调试句柄消费它，宿主 / CI 也可自用）
 export {
   collectWarnings,
   effectiveViewRaw,
@@ -101,27 +80,14 @@ export type {
   WarningContext
 } from './views/param-audit.js';
 
-/**
- * 设备词汇（注入式清单的一台设备）：store 核心消费的形状。
- * 设备清单本身是**宿主事实**（2026-10-24 起经 `createThemeState({ devices })` 注入，
- * 库不自持注册表）；判定也在宿主 —— 库不认识视口阈值 / UA / `?isMobile` / `?from=`。
- */
+/** 设备词汇（注入式清单的一台设备）：清单由宿主经 createThemeState({ devices }) 注入，库不自持 */
 export type { DeviceVocab } from './types.js';
 
-/**
- * 外部下发的主题配置：**只归一形状，不碰网络**
- *
- * 取数（超时 / 重试 / cookie 策略）属于宿主，故不在此。
- */
+/** 外部下发的主题配置：只归一形状，不碰网络（取数在 skinsuite/vue 的 remote-fetch） */
 export { normalizeRemoteThemeConfig } from './scheme.js';
 export type { RemoteThemeConfig } from './scheme.js';
 
-/**
- * 主题域清单（主题目录里那份 `theme.config.ts` 的契约）：调试开关
- *
- * 它是**主题域自带**的配置（跟主题包一起走）；「主题目录在哪」不在这里 ——
- * 那是宿主的部署事实，由宿主的 env 提供，换目录不必改代码也不必改这个包。
- */
+/** 主题域清单（theme.config.ts 的契约）：调试开关；目录位置由宿主 env 提供，不在这里 */
 export {
   defineThemeManifest,
   isThemeDebugVisible,

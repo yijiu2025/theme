@@ -1,29 +1,15 @@
 /**
- * 主题 token 运行时（**DOM 注入半边**）—— 把分层 token 校验后注入为 CSS 变量（内核版）
+ * token 运行时（DOM 注入半边）—— 把分层 token 校验后注入为 CSS 变量
  *
- * === 分层与优先级（低 → 高）===
- *   1. SCSS 基线          :root / html.dark / 断点块
- *   2. 主题包 tokens      getThemeRecord(...).tokens
- *   3. 外部覆写 tokens    后端下发 / 父应用同步
- * 第 2、3 层写在根节点的 inline style 上，层间顺序靠**写入顺序**保证。
+ * 分层与优先级（低 → 高）：① SCSS 基线；② 主题包 tokens；③ 外部覆写 tokens。
+ * ②③ 写在目标元素的 inline style 上，层间顺序靠写入顺序保证。
  *
- * === 注入目标（P1a 作用域化，2026-10-23）===
- * 缺省目标仍是 `document.documentElement`（全局，与历史行为逐字一致）；传
- * `{ target: el }` 则注入到**任意元素**（作用域主题：弹窗/悬浮窗钉死自己的配色，
- * 同屏多主题）。每个目标**各自维护**自己的注入名单（WeakMap 按 target 缓存）——
- * 差集清理只动"该目标自己写过的变量名"，多目标互不串台、互不清除。
+ * 注入目标可参数化：缺省 document.documentElement（全局）；传 { target: el }
+ * 则注入任意元素（作用域主题）。每个目标各自维护注入名单（WeakMap 分账）——
+ * 差集清理只动「该目标自己写过的变量名」，多目标互不串台。
  *
- * === 为什么校验（细节见 `skinsuite` 的 `tokens.ts`）===
- * CSS 自定义属性能直接改变渲染，未校验就 `setProperty` 等于把 CSS 注入的口子交给
- * 后端或父页面。所以走白名单（`sanitizeOverrides`，纯函数已在内核 `skinsuite`）。
- *
- * === 为什么本文件在 Vue 绑定层、而非纯内核 ===
- * 它操作 DOM（`document.documentElement` / 任意元素），纯内核 `skinsuite` 刻意零 DOM。
- * 校验函数（`sanitizeOverrides`）已在纯内核，这里只保留「往 DOM 写」这个动作本身。
- *
- * @author yijiu2025
- * @since 2026-10-17（从 oauth21/src/theme/runtime.ts 下沉）
- * @since 2026-10-23（P1a：注入目标参数化，名单按 target 分账管理）
+ * 校验用内核 sanitizeOverrides（未校验的 setProperty 等于交出 CSS 注入的口子）。
+ * 本文件在 Vue 绑定层而非内核：它操作 DOM，纯内核刻意零 DOM。
  */
 import { sanitizeOverrides } from '../../tokens';
 import type { ThemeTokenLayers, ThemeTokenOverrides } from '../../tokens';

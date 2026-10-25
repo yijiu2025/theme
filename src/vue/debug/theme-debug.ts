@@ -1,24 +1,15 @@
 /**
- * 主题调试句柄（dev-only）—— `window.__MAUTH_STORE__` 探针 + 右下角角标 + URL 参数审计
+ * 主题调试句柄（dev-only）—— window.__MAUTH_STORE__ 探针 + 右下角角标 + URL 参数审计
  *
- * 从 `oauth21/src/theme/debug.ts` 下沉（2026-10-21）。放置在库内的理由：
- * 「URL 主题参数是否合法」的判定知识（白名单键、设备词汇、版式注册）全在库内，
- * 留在宿主就要反向 import 库的内部 —— 违反依赖方向。
- *
- * === 三个职责 ===
- *   1. `installThemeDebug(scope, intent)`：store 六值 + URL 变化即刷新，把问题打 console
- *      （**无门控** —— 静默失败不靠「记得开开关」防），并把探针挂到 window；
- *   2. 探针 `__MAUTH_STORE__`：11 个 store getter + `url` / `effectiveView` / `warnings`
- *      三个链路键（地址栏原始值 → store 意图 → 生效结果，联调一眼定位断在哪一环）；
+ * 三个职责：
+ *   1. installThemeDebug(scope, intent)：store 六值 + URL 变化即刷新，把问题打 console
+ *      （无门控 —— 静默失败不靠「记得开开关」防）；
+ *   2. 探针 __MAUTH_STORE__：11 个 store getter + url / effectiveView / warnings
+ *      三个链路键（地址栏原始值 → store 意图 → 生效结果）；
  *   3. 右下角角标：设备 / 页 / 版式 / 包 + 警告计数（红 = 当前有问题）。
  *
- * === 可见性（探针与角标何时挂）===
- * `debugGateOn()` = 清单 `debug` 开关（`theme.config.ts` 的 `debug.enabled` / `debug.query`）
- * + 路由 query —— 与 `<ThemeDebugPanel>` 同一判据；**警告不受门控**（dev 下恒开）。
- * prod 早退：`import.meta.env.DEV` 静态替换后整个函数体消失，产物字节不变。
- *
- * @author yijiu2025
- * @since 2026-10-21（第二批 #5 从宿主下沉；2026-10-23 探针门控改读 manifest）
+ * 探针与角标的可见性 = 清单 debug 开关 + 路由 query（与 <ThemeDebugPanel> 同一判据）；
+ * 警告不受门控（dev 恒开）。prod 早退：import.meta.env.DEV 静态替换后函数体整体消失。
  */
 import { watch } from 'vue';
 import { collectWarnings, effectiveViewRaw, parseThemeParams } from '../../views/param-audit';
@@ -133,7 +124,7 @@ export function installThemeDebug(scope: ThemeScope, intent: ThemeIntent): () =>
     document.body.appendChild(badge);
     console.info(
       '[theme] 调试句柄已挂载：window.__MAUTH_STORE__（含 url / effectiveView / warnings）' +
-        ' + 右下角角标。URL 主题参数契约（白名单六键）见 docs/login-theme-routing.md §2.5。'
+        ' + 右下角角标。URL 主题参数说明见 README「URL 参数手册」。'
     );
   }
 

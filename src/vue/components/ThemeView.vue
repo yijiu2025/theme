@@ -2,27 +2,17 @@
 /**
  * `<ThemeView>` —— 渲染某个页面「当前生效的版式组件」
  *
- * 把每个业务容器里复制粘贴的 ~40 行「版式加载 + epoch 防抖 + 回退」样板收进库。容器
- * 只剩业务逻辑（表单、校验、ctx 组装），模板里一行 `<ThemeView page="login" device="mobile" :ctx="ctx" />`。
+ * 容器只剩业务逻辑，模板里一行 `<ThemeView page="login" device="mobile" :ctx="ctx" />`。
+ * 内部自动做四件事：
+ *   1. viewId = page.pick({ url, theme, pkg, device })（URL > 声明 > 包名）
+ *   2. page.views.load(id, pkg, device) → epoch 防抖 → markRaw(loaded) ?? builtin
+ *   3. setActivePageView(page, viewId)（immediate，配色挂在版式下）
+ *   4. setActiveDevice(device)（immediate —— device prop 即告知，宿主分发器只负责选容器）
  *
- * 内部自动做四件事（开发者不再手写）：
- *   1. `viewId = page.pick({ url, theme, pkg, device })`（URL > 声明 > env > 包名）
- *   2. `page.views.load(id, pkg, device)` → epoch 防抖 → `markRaw(loaded) ?? builtin`
- *   3. `setActivePageView(page, viewId)`（immediate，配色挂在版式下）
- *   4. `setActiveDevice(device)`（immediate —— **device prop 即告知**：设备身份随容器
- *      渲染自然到达，宿主分发器只负责选容器，不用碰主题 store）
- *
- * === 依赖从哪来（库不 import 宿主 store/router）===
- *   · `page`（`pageOf(page)`）→ 页面域自动注册（`defineThemePage`）
- *   · `themeStore`（`inject`）→ `<ThemeRoot :themeStore>` provide
- *   · `url`（`?th` / `?th_<设备缩写>`）→ **store 版式意图** `deviceViewOf(device)`
- *     （2026-10-20 store 化：URL 一次读入，debug 改写不碰路由；原先每次渲染现读
- *     路由 query）
- *   · `builtin`（首帧零请求回退）→ 版式注册表 `views.builtin(device)`（eager 静态 import）
- *   · `device` prop → 本组件渲染在哪台设备容器里，就是哪台设备（**告知 store**，见上）
- *
- * @author yijiu2025
- * @since 2026-10-18
+ * 依赖从哪来（库不 import 宿主 store/router）：
+ *   page → 页面域自动注册（defineThemePage）；themeStore → <ThemeRoot :themeStore> provide；
+ *   url 档 → store 版式意图 deviceViewOf(device)（URL 一次读入，debug 改写不碰路由）；
+ *   builtin → 版式注册表 views.builtin(device)（eager 静态 import，首帧零请求）。
  */
 import { computed, inject, markRaw, shallowRef, watch } from 'vue';
 import type { Component } from 'vue';
@@ -80,9 +70,9 @@ watch(() => props.device, id => store.setActiveDevice(id), { immediate: true });
 
 /**
  * 当前渲染的版式组件。初始值 = 内置包版式（eager 静态 import，首帧零请求直接正确）；
- * 非内置包版式是动态 chunk，加载完成后接管。`viewEpoch` 丢弃过期结果（A→B→A 连续切换时
- * 先发出的 A 可能后返回）。🔴 必须同时盯住 `packageId`：换了包但解析出的 id 字符串没变
- * （两边都是 `base`）时渲染的组件其实换了一整套。
+ * 非内置包版式是动态 chunk，加载完成后接管。viewEpoch 丢弃过期结果（A→B→A 连续切换时
+ * 先发出的 A 可能后返回）。🔴 必须同时盯住 packageId：换了包但解析出的 id 字符串没变
+ * （两边同名）时渲染的组件其实换了一整套。
  */
 const builtin = pageObj.views.builtin(props.device);
 const activeView = shallowRef<Component | null>(builtin);

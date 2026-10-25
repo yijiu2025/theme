@@ -29,22 +29,22 @@
 ## 一、安装与依赖
 
 ```bash
-npm install skinsuite@~0.7.0
+npm install skinsuite@~0.10.1
 ```
 
 > 🔴 **必须显式写版本号**，两个理由：
 >
-> ① 本包仍在 **0.x**，而语义化版本在 0.x 下有个反直觉的规则：`^0.7.0` 与 `~0.7.0`  
-> **都**等价于 `>=0.7.0 <0.8.0`（caret 在 0.x 下**不跨 minor**）。也就是说，一旦写进  
+> ① 本包仍在 **0.x**，而语义化版本在 0.x 下有个反直觉的规则：`^0.10.1` 与 `~0.10.1`  
+> **都**等价于 `>=0.10.1 <0.11.0`（caret 在 0.x 下**不跨 minor**）。也就是说，一旦写进  
 > `package.json`，本包每发一个新 minor 你都得手工跟一次 —— 这是 0.x 的固有成本，  
 > 不是写法问题（CHANGELOG 里 0.x 允许重命名与结构调整，自动跟 minor 反而更危险）。  
 > ② 裸 `npm install skinsuite` 拿到的是 registry 的 `latest`，而它**可能落后于本文**。  
-> 接入前先 `npm view skinsuite version` 核对 —— 本文按 **0.7.0** 编写。
+> 接入前先 `npm view skinsuite version` 核对 —— 本文按 **0.10.x** 编写。
 
 ### 接入前必读：`./vue` 入口给的是**源码**不是产物
 
 三个入口里只有 `./vue` 的 `types` 与 `import` **双双指向 `src/vue/index.ts`**（`./` 与 `./vite`  
-的运行时都走 `dist`），且包内 `files` 带 `src` —— 4 个 `.vue` 组件随包发布。
+的运行时都走 `dist`），且包内 `files` 带 `src` —— 7 个 `.vue` 组件随包发布。
 
 这是刻意的设计（机制只有一份源码，不为类型另生成声明，避免 d.ts 与源码漂移），  
 但它是一条**隐含前提**：
@@ -83,12 +83,13 @@ npm install skinsuite@~0.7.0
 │           └── colors/<配色>/
 │               ├── index.ts     配色元信息 + tokens
 │               └── theme.scss   附加样式（可选）
-└── views/                       声明目录（设备 + 页面契约）
-    ├── devices.ts               defineThemeDevice 声明设备
+└── views/                       页面契约目录
     └── <page>.ts                defineThemePage 声明页面
 ```
 
-`themes` 和 `views` 这两个子目录名是**固定的**（插件按名字扫描），只有主题根目录位置可配。
+`themes` 和 `views` 这两个子目录名是**固定的**（插件按名字扫描），只有主题根目录位置可配。  
+设备清单**不在这里** —— 它是宿主事实（`src/view/devices.ts`），经 `createThemeState({ devices })`  
+注入，见 §4.1。
 
 ---
 
@@ -157,41 +158,55 @@ defineProps<LoginViewProps>();
 
 ---
 
-## 四、写声明文件（views 目录）
+## 四、写声明文件
 
-### 4.1 设备声明 `views/devices.ts`
+### 4.1 设备清单 `src/view/devices.ts`（宿主事实，不在主题目录里）
+
+设备词汇 + 容器布线都是**宿主事实**，一份清单同时供 store（`createThemeState({ devices })`  
+注入）与页面分发器（容器查询）消费：
 
 ```ts
 import type { Component } from 'vue';
-import { THEME_ID_RE } from 'skinsuite';
-import { defineThemeDevice } from 'skinsuite/vue';
+import type { DeviceVocab } from 'skinsuite/vue';
+
+export interface HostDeviceDef extends DeviceVocab {
+  containers: ReadonlyMap<string, () => Promise<{ default: Component }>>;  // 页面 → 容器
+}
+
+/** glob 结果 → 「页面名 → 加载器」表：路径倒数第二段 = 页面名 */
+function containerMap(glob: Record<string, () => Promise<{ default: Component }>>) {
+  const map = new Map<string, () => Promise<{ default: Component }>>();
+  for (const [path, loader] of Object.entries(glob)) {
+    const page = path.split('/').at(-2);
+    if (page) map.set(page, loader);
+  }
+  return map;
+}
 
 // 声明顺序 = 优先级；**最后一条是兜底设备**（库只认顺序，不认设备名）
-defineThemeDevice({
-  id: 'mobile',
-  label: '手机端',
-  urlKey: 'mobile',                       // URL 参数里用的缩写（?th_mobile=...）
-  containers: {
-    glob: import.meta.glob<{ default: Component }>('/src/view/app/*/index.vue'),
-    fileRe: /^index\.vue$/,
-    idRe: THEME_ID_RE
+export const DEVICES: readonly HostDeviceDef[] = [
+  {
+    id: 'mobile', label: '手机端', urlKey: 'mobile',
+    containers: containerMap(import.meta.glob<{ default: Component }>('/src/view/app/*/index.vue'))
+  },
+  {
+    id: 'standard', label: '桌面端', urlKey: 'std',
+    containers: containerMap(import.meta.glob<{ default: Component }>('/src/view/web/*/Standard*.vue'))
   }
-});
+];
 
-defineThemeDevice({
-  id: 'standard',
-  label: '桌面端',
-  urlKey: 'std',
-  containers: {
-    glob: import.meta.glob<{ default: Component }>('/src/view/web/*/*.vue'),
-    fileRe: /^Standard/,
-    idRe: THEME_ID_RE
-  }
-});
+export const deviceIds = (): string[] => DEVICES.map(d => d.id);
+export const fallbackDevice = (): string => DEVICES[DEVICES.length - 1]?.id ?? '';
+export function resolveContainerOf(id: string, page: string) {
+  const device = DEVICES.find(d => d.id === id) ?? DEVICES[DEVICES.length - 1];
+  const loader = device?.containers.get(page);
+  if (!loader) throw new Error(`[devices] ${device?.id} 端没有页面「${page}」的容器`);
+  return loader;
+}
 ```
 
-`defineThemeDevice` 只登记**事实**（id / label / urlKey / 容器在哪），自动建容器表、  
-自动注册进设备域，**不要再手动写任何转发函数**。
+清单只登记**事实**（id / label / urlKey / 容器在哪）。glob 与文件名约定由你决定  
+（上面 mobile 取 `index.vue`、standard 取 `Standard*.vue` 只是示例）。
 
 🔴 **这里没有 `match`** —— 判定不归库，见 §4.1b。
 
@@ -205,10 +220,8 @@ defineThemeDevice({
 ```ts
 // src/utils/device-resolve.ts（宿主侧，**纯函数**：query/path/视口显式入参，零 import）
 //
-// 🔴 别把这段放进 `src/theme/views/`：那是主题域的**纯声明目录**
-//    （defineThemePage / defineThemeDevice），会被 virtual:theme 当声明副作用 import，
-//    判定代码会跟着主题域一起进包；而且「theme/ 整包搬到另一个前端」就不成立了。
-//    theme/views/devices.ts 只留设备声明（有哪些设备、容器在哪）。
+// 🔴 判定是宿主 utils 层的事：设备清单（src/view/devices.ts）只登记词汇与容器，
+//    判定代码放 utils 层，主题域保持纯声明目录。
 export function resolveRenderDevice(
   query: Record<string, unknown>,
   path: string,
@@ -247,7 +260,7 @@ export function useRenderDevice(): Readonly<Ref<string | null>> {
 ```ts
 // view/web/<page>/index.vue（页面分发器）
 import { computed, defineAsyncComponent } from 'vue';
-import { deviceIds, fallbackDevice, resolveContainerOf } from 'skinsuite/vue';
+import { deviceIds, fallbackDevice, resolveContainerOf } from '@/view/devices';
 import { useRenderDevice } from '@/composables/useRenderDevice';
 
 const device = useRenderDevice();
@@ -270,12 +283,8 @@ const activeComponent = computed(() => {
 <ThemeView page="login" device="mini" :ctx="ctx" />
 ```
 
-**加一种设备**要动的三处：`theme/views/devices.ts` 一条 `defineThemeDevice` 声明 /  
-`utils/device-resolve.ts` 一条判定分支（如需）+ 容器组件 / 主题包里加设备目录。库零改动。
-
-⚠️ 判定查「已注册的设备清单」（分发器的 `fallbackDevice()`），所以 `bootstrap.ts` 要在  
-`app.use(theme)` **之前** import 一次声明模块（`import './theme/views/devices'`）——  
-通常 `virtual:theme` 会拉齐，但显式 import 能让顺序确定，不依赖插件产物。
+**加一种设备**要动的三处：`src/view/devices.ts` 一条清单声明 / `utils/device-resolve.ts`  
+一条判定分支（如需）+ 容器组件 / 主题包里加设备目录。库零改动。
 
 ### 4.2 页面契约 `views/<page>.ts`
 
@@ -383,8 +392,6 @@ import App from './App.vue';
 import router from './router';
 import i18n from './i18n';
 import { theme } from 'skinsuite/vue';
-// 设备声明（副作用：注册进设备域）—— 分发器的 fallbackDevice() 要用已注册清单
-import './theme/views/devices';
 
 const app = createApp(App);
 
@@ -413,9 +420,12 @@ router.isReady().then(() => app.mount('#app'));
 ```ts
 import { defineStore } from 'pinia';
 import { createThemeState } from 'skinsuite/vue';
+import { DEVICES } from '@/view/devices';
 import 'virtual:theme';   // 副作用：装配版式表 + 注册表 + 清单 + 拉齐 views/*.ts 声明
 
-export const useThemeStore = defineStore('theme', () => createThemeState());
+export const useThemeStore = defineStore('theme', () =>
+  createThemeState({ devices: DEVICES })
+);
 ```
 
 三句话讲清边界：
@@ -426,9 +436,10 @@ export const useThemeStore = defineStore('theme', () => createThemeState());
 3. **`import 'virtual:theme'` 必须保留**——它触发全部副作用装配，宿主**不要再手动 import  
    任何 `@/theme/views/*`**（bootstrap 里也不 import）。
 
-> `createThemeState(options?)` 可选 `ThemeStateOptions`（`storageKeys` / `colorParam` /  
-> `viewParam`），用于覆盖 localStorage 键名、URL 配色参数名（`th_color`）与版式参数名  
-> （`th`）；缺省对齐 oauth21 现状。
+> `createThemeState(options?)` 可选 `ThemeStateOptions`（`devices` / `storageKeys` /  
+> `colorParam` / `viewParam` / `defaultPage`）：设备词汇清单（必需才有设备维度 URL 参数与  
+> 面板设备列表）、localStorage 键名、URL 配色参数名（`th_color`）与版式参数名（`th`）、  
+> 无路由播种页。
 
 ---
 
@@ -481,19 +492,19 @@ export const authRoutes: RouteRecordRaw[] = [
 
 #### 容器放哪：**页面名 = 文件上一级目录名**
 
-`pageContainers()` 从 glob 结果的 `a/b/<页面>/<文件>.vue` 里取 `parts[length-2]` 当**页面名**，  
-再用各设备声明的 `fileRe` 筛文件名。于是两份声明各自解读同一批文件：
+§4.1 的 `containerMap()` 从 glob 结果的 `a/b/<页面>/<文件>.vue` 里取路径**倒数第二段**当  
+**页面名**。glob 模式与文件名约定由各设备自己的清单条目决定：
 
-| 设备         | glob（`views/devices.ts`）       | `fileRe`         | 实际位置约定                           |
-| ---------- | ------------------------------ | ---------------- | -------------------------------- |
-| `mobile`   | `/src/view/app/*/index.vue`    | `/^index\.vue$/` | `view/app/<页面>/index.vue`        |
-| `tablet`   | `/src/view/tablet/*/index.vue` | `/^index\.vue$/` | `view/tablet/<页面>/index.vue`     |
-| `standard` | `/src/view/web/*/*.vue`        | `/^Standard/`    | `view/web/<页面>/Standard<页面>.vue` |
-| `mini`     | `/src/view/web/*/*.vue`        | `/^Mini/`        | `view/web/<页面>/Mini<页面>.vue`     |
+| 设备         | glob（宿主 `view/devices.ts`）  | 实际位置约定                           |
+| ---------- | ------------------------------ | ---------------------------------- |
+| `mobile`   | `/src/view/app/*/index.vue`    | `view/app/<页面>/index.vue`        |
+| `tablet`   | `/src/view/tablet/*/index.vue` | `view/tablet/<页面>/index.vue`     |
+| `standard` | `/src/view/web/*/Standard*.vue` | `view/web/<页面>/Standard<页面>.vue` |
+| `mini`     | `/src/view/web/*/Mini*.vue`   | `view/web/<页面>/Mini<页面>.vue`     |
 
 🔴 **`standard` / `mini` 共用 `view/web/`，靠文件名前缀区分设备、靠目录名区分页面**。把  
 `StandardLogin.vue` 直接摊在 `view/web/` 下 ⇒ 页面名被算成 `web` ⇒ 该设备在这一页「没写容器」⇒  
-分发器 `resolveContainerOf()` 取不到（`standard` 是兜底，连兜底也空就 reject）。
+分发器 `resolveContainerOf()` 取不到（standard 是兜底，连兜底也空就 throw）。
 
 `import.meta.glob` 的 `*` **不跨 `/`**，所以 `web/*/*.vue` 恰好吃「一层目录 + 一个文件」，不需要 `**`。
 
@@ -696,27 +707,27 @@ my-app/
 └── src/
     ├── bootstrap.ts          # app.use(theme, { router })
     ├── App.vue               # <ThemeRoot :theme-store> + <ThemeDebugPanel>
-    ├── stores/theme.ts       # defineStore('theme', () => createThemeState()) + import 'virtual:theme'
+    ├── stores/theme.ts       # defineStore('theme', () => createThemeState({ devices })) + import 'virtual:theme'
     ├── router/index.ts       # 固定声明 /<page>、/m/<page>
+    ├── view/
+    │   ├── devices.ts        # 设备清单（词汇 + 容器布线，宿主事实）
+    │   ├── app/<页面>/index.vue             # mobile 容器（目录名 = 页面名）
+    │   ├── tablet/<页面>/index.vue          # tablet（同上；常薄转发 standard）
+    │   └── web/<页面>/Standard<页面>.vue    # standard + Mini<页面>.vue 同目录（见 §9.2）
     ├── utils/
     │   ├── device.ts         # 视口口径 + mobileViewport() 响应式信号（宿主）
     │   └── device-resolve.ts # 判定纯函数（宿主，零 import）
     ├── composables/
     │   └── useRenderDevice.ts # 薄封装：route + 视口信号 → 判定纯函数
-    ├── view/                 # 容器（业务），模板 <ThemeView page device :ctx>
-    │   ├── app/<页面>/index.vue             # mobile（目录名 = 页面名）
-    │   ├── tablet/<页面>/index.vue          # tablet（同上；常薄转发 standard）
-    │   └── web/<页面>/Standard<页面>.vue    # standard + Mini<页面>.vue 同目录（见 §9.2）
     └── theme/                # 主题域（自足目录）
         ├── theme.config.ts   # defineThemeManifest({ debug })
         ├── views/
-        │   ├── devices.ts    # defineThemeDevice 声明设备
         │   └── login.ts      # 契约类型 + defineThemePage({ page: 'login' })
         └── themes/default/
             ├── index.ts      # 包定义
             └── mobile/login/
                 ├── index.vue # 版式组件（只渲染 ctx）
-                └── colors/light/
+                └── colors/white/
                     ├── index.ts  # MauthThemeColor（tokens）
                     └── theme.scss
 ```

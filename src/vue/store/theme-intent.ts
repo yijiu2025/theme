@@ -1,18 +1,12 @@
 /**
  * 主题意图（intent）—— 明暗意图 + 会话级记忆槽 + 「明暗 ≡ 配色系别」联动
  *
- * 从 `oauth21/src/stores/theme-intent.ts` 下沉（2026-10-19）。本文件只负责「用户**想**要什么明暗」：
- *   · `mode` 三态意图（light / dark / system）；
+ *   · mode 三态意图（light / dark / system）；
  *   · 白系 / 黑系两侧的会话级记忆槽（只记「切走前正在用的那套」，不持久化）；
- *   · `syncColorToTone` —— 从意图推导并切到匹配系别的配色（联动）；
- *   · 用户显式操作：`setTheme` / `setMode` / `cycleMode` / `toggleTheme`。
+ *   · syncColorToTone —— 从意图推导并切到匹配系别的配色（单向联动）；
+ *   · 用户显式操作：setTheme / setMode / cycleMode / toggleTheme。
  *
- * === 依赖方向 ===
- *   intent 只依赖 scope（activeDevice/activePage/activeView/themeId + 清 URL 覆盖），
- *   不依赖 runtime —— 它不碰 token 注入、不碰 DOM。
- *
- * @author yijiu2025
- * @since 2026-10-19（从 oauth21/src/stores/theme-intent.ts 下沉，keys 参数化）
+ * 只依赖 scope，不依赖 runtime —— 不碰 token 注入、不碰 DOM。
  */
 import { ref, watch } from 'vue';
 import { DEFAULT_THEME_COLOR, DEFAULT_THEME_DARK_COLOR } from '../../constants';

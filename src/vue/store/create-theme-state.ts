@@ -1,28 +1,14 @@
 /**
- * 主题状态机装配入口 —— `createThemeState(options)`（宿主一行 `defineStore` 包起来）
+ * 主题状态机装配入口 —— createThemeState(options)，宿主一行 defineStore 包起来
  *
- * 从 `oauth21/src/stores/theme.ts` 的编排逻辑下沉（2026-10-19）。
+ * 三块 composable（scope / intent / runtime）+ 持久化层都不依赖 pinia（只用
+ * ref/computed/watch），所以编排收成纯函数，pinia 只是壳 —— 不值得为它给库加依赖。
  *
- * === 为什么下沉编排、但**不**下沉 pinia ===
- * 状态机的三块 composable（scope / intent / runtime）+ 持久化层都不依赖 pinia（只用
- * `ref`/`computed`/`watch`），所以「下沉状态机」不需要把 pinia 传给包 —— 只要把**编排**
- * 收成一个纯函数，宿主用一行 `defineStore('theme', () => createThemeState())` 包成 store。
- * pinia 只是把 composable 注册成 store 实例的一层壳，不值得为它给库加 peer 依赖。
+ * 宿主策略收口在 ThemeStateOptions（键名 / 参数名 / 播种页 / 设备清单）；
+ * 后端端点与父 origin 白名单走 env（useThemeSources 读）。
  *
- * === 宿主策略怎么收口（`ThemeStateOptions`）===
- * 状态机里唯一可能因宿主而异的，是**持久化契约**：localStorage 键名、URL 配色参数前缀。
- * 这两样下沉后作为默认值（对齐主题机制约定），宿主与之冲突时通过 options 覆盖。
- * 后端配色端点 / 父应用 origin 白名单已通过 env 注入（`useThemeSources` 读
- * `VITE_THEME_ENDPOINT` / `VITE_ALLOWED_PARENT_ORIGINS`），不进 options。
- *
- * === 调试探针 ===
- * dev + `?debug=theme` 时把只读快照挂到 `window.__MAUTH_STORE__`（getter 形态，随 store 实时），
- * 并在 dev 无条件警告 URL 主题参数的静默失败（非法版式值 / 未知设备 / 重复键）。
- * 实现与放置 rationale 见 `theme-debug.ts`（探针需要访问 scope/intent 的内部 ref，
- * 所以随编排一起下沉，而不是留在宿主壳里）。
- *
- * @author yijiu2025
- * @since 2026-10-19（从 oauth21/src/stores/theme.ts 下沉编排，pinia 留在宿主）
+ * dev 下挂调试探针（?debug=theme 时 window.__MAUTH_STORE__）并无条件警告 URL
+ * 静默失败；dispose 收全全部副作用（watch / 监听 / 在途 fetch / 探针）。
  */
 import { watch } from 'vue';
 import { useThemeScope } from './theme-scope';

@@ -1,23 +1,15 @@
 /**
- * 作用域主题注入（composable 半边）—— 把某份配色记录注入到**给定元素**（P1a，2026-10-23）
+ * 作用域主题注入（composable 半边）—— 把某份配色记录注入到给定元素
  *
- * 与全局注入（`theme-runtime` 写 html 根）的三个本质差异：
- *   1. 解析走内核纯查询（`getThemeRecord`），**不读不写 store 的 activePage/activeDevice** ——
- *      同屏多主题各自解析，互不干扰，全局作用域纹丝不动（这是 P1b `<ThemePart>` 不劫持
- *      背景的根基，见计划 §一「陷阱」）；
- *   2. 注入目标是调用方给的元素（token 只沿 DOM 子树继承），不是 html 根；
- *   3. `dark` 类与 `data-mauth-theme` 属性挂在**该元素**上（Tailwind v4 的
- *      `.dark, .dark *` 策略下子树可命中 `dark:` 变体；基线 SCSS 的 `html.dark` 块不进
- *      作用域 —— 作用域配色自带完整底色 token，这是 2026-09-25「配色自带底色」定案的落点）。
+ * 与全局注入（theme-runtime 写 html 根）的三个本质差异：
+ *   1. 解析走内核纯查询（getThemeRecord），不读不写 store —— 同屏多主题互不干扰，
+ *      全局作用域纹丝不动（<ThemePart> 不劫持背景的根基）；
+ *   2. 注入目标是调用方给的元素（token 沿 DOM 子树继承），不是 html 根；
+ *   3. dark 类与 data-mauth-theme 挂该元素（子树可命中 dark: 变体；
+ *      基线 SCSS 的 html.dark 块不进作用域 —— 作用域配色自带完整底色）。
  *
- * 消费方：`ThemeProvider.vue`（钉死/并行主题容器）、`ThemePart.vue` 的 `color-id` 档。
- * 返回 cleanup：卸载时精确摘除自己写过的变量（差集账本在 `token-runtime` 的 WeakMap 里）。
- *
- * ⚠️ 作用域 = **tokens-only**：`theme.scss` 不进作用域（它的选择器契约是
- *    `html[data-mauth-theme]` 前缀）—— 计划 §2.2 ③ 的刻意边界。
- *
- * @author yijiu2025
- * @since 2026-10-23（计划 §2.2 P1a ②）
+ * 消费方：ThemeProvider.vue、ThemePart.vue 的 color-id 档。返回 cleanup 精确清理。
+ * ⚠️ 作用域 = tokens-only：theme.scss 不进作用域（它的选择器契约是 html[data-mauth-theme] 前缀）。
  */
 import { watch } from 'vue';
 import type { Ref } from 'vue';

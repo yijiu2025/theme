@@ -1,32 +1,12 @@
 /**
- * 主题 store 的**结构类型**（库侧约定）+ provide / inject 键
+ * 主题 store 的结构契约（库侧约定）+ provide / inject 键
  *
- * 库（skinsuite/vue）不能 import 宿主的 Pinia store（边界），所以只约定一个**结构类型**：
- * 宿主的 `useThemeStore()` 只要结构兼容这几项，就能直接传给 `<ThemeRoot :themeStore>`。
- * `<ThemeRoot>` 再 `provide` 出去，`<ThemeView>` / `<ThemeDebugPanel>` 用 `inject` 拿到 ——
- * 这是「库不依赖宿主、但宿主事实要注入」的标准手法。
+ * 库不能 import 宿主的 Pinia store（边界），所以只约定结构类型：宿主 store
+ * 结构兼容即可传给 <ThemeRoot :themeStore>，由它 provide 出去、<ThemeView> /
+ * <ThemeDebugPanel> inject —— 「库不依赖宿主、但宿主事实要注入」的标准手法。
  *
- * === 为什么是这些字段 ===
- *   · `isDark`             → ThemeRoot 挂 `.dark` 类（纯外观）
- *   · `packageId`          → ThemeView / 面板选版式的「在哪个包里找」
- *   · `viewFor(page)`      → 主题包声明档（`views.<page>`）这一档
- *   · `deviceViewOf`       → URL 版式意图档（`?th` / `?th_<urlKey>`，2026-10-20 store 化）
- *   · `setDeviceView` / `clearDeviceViewOverride` → 面板写侧（切版式只写 store，不碰路由）
- *   · `setActivePageView`  → ThemeView 告知 store「当前页 + 版式」（配色挂在版式下）
- *   · `activePage`         → 面板展示当前页
- *   · `activeDevice` / `setActiveDevice` → `<ThemeView>` 的 device prop 告知主题
- *     「当前渲染哪台设备」（2026-10-20：库不自行判定，这是 activeDevice 的唯一写入口）
- *   · `themeId` / `mode`   → 面板展示 / 切换配色与明暗
- *   · `themeRecordFor`     → 面板算「生效配色」（含 URL 设备覆盖，device 参数化）
- *   · `setTheme` / `setMode` → 面板写侧（点色卡 / 切明暗）
- *
- * 字段用**只读标量**（非 ref）：宿主 Pinia store 返回的 ref/computed 会被 Pinia 自动解包，
- * 在 store 实例上直接读值即可，且读进 computed/watch 时仍保持响应式追踪。
- * 方法用**方法签名**（method shorthand）而非函数类型属性：这样 TS 对参数做双变检查，
- * 宿主的窄类型（如 `ThemeDevice`）能直接兼容库声明的宽类型（`string`）。
- *
- * @author yijiu2025
- * @since 2026-10-18
+ * 字段用只读标量（宿主 Pinia 会自动解包 ref）；方法用方法签名（TS 双变检查，
+ * 宿主的窄类型能兼容库的宽类型）。
  */
 import type { InjectionKey } from 'vue';
 import type { ThemeMode } from '../../scheme';

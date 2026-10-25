@@ -1,64 +1,27 @@
 /**
- * 主题域扫描插件 —— **主题库自带的 Vite 适配器**（随 `skinsuite/vite` 一起发布）
+ * 主题域扫描插件 —— themeAssets()（随 skinsuite/vite 发布）
  *
- * 把 `VITE_THEME_DIR` 指向的**主题根目录**扫成一个虚拟模块 `virtual:theme`，它同时产出三样东西：
+ * 把主题根目录（VITE_THEME_DIR，缺省 src/theme）扫成虚拟模块 virtual:theme，一次产出：
+ *   ① 资产：包定义 / 配色 / 附加样式（惰性）/ 版式组件表 themeViews / 部件组件表 themeParts
+ *   ② 清单：根目录的 theme.config.ts（调试开关）
+ *   ③ 声明：views/*.ts 页面契约（副作用 import 拉齐注册）
  *
- *   ① **资产**：主题包定义、配色元信息、配色附加样式（惰性）、版式组件加载表 `themeViews`
- *   ② **清单**：根目录里那份 `theme.config.ts`（调试开关，见 `defineThemeManifest`）
- *   ③ **声明**：`views/*.ts`（设备声明 + 页面契约）以副作用 import 拉齐注册
+ * 本模块被 import 的那一刻自动完成装配（installThemeViews / installThemeParts /
+ * installThemeRegistry / installThemeManifest），宿主无需再手动 import 任何声明文件。
  *
- * 本模块被 import 的那一刻（模块求值期副作用）自动完成三件装配：
- * `installThemeViews(themeViews)` + `installThemeRegistry(...)` + `installThemeManifest(...)`，
- * 宿主**无需 import `virtual:theme` 再转发**，也无需手动 import 任何 `views/*.ts`。
+ * 根目录内固定三个名字：theme.config.ts（清单）、themes/（包）、views/（页面契约）——
+ * 插件在 dir 下再进一层 themes/ 扫包、再进一层 views/ 拉声明。
  *
- * === 目录口径：`VITE_THEME_DIR` 是「主题根目录」，不是「主题包目录」===
- * 根目录内固定三个名字（约定俗成，换根目录位置时整包跟着走）：
- *   `theme.config.ts`  清单
- *   `themes/`          主题包目录（本插件扫这里，出 packages/colors/styles/themeViews）
- *   `views/`           声明目录（devices.ts 设备声明 + 页面契约，本插件副作用 import 拉齐注册）
- * 所以本插件在 `dir` 下**再进一层 `themes/`** 扫包、再进一层 `views/` 拉声明，
- * 清单则从 `dir` 根层读。
+ * 为什么用虚拟模块而不是 import.meta.glob：glob 模式必须是字面量，「主题目录放在哪」
+ * 一旦写进 glob 就再也改不了；扫描搬到构建期后目录路径只是一个 env 变量。
+ * 不用 codegen 落盘：落盘产物会 git status 常脏、忘重新生成就静默过期。
  *
- * === 为什么它放在库里（而非让每个宿主各写一份）===
- * 它是主题机制的**构建期半边**：内核负责契约（`ThemeManifest`），
- * 这里负责扫描。没有它，「主题目录是配置项」就只实现了一半 —— 每个宿主都得
- * 自己抄一遍一百多行的扫描逻辑，正是"库不够强大"的典型症状。
+ * 容错边界：目录不存在、包写坏、配色缺 tone —— 一律跳过而不是报错（一个写歪的目录
+ * 不该让整站起不来），dev 下经 load() 边界去重警告。唯独清单不跳过：写错时
+ * defineThemeManifest 启动即抛（「面板不出现」这类症状无从归因）。
  *
- * `vite.config.ts` 由 Vite 用 esbuild 预打包后执行，裸包说明符会被当外部依赖交给
- * Node `import()`。本入口的运行时走 **`dist/vite/index.js`**（Node 不转译 TS，产物必须
- * 是 `.js`），类型声明则由 `exports["./vite"].types` 直供源码 `src/vite/index.ts`
- * （避免 d.ts 与源码漂移）。宿主消费已发布的包时不需要先构建工作区。
- *
- * === 它解决的问题 ===
- * `import.meta.glob` 的模式必须是**字面量**（Vite 在编译期静态展开），所以
- * 「主题目录放在哪」一旦写进 glob 就再也改不了 —— 想换目录只能改源码。
- * 本插件把扫描搬到构建期（Node 侧 `fs`），用**虚拟模块**把结果喂给运行时，
- * 于是目录路径变成 `VITE_THEME_DIR` 这一个环境变量。
- *
- * === 产出形态（资产部分与 `import.meta.glob` 的结果保持一致）===
- * ```ts
- * export const packages:   { './default/index.js': Module }
- * export const colors:     { './default/mobile/login/colors/white/index.js': Module }
- * export const styles:     { './default/mobile/login/colors/white/theme.scss': () => Promise<string> }
- * export const themeViews: { 'login': { './default/mobile/login/index.vue': () => Module } }
- * // 副作用：installThemeViews(themeViews) / installThemeRegistry(...) / installThemeManifest(...)
- * ```
- * 资产键**相对主题包目录**（`themes/`，`./` 开头），值保持「模块命名空间」而非默认导出 ——
- * 这样宿主注册表代码一行都不用改（它按「包/设备/页面/配色」四段解析键）。`styles` 是
- * **惰性**的（`?inline` 动态 import），背景图与字体不会进首屏包。
- *
- * === 为什么不用 codegen 落盘 ===
- * 生成物入库有两个麻烦：`git status` 常脏、以及"忘了重新生成"导致的静默过期。
- * 虚拟模块没有落盘产物，改一个目录下次请求就是新的。
- *
- * === 容错的边界 ===
- * 目录不存在、包写坏、配色缺 `tone` —— 一律**跳过而不是报错**：一个写歪的目录不该
- * 让整站起不来。目录口径的问题由宿主的关卡负责大喊。
- * **唯独清单不跳过**：它一旦写错，`defineThemeManifest` 会在启动时直接抛，
- * 因为「面板不出现」「路由推不出页面」这类症状根本无从归因。
- *
- * @author yijiu2025
- * @since 2026-10-17
+ * 运行时走 dist/vite/index.js（vite.config 由 esbuild 预打包后交给 Node 执行），
+ * 类型由 exports 的 types 直供源码 —— 宿主消费已发布的包不需要先构建工作区。
  */
 import { existsSync, readdirSync, statSync } from 'node:fs';
 import { join, resolve, sep } from 'node:path';
@@ -145,7 +108,7 @@ interface ScanResult {
   views: ViewEntry[];
   /** 部件组件（`parts/<id>/index.vue`），按 partId 分组出 `themeParts` */
   parts: PartEntry[];
-  /** `views/*.ts` 声明文件（设备声明 + 页面契约），副作用 import 拉齐注册 */
+  /** views/*.ts 页面契约（副作用 import 拉齐注册） */
   decls: ScanEntry[];
   /** 写歪/读不到而被跳过的点（dev 下警告，见 SkipNote） */
   skips: SkipNote[];
@@ -201,9 +164,7 @@ function subdirs(path: string): string[] {
 function tsFiles(path: string): string[] {
   try {
     return readdirSync(path, { withFileTypes: true })
-      // 🔴 主题域的声明是 `.ts` 源码（`views/devices.ts`、`views/<page>.ts`），不是编译后的 `.js`。
-      //    这里曾误写成 `.js` / `.d.js`，于是 `decls` 恒为空 —— 设备域与页面域静默不注册，
-      //    症状是配色回落到占位 id `default`、`deviceIds()` 返回空数组，而构建/类型检查全绿。
+      // 🔴 声明是 .ts 源文件不是 .js（曾误写成 .js 导致 decls 恒空、页面静默不注册）
       .filter(entry => entry.isFile() && entry.name.endsWith('.ts') && !entry.name.endsWith('.d.ts'))
       .map(entry => entry.name)
       .sort();
@@ -226,21 +187,11 @@ function pickDefFile(dir: string): string | undefined {
 }
 
 /**
- * 扫描主题**包目录**（根目录下的 `themes/` 子目录）
+ * 扫描主题包目录（根目录下的 themes/ 子目录）
  *
- * `dir` 是主题根目录（`VITE_THEME_DIR`），真正的包住在 `dir/themes/` 下 ——
- * 这个子目录名固定，宿主 `views/*.ts` 的 `import.meta.glob` 字面量也认它，两边靠名字对齐。
- *
- * === 目录结构由内核契约驱动，而非手写嵌套 for（2026-10-17）===
- * 「包 / 设备 / 页面 / colors / 配色」这五段里，`colors` 是**固定字面段**、其余四段
- * 是**取值段**（取值由文件系统与宿主设备清单决定，本插件不认识具体值）。这段结构的
- * 唯一来源是 `constants.ts` 的 `THEME_DIR_LEVELS`（取值目录段）+ `THEME_COLORS_SEGMENT`
- * （固定字面段）+ `THEME_DEF_FILE_CANDIDATES` / `THEME_COLOR_STYLE_FILE`（叶子文件）。
- * 本函数用 `walk` 按 `THEME_DIR_LEVELS` 做**通用递归下降**——目录加一层、或 `colors`
- * 改名，只动那一份契约，这里与注册表的 `colorFromKey()` 一起跟着变，不再有
- * "扫得到但解析不出"或反之的静默脱节。
- *
- * 只认内核约定的三种文件，其余一律忽略（清单文件住在根层，不在 `themes/` 里，天然不进这里）。
+ * 目录结构由 constants.ts 契约驱动（THEME_DIR_LEVELS + THEME_COLORS_SEGMENT +
+ * THEME_DEF_FILE_CANDIDATES / THEME_COLOR_STYLE_FILE）：walk 按它递归下降，
+ * 与注册表的键解析同源，不会有「扫得到但解析不出」的脱节。只认契约里的文件，其余忽略。
  */
 function scan(dir: string): ScanResult {
   const packagesDir = join(dir, THEME_PACKAGES_SUBDIR);
@@ -266,8 +217,7 @@ function scan(dir: string): ScanResult {
     walk(pkgDir, [pkg], result);
   }
 
-  // 声明目录 `views/*.ts`（设备声明 devices.ts + 页面契约 login/register/forgot-password）：
-  // 插件以副作用 import 拉齐，宿主 bootstrap/store 不再手动 import。
+  // 声明目录 views/*.ts（页面契约）：插件以副作用 import 拉齐，宿主不必手动 import。
   for (const name of tsFiles(join(dir, THEME_VIEWS_SUBDIR))) {
     result.decls.push({
       key: `./${THEME_VIEWS_SUBDIR}/${name}`,
@@ -477,10 +427,9 @@ function render(result: ScanResult, root: string, manifestSpec: string | null): 
     manifestSpec
       ? `import { default as __manifest } from ${JSON.stringify(manifestSpec)};`
       : 'const __manifest = null;',
-    // 声明文件副作用 import（views/*.ts）：拉齐 defineThemeDevice / defineThemePage 注册。
-    // 🔴 必须在 `installThemeViews(themeViews)` 之前**作为 import 语句**存在（ESM import 全部
-    //    提升到模块体之前执行），而页面契约现在是惰性解析 loader，不读 themeViews ——
-    //    所以这里安全，不再是「页面契约 import virtual:theme」的循环。
+    // 声明文件副作用 import（views/*.ts）：拉齐 defineThemePage 页面注册。
+    // 🔴 必须是 import 语句（ESM 全部提升到模块体之前执行），且在 installThemeViews 之前；
+    //    页面契约是惰性解析 loader，不读 themeViews —— 不会构成循环。
     ...result.decls.map(entry => `import ${JSON.stringify(toSpecifier(entry.file, root))};`),
     ''
   ];

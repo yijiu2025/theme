@@ -1,6 +1,6 @@
 # skinsuite 完整使用示例与入口函数流程手册
 
-> 版本：0.9.0（未发布）· 2026-10-23
+> 版本：0.10.x · 2026-10-25
 > 面向：要给任何前端（Vue + Vite 为主，也含无路由 / Node 脚本）接 `skinsuite`，并且想**逐函数**
 > 知道"从哪来、到哪去、存了什么、什么格式"的读者。
 > 前置：先读 `docs/onboarding.md`（接入步骤）与 `README.md`（心智模型）。本手册是**流程视角**的
@@ -14,7 +14,7 @@
 |---|---|---|---|
 | `skinsuite` | `dist/index.js`（编译产物） | 纯内核：常量、类型、token 校验、注册表构建/查询、URL 参数解析、清单 | 任何地方（Node / 单测 / 任意框架） |
 | `skinsuite/vue` | `src/vue/index.ts`（源码直供，SFC 随包） | Vue 绑定：组件（ThemeRoot/ThemeView/ThemeScope/ThemeProvider/ThemePart/调试面板）+ 状态机 + DOM 注入 + 设备/页面/版式/部件域 | Vue 应用 |
-| `skinsuite/vite` | `dist/vite/index.js`（编译产物，types 直供源码） | 构建插件 `themeAssets` + 目录解析 `resolveThemeDir` | `vite.config.ts` |
+| `skinsuite/vite` | `dist/vite/index.js`（编译产物，types 直供源码） | 构建插件 `themeAssets` + 目录常量 | `vite.config.ts` |
 
 > 记忆点：**纯内核零 DOM 零依赖；vue 层才碰 DOM/store；vite 层才碰文件系统与 import.meta.glob。**
 
@@ -45,15 +45,17 @@ VITE_THEME_DIR=src/theme
 // src/stores/theme.ts —— 宿主壳 + 副作用装配（一行 import 触发全部装配）
 import { defineStore } from 'pinia';
 import { createThemeState } from 'skinsuite/vue';
+import { DEVICES } from '@/view/devices';
 import 'virtual:theme'; // 🔴 副作用：装注册表/版式表/部件表/清单 + 拉齐 views/*.ts 声明
 
-export const useThemeStore = defineStore('theme', () => createThemeState());
+export const useThemeStore = defineStore('theme', () =>
+  createThemeState({ devices: DEVICES })
+);
 ```
 
 ```ts
 // src/bootstrap.ts
 import { theme } from 'skinsuite/vue';
-import './theme/views/devices'; // 设备声明（副作用注册进设备域）
 
 app.use(createPinia());
 app.use(router);
@@ -77,18 +79,30 @@ const themeStore = useThemeStore();
 ```
 
 ```ts
-// src/theme/views/devices.ts —— 设备声明（顺序 = 优先级，末条兜底）
-import { defineThemeDevice } from 'skinsuite/vue';
-import { THEME_ID_RE } from 'skinsuite';
+// src/view/devices.ts —— 设备清单（宿主事实；顺序 = 优先级，末条兜底，
+// 经 createThemeState({ devices }) 注入 store，容器布线宿主自持）
+import type { Component } from 'vue';
+import type { DeviceVocab } from 'skinsuite/vue';
 
-defineThemeDevice({
-  id: 'mobile', label: '手机端', urlKey: 'mobile',
-  containers: { glob: import.meta.glob('/src/view/app/*/index.vue'), fileRe: /^index\.vue$/, idRe: THEME_ID_RE }
-});
-defineThemeDevice({
-  id: 'standard', label: '桌面端', urlKey: 'std',
-  containers: { glob: import.meta.glob('/src/view/web/*/*.vue'), fileRe: /^Standard/, idRe: THEME_ID_RE }
-});
+export interface HostDeviceDef extends DeviceVocab {
+  containers: ReadonlyMap<string, () => Promise<{ default: Component }>>;
+}
+
+function containerMap(glob: Record<string, () => Promise<{ default: Component }>>) {
+  const map = new Map<string, () => Promise<{ default: Component }>>();
+  for (const [path, loader] of Object.entries(glob)) {
+    const page = path.split('/').at(-2);
+    if (page) map.set(page, loader);
+  }
+  return map;
+}
+
+export const DEVICES: readonly HostDeviceDef[] = [
+  { id: 'mobile', label: '手机端', urlKey: 'mobile',
+    containers: containerMap(import.meta.glob<{ default: Component }>('/src/view/app/*/index.vue')) },
+  { id: 'standard', label: '桌面端', urlKey: 'std',
+    containers: containerMap(import.meta.glob<{ default: Component }>('/src/view/web/*/Standard*.vue')) }
+];
 ```
 
 ```ts
@@ -102,7 +116,7 @@ defineThemePage({ page: 'login' });
 ```
 src/theme/
 ├── theme.config.ts                          # defineThemeManifest({ debug: { enabled: 'url' } })
-├── views/                                   # 设备声明 + 页面契约（副作用模块）
+├── views/                                   # 页面契约（副作用模块）
 └── themes/default/standard/login/
     ├── index.vue                            # 版式（一页一版式，default 包 eager）
     └── colors/white/{ index.ts, theme.scss } # 配色（meta + tone + tokens）
@@ -305,11 +319,6 @@ runtime 注入链（每次作用域变化）
 - `normalizeTone(raw)`：字符串 trim+小写，`'light'|'dark'` 命中返回，否则 null。
 - `normalizeMode(raw)`：同上，`'system'|'light'|'dark'`。
 
-### 3.8 设备容器纯逻辑：`containersOf`
-
-- `containersOf(defs, id)`：从设备声明数组里按 id 取 `containers` 表；未知设备返回**空 Map**
-  （调用方退兜底）。
-
 ---
 
 ## 四、Vue 绑定层 `skinsuite/vue` 入口逐个流程
@@ -326,17 +335,18 @@ runtime 注入链（每次作用域变化）
 
 ### 4.2 状态机：`createThemeState(options?)` —— 总装配
 
-- **输入**：`{ storageKeys?, colorParam='th_color', viewParam='th', defaultPage='' }`
+- **输入**：`{ devices?, storageKeys?, colorParam='th_color', viewParam='th', defaultPage='' }`
+  （`devices` = 宿主设备清单 `DeviceVocab[]`，数组序 = 优先级、末条 = 兜底设备）
 - **内部链**（顺序敏感）：
 
 ```
-① useThemeScope(keys, colorParam, viewParam, defaultPage)
+① useThemeScope(keys, colorParam, viewParam, defaultPage, devices)
     读 URL 意图 → refs 播种：
       deviceTheme = {...urlIntent.deviceTheme}        // URL 按设备显式指定的配色
       themeId     = urlIntent.deviceTheme[fallback]   // 全局配色意图
                     ?? readInitialTheme(keys)
       deviceView / viewIntent = 版式意图（URL 一次读入）
-      activeDevice = fallbackDevice()                 // 设备清单末条
+      activeDevice = devices 清单末条              // 兜底设备（未注入时空串）
       activePage   = defaultPage                      // 🔴 P0 播种
       activeView   = 'default'
     派生 computed：activeRecord → isDark / activeTone / packageId
@@ -425,17 +435,18 @@ runtime 注入链（每次作用域变化）
 - 探针 `installThemeDebug`：dev 无条件喊 URL 静默失败；清单门控命中时挂 `window.__MAUTH_STORE__`
   + 右下角角标；返回 dispose（createThemeState 已接住）。
 
-### 4.6 域注册：`defineThemeDevice` / `defineThemePage` / `installThemeViews` / `installThemeParts`
+### 4.6 域注册：`defineThemePage` / `installThemeViews` / `installThemeParts`
 
 | 入口 | 流程 | 保存 |
 |---|---|---|
-| `defineThemeDevice(opts)` | `pageContainers(glob,fileRe,idRe)` 建「页面→加载器」表 → 按 id **覆盖**注册进 `registeredDefs`（保持原顺序位置） | 模块级 `DeviceDef[]` |
-| `registeredDevices()` / `deviceIds()` / `fallbackDevice()` / `urlKeyOf(id)` | 从 `registeredDefs` 派生（顺序即优先级，末条兜底） | — |
-| `resolveContainerOf(id,page)` | 该设备容器表命中 → 否则末条兜底设备 → 否则返回 reject 加载器 | 加载器 |
 | `defineThemePage({page})` | `createViewRegistry(() => themeViewsFor(page), {page})` + picker，标记 PAGE_BRAND 后 `registeredPages.set(page)` | 模块级 `Map<page, ThemePage>` |
 | `pageOf(name)` / `registeredPageNames()` | 从 registeredPages 查 | — |
 | `installThemeViews(views)` / `themeViewsFor(page)` | virtual:theme 装入 / 按页取加载表 | 模块级 `Record<page, ViewModuleMap>` |
 | `installThemeParts(parts)` / `themePartsFor(id)` | virtual:theme 装入 / 按部件 id 取加载表 | 模块级 `Record<partId, PartModuleMap>` |
+
+> 设备清单**不是**域注册：词汇经 `createThemeState({ devices })` 装配期注入 store
+> （数组序 = 优先级、末条 = 兜底），容器布线由宿主清单文件自持 —— 库不自持设备注册表
+> （0.9.0 起注入化，`defineThemeDevice` 等注册 API 已退役）。
 
 ### 4.7 来源同步：`useThemeSources` / `fetchRemoteThemeConfig` / `useParentThemeSync` / `useScopedTheme` / `resolveScopedRecord`
 
@@ -453,15 +464,7 @@ runtime 注入链（每次作用域变化）
 
 ## 五、构建层 `skinsuite/vite` 入口流程
 
-### 5.1 `resolveThemeDir(mode, root?, { defaultDir?, envKey? })`
-
-- **流程**：`loadEnv(mode, root, 'VITE_')` 读 `VITE_THEME_DIR`（缺省 `src/theme`）→
-  `path.resolve(root, configured || defaultDir)` 返回绝对路径。
-- 为什么 `loadEnv` 不读 `process.env`：vite.config 执行时 Vite 还没加载 .env，直读恒 undefined。
-- **vite 插件场景不需要本函数**（0.9.0 起）：`themeAssets()` 零参会自己解析；本函数留给
-  e2e 关卡、Node 脚本、config 定义期就需要目录绝对路径的宿主。
-
-### 5.2 `themeAssets({ dir?, moduleId?='virtual:theme', manifestFile?='theme.config.ts' })`
+### 5.1 `themeAssets({ dir?, moduleId?='virtual:theme', manifestFile?='theme.config.ts' })`
 
 - **流程**：`configResolved` 记 root（未显式传 `dir` 时：用 `config.env.VITE_THEME_DIR`，
   缺省 `src/theme`）→ `resolveId('virtual:theme')` → `\0virtual:theme` →
@@ -469,7 +472,7 @@ runtime 注入链（每次作用域变化）
 - **`scan(dir)` 流程**：`dir/themes/<包>/` 循环 → 包定义 `index.ts` → `walk()` 按
   `THEME_DIR_LEVELS` 递归「设备→页面」→ 页面层收 `index.vue`（版式）+ `colors/<配色>/{index.ts,theme.scss}`；
   **设备层拦 `parts/` 段** → `collectParts` 收 `parts/<部件id>/{index.vue, colors/*}`；
-  再收 `dir/views/*.ts`（设备声明 + 页面契约，副作用 import）。
+  再收 `dir/views/*.ts`（页面契约，副作用 import）。
 - **`render()` 产出（`virtual:theme` 模块内容，保存格式）**：
 
 ```ts
@@ -489,7 +492,7 @@ installThemeManifest(themeManifest);
 - **dev HMR**：`configureServer` 里 `watcher.add(dir)`（root 外目录也监听）+ add/unlink/addDir/unlinkDir
   四事件（路径归一比较 + 前缀带分隔符防误匹配）→ 失效虚拟模块 + full-reload。
 
-### 5.3 `virtual:theme` 的类型（`theme.d.ts`）
+### 5.2 `virtual:theme` 的类型（`theme.d.ts`）
 
 随 `skinsuite/vite` 发布，宿主 `vite-env.d.ts` 里 `import 'skinsuite/vite'` 带入程序；不必自写。
 
@@ -511,7 +514,7 @@ installThemeManifest(themeManifest);
 | 版式加载表 | 模块级 `Record<page, ViewModuleMap>` | 键 `./pkg/device/page/index.vue`，值 loader |
 | 部件加载表 | 模块级 `Record<partId, PartModuleMap>` | 键 `./pkg/device/parts/partId/index.vue`，值 loader |
 | 清单 | 模块级单例 | `{ debug: { enabled, query, value } }` |
-| 设备域 | 模块级 `DeviceDef[]` | 顺序即优先级，末条兜底 |
+| 设备清单 | store 装配期注入（`createThemeState({ devices })`） | `DeviceVocab[]`，数组序 = 优先级、末条 = 兜底 |
 | 页面域 | 模块级 `Map<page, ThemePage>` | page → { page, views, pick } |
 | 路由引用 | 模块级 `routerRef` / `routerlessQuery` | vue-router 实例 / location.search 快照对象 |
 | 父应用同步 | `window` message 事件 | `{ type:'THEME_CHANGE', isDark?, theme?, tokens? }`，origin 白名单 |

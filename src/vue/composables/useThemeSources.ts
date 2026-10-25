@@ -1,23 +1,15 @@
 /**
- * 主题意图**来源同步** —— 拉后端配色 + 父应用主题同步（都读 env，宿主零传参）
+ * 主题意图来源同步 —— 拉后端配色 + 父应用主题同步（都读 env，宿主零传参）
  *
- * === 为什么归这里（而非 ThemeRoot）===
- * 后端下发与父应用 postMessage 都是**主题意图来源**（与 URL / 用户操作 / localStorage
- * 同类，见 6.2 来源优先级），不是「外观外壳」的职责。ThemeRoot 退化为纯外观壳后，
- * 这两条「来源」由主题运行时（宿主的 `useThemeRuntime`）调用本 composable 接入，
- * 落地动作（`applyThemeConfig` / `applyTheme`）由宿主 store 注入 —— 库不 import 宿主 store。
+ * 后端下发与父应用 postMessage 都是主题意图来源（与 URL / 用户操作 / localStorage
+ * 同类），由主题运行时（useThemeRuntime）调用本 composable 接入，落地动作
+ * （applyThemeConfig / applyTheme）由调用方注入 —— 库不 import 宿主 store。
  *
- * === 为什么读 env ===
- * 端点（`VITE_THEME_ENDPOINT`）与父 origin 白名单（`VITE_ALLOWED_PARENT_ORIGINS`）都是
- * 主题域的部署事实，库直接读这两个约定好的 env 变量 —— 宿主配好 env 即生效，不再传参。
+ * 读 env：端点（VITE_THEME_ENDPOINT）与父 origin 白名单
+ * （VITE_ALLOWED_PARENT_ORIGINS）都是部署事实，宿主配好 env 即生效。
  *
- * === 为什么不依赖组件生命周期 ===
- * 主题运行时（store）没有组件实例，`onMounted`/`onUnmounted` 在那里会失效（静默 bug）。
- * 所以这里「立即注册父同步 + 立即发起后端拉取」，返回 cleanup，由宿主在 store 的
- * dispose 里调用 cleanup（父同步 removeEventListener）。
- *
- * @author yijiu2025
- * @since 2026-10-18
+ * 不依赖组件生命周期：store 里没有组件实例，onMounted 会静默失效 —— 所以
+ * 「立即注册 + 立即拉取」，返回 cleanup 由 dispose 调用。
  */
 import { useParentThemeSync } from './useParentThemeSync';
 import { fetchRemoteThemeConfig, isRemoteThemeEnabled } from '../runtime/remote-fetch';

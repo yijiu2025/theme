@@ -1,20 +1,13 @@
 /**
- * `skinsuite/vue` —— **Vue 绑定层**的唯一公开出口
+ * `skinsuite/vue` —— Vue 绑定层的唯一公开出口
  *
- * 与 `skinsuite`（零依赖纯内核）分开成两个入口的理由：
- *   • 只要纯机制的消费者（Node 脚本、另一套框架、单测）**不该被迫装 Vue**；
- *   • `.vue` 与 `vue` 运行时只有这一个入口碰，依赖方向一眼可查。
+ * 与纯内核分开成两个入口：只要纯机制的消费者（Node 脚本、别的框架、单测）不该被迫
+ * 装 Vue；`.vue` 与 `vue` 运行时只有这一个入口碰，依赖方向一眼可查。
  *
- * 这里只装「**机制**」，不装「**策略**」：
- *   ✅ 面板长什么样、点一下发什么事件
- *   ✅ postMessage 协议怎么解析
- *   ❌ 路由怎么改、store 怎么实现、哪些 origin 可信 —— 那些是宿主参数
+ * 只装机制不装策略：面板长什么样、postMessage 协议怎么解析在这里；路由怎么改、
+ * store 怎么实现、哪些 origin 可信是宿主参数。
  *
- * 内部结构（2026-10-24 按文件类型分组）：`components/`（SFC）、`composables/`（use*）、
- * `store/`（状态机）、`runtime/`（DOM 注入 / 取数）、`registry/`（版式/页面/部件）、
- * `debug/`（调试句柄与面板入口）、`device/`（URL 通道）。公开面只从本桶出。
- *
- * @author yijiu2025
+ * 内部按文件类型分组：components/ composables/ store/ runtime/ registry/ debug/ device/。
  */
 
 // ---- 组件（components/）----
@@ -35,9 +28,8 @@ export type { ThemeSourcesOptions } from './composables/useThemeSources';
 export { useParentThemeSync } from './composables/useParentThemeSync';
 export type { ParentThemeSyncOptions } from './composables/useParentThemeSync';
 
-// ---- 版式机制（registry/：「主题包 ⇄ Vue 组件」的桥接，2026-10-17 下沉）----
-// 🔴 公开面收敛（2026-10-17 末）：原 view-picker 并入 view-registry、view-pages 并入
-//    view-page；对外只留两个工厂。宿主只需 defineThemePage。
+// ---- 版式机制（registry/：「主题包 ⇄ Vue 组件」的桥接）----
+// 公开面只留两个工厂；宿主只需 defineThemePage。
 export { createViewRegistry, createViewPicker } from './registry/view-registry';
 export type {
   PackageViews,
