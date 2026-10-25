@@ -41,10 +41,10 @@ The plugin scans your theme directory at build time and generates the virtual mo
 
 ### 2. Declare your devices
 
-Devices are **your** vocabulary (`mobile` / `standard` / `mini` / `tablet` …) — the library never hardcodes device names, and container wiring lives in the host too. One list serves both the store (vocabulary injection) and your page dispatchers (container lookup):
+Devices are **host facts**: which devices exist, what they're called, their priority order, and where the container components live — all host decisions; so are the judgment and wiring mechanics. The library never hardcodes device names and provides no judgment/wiring tools — it consumes exactly two things: the **vocabulary** injected at setup (`DeviceVocab`) and the `<ThemeView device>` props inside containers:
 
 ```ts
-// src/view/devices.ts — array order = priority, LAST entry = fallback device
+// src/view/devices.ts — device facts (host): array order = priority, LAST entry = fallback
 import type { Component } from 'vue';
 import type { DeviceVocab } from 'skinsuite/vue';
 
@@ -52,7 +52,7 @@ export interface HostDeviceDef extends DeviceVocab {
   containers: ReadonlyMap<string, () => Promise<{ default: Component }>>;  // page → container
 }
 
-/** glob result → "page name → loader" map: second-to-last path segment = page name */
+/** glob result → "page name → loader" map: second-to-last path segment = page name (your own helper, any shape) */
 function containerMap(glob: Record<string, () => Promise<{ default: Component }>>) {
   const map = new Map<string, () => Promise<{ default: Component }>>();
   for (const [path, loader] of Object.entries(glob)) {
@@ -86,6 +86,10 @@ export function resolveContainerOf(id: string, page: string) {
   return loader;
 }
 ```
+
+::: warning Split from the host's device mechanism
+The container-wiring tools and judgment mechanics are **not part of this library**: oauth21 keeps them in its own `src/device/` mechanism layer (`createDeviceModule` + `pageContainers`), with `view/devices.ts` holding only host facts assembled via `createDeviceModule({ devices: DEVICES })` for its dispatchers — none of that is a `skinsuite` export. When injecting into the theme store, only the three vocabulary fields are consumed (`containers` is a host-side extension field; pass the whole list as long as it's structurally compatible).
+:::
 
 Container location convention: the **parent directory name is the page name** (`view/app/login/index.vue` → page `login`). Globs and file-naming per device are your own convention (mobile taking `index.vue`, standard taking `Standard*.vue` above is just an example).
 

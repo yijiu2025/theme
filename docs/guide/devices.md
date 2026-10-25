@@ -1,50 +1,63 @@
 # 设备与容器
 
-## 设备是宿主的词汇表
+## 设备是宿主的事实
 
-库**零判定、零词汇**：「当前属于哪台设备」是业务口径——视口阈值取 768 还是别的、UA 命中算不算、`?isMobile=true` / `?from=mini` / `?device=` 这些 URL 词汇，换个产品就变。所以：
+库**零判定、零词汇、零布线工具**：「当前属于哪台设备」「有哪些设备」「容器组件在哪」全部是宿主的决定——视口阈值取 768 还是别的、UA 命中算不算、`?isMobile=true` / `?from=mini` / `?device=` 这些 URL 词汇，换个产品就变。所以：
 
-- **取值集合**（有哪些设备、叫什么）→ 宿主清单声明，`createThemeState({ devices })` 注入；
-- **判定**（怎么知道当前是哪台）→ 宿主分发器（utils 纯函数 + 薄 composable）；
-- **容器布线**（哪台设备用哪些组件）→ 宿主清单自持；
+- **取值集合 + 容器布线** → 宿主设备清单（一份声明 = 词汇 + 布线），`createThemeState({ devices })` 注入；
+- **判定与装配机制** → 宿主自己的设备机制层（oauth21 = `src/device/`：`createDeviceModule` 工厂 + `pageContainers` 布线工具 + 判定纯函数）；
 - 库只经 `<ThemeView device>` props **接收结果**并按设备渲染。
 
-## 清单文件（宿主 `src/view/devices.ts`）
+::: warning 别把宿主设备机制当成 skinsuite 的导出
+`pageContainers` / `createDeviceModule` / `HostDeviceInput` 住在宿主 `src/device/`，**不是 `skinsuite` 的导出**——本库自 0.9 起不持有设备注册表与布线工具。注入主题 store 时只有词汇三字段（id / label / urlKey）被消费，`containers` 是宿主自用的扩展字段（结构兼容 `DeviceVocab` 即可直接传整份清单）。
+:::
+
+## 清单文件（宿主 `src/view/devices.ts`，2026-10-24 定稿形态）
+
+一份声明 = **词汇 + 容器布线 + 模块装配**；`DEVICES` 数组序 = 优先级，**末条 = 兜底设备**（不写死某个设备名）：
 
 ```ts
 import type { Component } from 'vue';
-import type { DeviceVocab } from 'skinsuite/vue';
+import { createDeviceModule, pageContainers } from '@/device';   // ← 宿主设备机制层
+import type { HostDeviceInput } from '@/device';
 
-export interface HostDeviceDef extends DeviceVocab {
-  containers: ReadonlyMap<string, () => Promise<{ default: Component }>>;  // 页面 → 容器
-}
-
-/** glob 结果 → 「页面名 → 加载器」表：路径倒数第二段 = 页面名 */
-function containerMap(glob: Record<string, () => Promise<{ default: Component }>>) {
-  const map = new Map<string, () => Promise<{ default: Component }>>();
-  for (const [path, loader] of Object.entries(glob)) {
-    const page = path.split('/').at(-2);
-    if (page) map.set(page, loader);
+/** 设备清单：一条 = 词汇（id/label/urlKey）+ 该设备的容器布线（序 = 优先级，末条 = 兜底） */
+export const DEVICES: readonly HostDeviceInput[] = [
+  {
+    id: 'mini',
+    label: '紧凑版',
+    urlKey: 'mini',
+    containers: () => pageContainers(import.meta.glob<{ default: Component }>('/src/view/web/*/*.vue'), /^Mini/)
+  },
+  {
+    id: 'mobile',
+    label: '手机端',
+    urlKey: 'mobile',
+    containers: () =>
+      pageContainers(import.meta.glob<{ default: Component }>('/src/view/app/*/index.vue'), /^index\.vue$/)
+  },
+  {
+    id: 'standard',
+    label: '桌面端',
+    urlKey: 'std',
+    containers: () =>
+      pageContainers(import.meta.glob<{ default: Component }>('/src/view/web/*/*.vue'), /^Standard/)
   }
-  return map;
-}
-
-// 数组序 = 优先级；最后一条是兜底设备（库只认顺序，不认设备名）
-export const DEVICES: readonly HostDeviceDef[] = [
-  { id: 'mobile', label: '手机端', urlKey: 'mobile',
-    containers: containerMap(import.meta.glob('/src/view/app/*/index.vue')) },
-  { id: 'standard', label: '桌面端', urlKey: 'std',
-    containers: containerMap(import.meta.glob('/src/view/web/*/Standard*.vue')) }
 ];
+
+/** 设备模块实例（判定接线 + 页面装配）—— 页面分发器经此消费 */
+export const device = createDeviceModule({ devices: DEVICES });
 ```
 
-`DeviceVocab` 三个字段：
+`DeviceVocab` 三个字段（主题 store 消费的部分）：
 
 | 字段 | 用途 |
 | --- | --- |
 | `id` | 设备 id = 主题包内的目录名（`[a-z0-9-]`） |
 | `label` | 显示名（调试面板 / 日志用） |
 | `urlKey?` | URL 参数后缀（`?th_<urlKey>` / `?th_color_<urlKey>`）；缺省回落 `id` |
+
+数据口径：容器位置约定 = **页面名是容器文件的上一级目录名**（`view/web/login/MiniLogin.vue` → 页面 `login`）；web 家族（mini / standard）共用 `view/web` 同一份 glob、靠文件名前缀区分；mobile / tablet 各自目录树以 `index.vue` 为入口。
 
 ## 判定放 utils 层（宿主）
 
@@ -83,25 +96,27 @@ export function useRenderDevice() {
 
 ## 分发器选容器（不碰主题）
 
+分发器只做一件事：按宿主判定结果选容器组件——容器查询走**设备模块实例或清单**，主题感知交给被选中容器里的 `<ThemeView>`：
+
 ```ts
-// view/web/<page>/index.vue（页面分发器）
+// view/web/login/index.vue（页面分发器）
 import { computed, defineAsyncComponent } from 'vue';
-import { deviceIds, fallbackDevice, resolveContainerOf } from '@/view/devices';
+import { DEVICES } from '@/view/devices';
 import { useRenderDevice } from '@/composables/useRenderDevice';
 
-const device = useRenderDevice();
+const renderDevice = useRenderDevice();   // 宿主判定 → 设备 id
 const deviceComponents = new Map(
-  deviceIds().map(id => [id, defineAsyncComponent(resolveContainerOf(id, 'login'))])
+  DEVICES.map(d => [d.id, defineAsyncComponent(d.containers().get('login')!)])
 );
-const activeComponent = computed(() => {
-  const fallback = fallbackDevice();
-  return deviceComponents.get(device.value ?? fallback) ?? deviceComponents.get(fallback)!;
-});
+const activeComponent = computed(
+  () => deviceComponents.get(renderDevice.value)
+    ?? deviceComponents.get(DEVICES[DEVICES.length - 1]!.id)!
+);
 ```
 
 ## 容器位置约定
 
-**页面名 = 文件上一级目录名**（`containerMap` 取 glob 路径倒数第二段）。glob 模式与文件名约定由各设备的清单条目决定：
+**页面名 = 文件上一级目录名**（宿主的容器布线工具取 glob 路径倒数第二段——oauth21 里就是 `pageContainers`）。glob 模式与文件名约定由各设备的清单条目决定：
 
 | 设备 | glob 示例 | 实际位置约定 |
 | --- | --- | --- |

@@ -40,10 +40,10 @@ export default defineConfig({
 
 ### 2. 声明设备清单
 
-设备是**你的**词汇表（`mobile` / `standard` / `mini` / `tablet` …）——库不硬编码任何设备名，容器布线也在宿主。一份清单同时供 store（词汇注入）与页面分发器（容器查询）消费：
+设备是**宿主的事实**：有哪些设备、叫什么、顺序如何、容器组件在哪，全部是宿主的决定；判定与布线的机制也在宿主。本库不硬编码任何设备名、不提供判定/布线工具，只消费两样东西：装配期注入的**词汇**（`DeviceVocab`）与容器里的 `<ThemeView device>` props：
 
 ```ts
-// src/view/devices.ts —— 数组序 = 优先级，末条 = 兜底设备
+// src/view/devices.ts —— 设备事实（宿主）：数组序 = 优先级，末条 = 兜底设备
 import type { Component } from 'vue';
 import type { DeviceVocab } from 'skinsuite/vue';
 
@@ -51,7 +51,7 @@ export interface HostDeviceDef extends DeviceVocab {
   containers: ReadonlyMap<string, () => Promise<{ default: Component }>>;  // 页面 → 容器
 }
 
-/** glob 结果 → 「页面名 → 加载器」表：路径倒数第二段 = 页面名 */
+/** glob 结果 → 「页面名 → 加载器」表：路径倒数第二段 = 页面名（宿主自己的工具，形状自定） */
 function containerMap(glob: Record<string, () => Promise<{ default: Component }>>) {
   const map = new Map<string, () => Promise<{ default: Component }>>();
   for (const [path, loader] of Object.entries(glob)) {
@@ -85,6 +85,10 @@ export function resolveContainerOf(id: string, page: string) {
   return loader;
 }
 ```
+
+::: warning 与宿主设备机制层的分工
+容器布线工具与判定机制**不在本库**：oauth21 把它们收在自己的 `src/device/` 机制层（`createDeviceModule` + `pageContainers`），`view/devices.ts` 只写宿主事实并经 `createDeviceModule({ devices: DEVICES })` 装配成实例供分发器消费——那些不是 `skinsuite` 的导出。注入主题 store 时只有词汇三字段被消费（`containers` 是宿主自用扩展字段，结构兼容即可直接传整份清单）。
+:::
 
 容器位置约定：**文件上一级目录名 = 页面名**（`view/app/login/index.vue` → 页面 `login`）。不同设备的 glob 与文件名约定由你自己的清单决定（上面 mobile 取 `index.vue`、standard 取 `Standard*.vue` 只是示例）。
 

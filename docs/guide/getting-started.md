@@ -30,53 +30,51 @@ export default defineConfig({
 
 ## 3. 声明设备清单
 
-设备是**你的**词汇表（`mobile` / `standard` / `mini` / `tablet` …）——库不硬编码任何设备名，容器布线也在宿主。一份清单同时供 store（词汇注入）与页面分发器（容器查询）消费：
+设备是**宿主的事实**：有哪些设备、叫什么、顺序如何、容器组件在哪——全部是宿主的决定。判定与容器布线的**机制也在宿主**（见下方分工说明）。本库不硬编码任何设备名、不提供判定/布线工具，只消费两样东西：装配期注入的**词汇**（`DeviceVocab`）与容器里的 `<ThemeView device>` props。
 
 ```ts
-// src/view/devices.ts —— 数组序 = 优先级，末条 = 兜底设备
+// src/view/devices.ts —— 设备事实（宿主）：一份声明 = 词汇 + 容器布线 + 模块装配
 import type { Component } from 'vue';
-import type { DeviceVocab } from 'skinsuite/vue';
+import { createDeviceModule, pageContainers } from '@/device';   // ← 宿主自己的设备机制层
+import type { HostDeviceInput } from '@/device';
 
-export interface HostDeviceDef extends DeviceVocab {
-  containers: ReadonlyMap<string, () => Promise<{ default: Component }>>;  // 页面 → 容器
-}
-
-/** glob 结果 → 「页面名 → 加载器」表：路径倒数第二段 = 页面名 */
-function containerMap(glob: Record<string, () => Promise<{ default: Component }>>) {
-  const map = new Map<string, () => Promise<{ default: Component }>>();
-  for (const [path, loader] of Object.entries(glob)) {
-    const page = path.split('/').at(-2);
-    if (page) map.set(page, loader);
-  }
-  return map;
-}
-
-export const DEVICES: readonly HostDeviceDef[] = [
+/** 设备清单：一条 = 词汇（id/label/urlKey）+ 该设备的容器布线（序 = 优先级，末条 = 兜底） */
+export const DEVICES: readonly HostDeviceInput[] = [
+  {
+    id: 'mini',
+    label: '紧凑版',
+    urlKey: 'mini',
+    containers: () => pageContainers(import.meta.glob<{ default: Component }>('/src/view/web/*/*.vue'), /^Mini/)
+  },
   {
     id: 'mobile',
     label: '手机端',
     urlKey: 'mobile',
-    containers: containerMap(import.meta.glob<{ default: Component }>('/src/view/app/*/index.vue'))
+    containers: () =>
+      pageContainers(import.meta.glob<{ default: Component }>('/src/view/app/*/index.vue'), /^index\.vue$/)
   },
   {
     id: 'standard',
     label: '桌面端',
     urlKey: 'std',
-    containers: containerMap(import.meta.glob<{ default: Component }>('/src/view/web/*/Standard*.vue'))
+    containers: () =>
+      pageContainers(import.meta.glob<{ default: Component }>('/src/view/web/*/*.vue'), /^Standard/)
   }
 ];
 
-export const deviceIds = (): string[] => DEVICES.map(d => d.id);
-export const fallbackDevice = (): string => DEVICES[DEVICES.length - 1]?.id ?? '';
-export function resolveContainerOf(id: string, page: string) {
-  const device = DEVICES.find(d => d.id === id) ?? DEVICES[DEVICES.length - 1];
-  const loader = device?.containers.get(page);
-  if (!loader) throw new Error(`[devices] ${device?.id} 端没有页面「${page}」的容器`);
-  return loader;
-}
+/** 设备模块实例（判定接线 + 页面装配）—— 页面分发器经此消费 */
+export const device = createDeviceModule({ devices: DEVICES });
 ```
 
-容器位置约定：**文件上一级目录名 = 页面名**（`view/app/login/index.vue` → 页面 `login`）。详见[设备与容器](/guide/devices)。
+::: warning 与 skinsuite 的分工（别混进库里）
+`pageContainers` / `createDeviceModule` / `HostDeviceInput` 是**宿主自己的设备机制层**（oauth21 的 `src/device/`），**不是 `skinsuite` 的导出**——本库自 0.9 起不持有设备注册表与布线工具。同一份 `DEVICES` 注入主题 store 时，只有词汇三字段被消费（`containers` 是宿主自用的扩展字段，结构兼容 `DeviceVocab` 即可直接传）：
+
+```ts
+createThemeState({ devices: DEVICES })   // 词汇注入；容器布线留在宿主分发器
+```
+
+容器位置约定：**页面名 = 容器文件的上一级目录名**（`view/web/login/MiniLogin.vue` → 页面 `login`）；web 家族（mini/standard）共用同一份 glob、靠文件名前缀区分；mobile/tablet 各自目录树以 `index.vue` 为入口。详见[设备与容器](/guide/devices)。
+:::
 
 ## 4. 建主题目录
 
@@ -211,20 +209,21 @@ const ctx = { /* 版式需要的任何上下文 */ };
 </template>
 ```
 
-「当前是哪台设备」**库不判定**——视口阈值、UA、`?device=` 锁定都是宿主口径：
+「当前是哪台设备」**库不判定**——视口阈值、UA、`?device=` 锁定都是宿主口径。分发器只负责**选容器**（经宿主设备模块实例或清单查询），不碰主题：
 
 ```ts
 // src/view/web/login/index.vue（路由组件 = 分发器）
 import { computed, defineAsyncComponent } from 'vue';
+import { DEVICES } from '@/view/devices';
 import { useRenderDevice } from '@/composables/useRenderDevice';   // 你的判定
-import { deviceIds, fallbackDevice, resolveContainerOf } from '@/view/devices';
 
 const device = useRenderDevice();   // 例：视口 + ?device= + iframe 来源规则 → 设备 id
 const deviceComponents = new Map(
-  deviceIds().map(id => [id, defineAsyncComponent(resolveContainerOf(id, 'login'))])
+  DEVICES.map(d => [d.id, defineAsyncComponent(d.containers().get('login')!)])
 );
 const activeComponent = computed(
-  () => deviceComponents.get(device.value) ?? deviceComponents.get(fallbackDevice())!
+  () => deviceComponents.get(device.value)
+    ?? deviceComponents.get(DEVICES[DEVICES.length - 1]!.id)!
 );
 ```
 
