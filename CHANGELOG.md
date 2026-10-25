@@ -11,6 +11,15 @@
 - **Wiki 建站**（github.com/yijiu2025/theme/wiki）：Home / Roadmap（L1–L3 三层模型）/ Versioning（0.x 口径与发版链）/ Community（讨论与 Issue 规范镜像 + 分类改名对照）/ FAQ（精选）/ 侧边栏
 - Discussions 已开启（默认英文分类）；中文分类改名对照表见 wiki Community 页（GitHub 未开放分类创建 API，需网页一次性改名）
 
+## 0.11.1 — 2026-10-25
+
+### 文档与社区设施（代码零变化 —— `src/` / `test/` 自 0.11.0 零 diff；发版目的 = npm 主页 README 刷新）
+
+- **README 双语完善**：顶部 badges（npm / CI / 文档站 / license / node）、「特性速览」六条、「社区与支持」分流表、安装示例
+- **社区基准**：新增 `SUPPORT.md`；CONTRIBUTING「报告问题」扩为「报告问题与社区讨论」（分流判据 / 好 bug 报告三要素 / 标签语义 / 维护者口径）；issue 模板 contact_links 补 Discussions 与文档站入口；Wiki 建站（Home / Roadmap / Versioning / Community / FAQ）；Discussions 开启
+- **设备侧与主题侧分离口径定稿**：设备清单文件零主题库 import（机制在宿主 `src/device/` 机制层），主题侧只注入词汇投影；新增 guide「设备机制层（宿主示例）」页（types / tools / runtime 三件 + 判定接线 + 边界表）；README step2/4/7、guide 三篇、api/vue 同步
+- 公开面：**无任何变化**（0.x patch，宿主按 `^0.11.1` 跟进即可）
+
 ## 0.11.0 — 2026-10-25
 
 ### 公开面（0.x 口径记 minor）
