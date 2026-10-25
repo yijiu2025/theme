@@ -31,6 +31,12 @@ npm install skinsuite
 | `skinsuite/vue` | Vue 绑定：`createThemeState` 状态机、`<ThemeView>` / `<ThemeRoot>` / `<ThemeScope>` / `<ThemeProvider>` / `<ThemePart>`、调试面板 |
 | `skinsuite/vite` | 构建插件：`themeAssets()` 扫主题目录生成 `virtual:theme` 虚拟模块 |
 
+## 关注公众号「柒染靓月」
+
+| | |
+| --- | --- |
+| <img src=".github/assets/sponsor-official-account.jpg" width="150" alt="公众号二维码"> | CoreFlow 全栈框架、skinsuite 主题库等开源项目的**更新动态与技术分享**都会第一时间发布在公众号——扫码关注，新版本、新特性不再错过。赞助之外，**关注就是最直接的支持**。 |
+
 ---
 
 ## 快速上手（Vue + Vite）
@@ -338,15 +344,13 @@ npm test            # 构建 + node:test（内核 .mjs + vue 层编译产物）
 
 ## 赞助支持
 
-如果 skinsuite 帮到了你，欢迎请作者喝杯咖啡，或扫码关注公众号获取更新：
+如果 skinsuite 帮到了你，欢迎请作者喝杯咖啡：
 
-| 微信收款码（扫码直接转账） | 支付宝 | 公众号「柒染靓月」 |
-| --- | --- | --- |
-| <img src=".github/assets/sponsor-wechat.png" width="180" alt="微信二维码"> | <img src=".github/assets/sponsor-alipay.png" width="180" alt="支付宝收款码"> | <img src=".github/assets/sponsor-official-account.jpg" width="180" alt="公众号二维码"> |
+| 微信收款码（扫码直接转账） | 支付宝 |
+| --- | --- |
+| <img src=".github/assets/sponsor-wechat.png" width="180" alt="微信二维码"> | <img src=".github/assets/sponsor-alipay.png" width="180" alt="支付宝收款码"> |
 
 收到的每一笔都会记在心里。
-
-**关于公众号「柒染靓月」**：作者的公众号——CoreFlow 全栈框架、skinsuite 主题库等开源项目的更新动态与技术分享都会第一时间发布在那里。赞助之外，**扫码关注就是最直接的支持**：新版本、新特性不再错过。
 
 ## License
 

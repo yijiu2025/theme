@@ -31,6 +31,12 @@ Three entry points, import what you need:
 | `skinsuite/vue` | Vue bindings: `createThemeState` store, `<ThemeView>` / `<ThemeRoot>` / `<ThemeScope>` / `<ThemeProvider>` / `<ThemePart>`, debug panel |
 | `skinsuite/vite` | Build plugin: `themeAssets()` scans your theme directory into the `virtual:theme` module |
 
+## Follow the official account
+
+| | |
+| --- | --- |
+| <img src=".github/assets/sponsor-official-account.jpg" width="150" alt="Official account QR"> | Release notes and technical write-ups for CoreFlow, skinsuite and other open-source projects land here first — scan to follow, never miss a new version or feature. Beyond sponsoring, **following along is the most direct support**. |
+
 ---
 
 ## Quick start (Vue + Vite)
@@ -342,11 +348,11 @@ Contributions of every kind are welcome: bug reports, docs, code. Read the "red 
 
 ## Sponsor
 
-If skinsuite has helped you, coffee is appreciated — or follow the official account for updates:
+If skinsuite has helped you, coffee is appreciated:
 
-| WeChat pay (scan to transfer) | Alipay | Official account |
-| --- | --- | --- |
-| <img src=".github/assets/sponsor-wechat.png" width="180" alt="WeChat QR"> | <img src=".github/assets/sponsor-alipay.png" width="180" alt="Alipay QR"> | <img src=".github/assets/sponsor-official-account.jpg" width="180" alt="Official account QR"> |
+| WeChat pay (scan to transfer) | Alipay |
+| --- | --- |
+| <img src=".github/assets/sponsor-wechat.png" width="180" alt="WeChat QR"> | <img src=".github/assets/sponsor-alipay.png" width="180" alt="Alipay QR"> |
 
 Every contribution goes a long way.
 
