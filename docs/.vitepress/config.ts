@@ -30,10 +30,14 @@ export default defineConfig({
   lang: 'zh-CN',
   title: 'skinsuite',
   description: '多主题 / 多版式机制实现库：主题包 × 设备 × 页面 × 配色，零运行时依赖',
-  head: [['link', { rel: 'icon', type: 'image/svg+xml', href: '/logo.svg' }]],
+  head: [['link', { rel: 'icon', type: 'image/svg+xml', href: '/theme/logo.svg' }]],
+
+  // GitHub Pages 把站点挂在仓库子路径下 —— 资源 URL 全靠它前缀
+  base: '/theme/',
+  // GitHub Pages 无服务器重写，无扩展名路由会 404
+  cleanUrls: false,
 
   lastUpdated: true,
-  cleanUrls: true,
 
   themeConfig: {
     nav: [

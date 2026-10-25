@@ -1,0 +1,18 @@
+fix(docs): Pages 部署修正 + 与根仓 workspaces 脱钩 + 补本仓 lockfile
+
+线上 https://yijiu2025.github.io/theme/ 显示异常、本地正常的根因：
+GitHub Pages 把站点挂在仓库子路径 /theme/ 下，而 VitePress 默认 base
+'/'——构建出的 CSS/JS 全部指向域名根，线上 404 只剩裸 HTML。
+修正：config 加 base '/theme/'（favicon 同步前缀）；cleanUrls 改 false
+（GitHub Pages 无服务器重写，无扩展名深层链接会 404）。
+本地构建验证：产物 14 个资源全部带 /theme/ 前缀、0 条游离路径。
+
+脱钩（用户要求：主题库独立，不牵扯根仓）：
+- 根仓 package.json workspaces 加 "!packages/theme-core"（npm 从此不再
+  把本仓当 workspace、依赖不再提升到根 node_modules / 根 lock）
+- 根 lock 已同步：skinsuite 恢复 registry 解析（oauth21 依赖不受影响）、
+  theme-core 的 35 条 workspace 条目清空
+- 本仓补 package-lock.json（独立安装复现；CI 的 npm install 口径不变）
+
+工程：脚本 docs 更名 docs:dev（对齐 docs:build / docs:preview 家族，
+用户按 docs:dev 调用才不会 Missing script）。
