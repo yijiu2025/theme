@@ -336,6 +336,16 @@ npm test            # 构建 + node:test（内核 .mjs + vue 层编译产物）
 
 欢迎一切形式的贡献：报告问题、完善文档、提交代码。动手前读一遍 CONTRIBUTING 的「代码红线」——每一条都是实战踩出来的。
 
+## 赞助支持
+
+如果 skinsuite 帮到了你，欢迎请作者喝杯咖啡：
+
+<p align="left">
+  <img src=".github/assets/sponsor-wechat.png" width="200" alt="微信赞助二维码">
+</p>
+
+**微信**：扫码加好友，备注「赞助」即可转账。收到的每一笔都会记在心里。
+
 ## License
 
 [MIT](./LICENSE) © 2026 qirly

@@ -1,4 +1,3 @@
-# GitHub Sponsors：需先在 https://github.com/sponsors/accounts 编辑并开通
-# 赞助档案（见仓库 Wiki 的 Community 页脚注）；开通后本文件即刻生效，
-# 仓库页会显示「Sponsor this project」按钮。
-github: yijiu2025
+# GitHub Sponsors：需先在 https://github.com/sponsors/accounts 开通赞助档案。
+# custom 指向 README 的「赞助支持」锚点（微信二维码）——不依赖任何第三方平台。
+custom: ['https://github.com/yijiu2025/theme#赞助支持']

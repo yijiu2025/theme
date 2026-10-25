@@ -340,6 +340,16 @@ During 0.x, minor versions may rename exports (explicit named exports make renam
 
 Contributions of every kind are welcome: bug reports, docs, code. Read the "red lines" section of CONTRIBUTING first — each one was learned the hard way.
 
+## Sponsor
+
+If skinsuite has helped you, coffee is appreciated:
+
+<p align="left">
+  <img src=".github/assets/sponsor-wechat.png" width="200" alt="WeChat QR">
+</p>
+
+**WeChat**: scan to add me as a contact (a short note like "sponsor" helps), then transfer in-app.
+
 ## License
 
 [MIT](./LICENSE) © 2026 qirly
