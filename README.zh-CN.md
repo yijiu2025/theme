@@ -338,13 +338,13 @@ npm test            # 构建 + node:test（内核 .mjs + vue 层编译产物）
 
 ## 赞助支持
 
-如果 skinsuite 帮到了你，欢迎请作者喝杯咖啡：
+如果 skinsuite 帮到了你，欢迎请作者喝杯咖啡，或扫码关注公众号获取更新：
 
-<p align="left">
-  <img src=".github/assets/sponsor-wechat.png" width="200" alt="微信赞助二维码">
-</p>
+| 微信（加好友转账，备注「赞助」） | 支付宝 | 公众号「柒染靓月」 |
+| --- | --- | --- |
+| <img src=".github/assets/sponsor-wechat.png" width="180" alt="微信二维码"> | <img src=".github/assets/sponsor-alipay.png" width="180" alt="支付宝收款码"> | <img src=".github/assets/sponsor-official-account.jpg" width="180" alt="公众号二维码"> |
 
-**微信**：扫码加好友，备注「赞助」即可转账。收到的每一笔都会记在心里。
+收到的每一笔都会记在心里。
 
 ## License
 

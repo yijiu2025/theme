@@ -342,13 +342,13 @@ Contributions of every kind are welcome: bug reports, docs, code. Read the "red 
 
 ## Sponsor
 
-If skinsuite has helped you, coffee is appreciated:
+If skinsuite has helped you, coffee is appreciated — or follow the official account for updates:
 
-<p align="left">
-  <img src=".github/assets/sponsor-wechat.png" width="200" alt="WeChat QR">
-</p>
+| WeChat (add friend, note "sponsor", then transfer) | Alipay | Official account |
+| --- | --- | --- |
+| <img src=".github/assets/sponsor-wechat.png" width="180" alt="WeChat QR"> | <img src=".github/assets/sponsor-alipay.png" width="180" alt="Alipay QR"> | <img src=".github/assets/sponsor-official-account.jpg" width="180" alt="Official account QR"> |
 
-**WeChat**: scan to add me as a contact (a short note like "sponsor" helps), then transfer in-app.
+Every contribution goes a long way.
 
 ## License
 
