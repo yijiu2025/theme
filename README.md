@@ -350,6 +350,8 @@ If skinsuite has helped you, coffee is appreciated — or follow the official ac
 
 Every contribution goes a long way.
 
+**About the official account (柒染靓月)**: the author's WeChat channel — release notes and technical write-ups for CoreFlow, skinsuite and other open-source projects land there first. Beyond sponsoring, **following along is the simplest way to support**: never miss a new version or feature.
+
 ## License
 
 [MIT](./LICENSE) © 2026 qirly
