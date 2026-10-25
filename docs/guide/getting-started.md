@@ -67,10 +67,12 @@ export const device = createDeviceModule({ devices: DEVICES });
 ```
 
 ::: warning 与 skinsuite 的分工（别混进库里）
-`pageContainers` / `createDeviceModule` / `HostDeviceInput` 是**宿主自己的设备机制层**（oauth21 的 `src/device/`），**不是 `skinsuite` 的导出**——本库自 0.9 起不持有设备注册表与布线工具。同一份 `DEVICES` 注入主题 store 时，只有词汇三字段被消费（`containers` 是宿主自用的扩展字段，结构兼容 `DeviceVocab` 即可直接传）：
+`pageContainers` / `createDeviceModule` / `HostDeviceInput` 是**宿主自己的设备机制层**（oauth21 的 `src/device/`），**不是 `skinsuite` 的导出**——本库自 0.9 起不持有设备注册表与布线工具。设备侧与主题侧**彻底分离**：设备清单文件不 import 任何主题库的东西；主题侧只注入一份**词汇投影**（`containers` 等设备侧事实不进主题）：
 
 ```ts
-createThemeState({ devices: DEVICES })   // 词汇注入；容器布线留在宿主分发器
+// 主题侧（stores/theme.ts）—— 设备侧 → 主题侧的唯一耦合点
+const deviceVocab: DeviceVocab[] = DEVICES.map(({ id, label, urlKey }) => ({ id, label, urlKey }));
+createThemeState({ devices: deviceVocab })   // 词汇注入；容器布线留在宿主分发器
 ```
 
 容器位置约定：**页面名 = 容器文件的上一级目录名**（`view/web/login/MiniLogin.vue` → 页面 `login`）；web 家族（mini/standard）共用同一份 glob、靠文件名前缀区分；mobile/tablet 各自目录树以 `index.vue` 为入口。详见[设备与容器](/guide/devices)。
@@ -152,15 +154,20 @@ export default defineThemeManifest({
 ## 5. 装 store
 
 ```ts
-// src/stores/theme.ts
+// src/stores/theme.ts —— 主题侧
 import { defineStore } from 'pinia';
 import { createThemeState } from 'skinsuite/vue';
+import type { DeviceVocab } from 'skinsuite/vue';
 import { DEVICES } from '@/view/devices';
 import 'virtual:theme';   // 副作用：装注册表 + 版式表 + 清单
 
+// 设备侧 → 主题侧的唯一耦合点：只投影词汇三字段（id / label / urlKey），
+// containers 等设备侧事实不进主题
+const deviceVocab: DeviceVocab[] = DEVICES.map(({ id, label, urlKey }) => ({ id, label, urlKey }));
+
 export const useThemeStore = defineStore('theme', () =>
   createThemeState({
-    devices: DEVICES          // 词汇注入；库不自持设备注册表
+    devices: deviceVocab      // 词汇注入；库不自持设备注册表
     // storageKeys / colorParam / viewParam / defaultPage / remoteParams —— 见下节
   })
 );

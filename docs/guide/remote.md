@@ -59,7 +59,7 @@ VITE_THEME_ENDPOINT=/api/theme    # 空串 = 机制关闭，不发任何请求
 
 ```ts
 createThemeState({
-  devices: DEVICES,
+  devices: DEVICES.map(({ id, label, urlKey }) => ({ id, label, urlKey })),  // 词汇投影
   // 按租户：oauth21 恢复原行为的写法
   remoteParams: () => ({ client_id: new URLSearchParams(location.search).get('client_id') ?? '' }),
   // 或按用户 / 按接入应用：

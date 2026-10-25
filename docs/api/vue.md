@@ -12,10 +12,14 @@
 import { defineStore } from 'pinia';
 import { createThemeState } from 'skinsuite/vue';
 import { DEVICES } from '@/view/devices';
+import type { DeviceVocab } from 'skinsuite/vue';
 import 'virtual:theme';   // 副作用：装配版式表 + 注册表 + 清单
 
+// 设备侧 → 主题侧的唯一耦合点：只投影词汇三字段（id / label / urlKey）
+const deviceVocab: DeviceVocab[] = DEVICES.map(({ id, label, urlKey }) => ({ id, label, urlKey }));
+
 export const useThemeStore = defineStore('theme', () =>
-  createThemeState({ devices: DEVICES })
+  createThemeState({ devices: deviceVocab })
 );
 ```
 

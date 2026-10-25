@@ -54,59 +54,36 @@ export default defineConfig({
 
 The plugin scans your theme directory at build time and generates the virtual module `virtual:theme` — the single data source for the whole theme system. A missing directory degrades to an empty registry (the app still boots); malformed entries are skipped with a dev-only `[theme] 扫描跳过 …` warning.
 
-### 2. Declare your devices
+### 2. Declare your devices (device side — no skinsuite imports)
 
-Devices are **host facts**: which devices exist, what they're called, their priority order, and where the container components live — all host decisions; so are the judgment and wiring mechanics. The library never hardcodes device names and provides no judgment/wiring tools — it consumes exactly two things: the **vocabulary** injected at setup (`DeviceVocab`) and the `<ThemeView device>` props inside containers:
+Devices are an **independent subsystem**: the device mechanics (judgment / container wiring / assembly) belong to the host (oauth21 keeps them in its `src/device/` mechanism layer). The device list file **imports nothing from the theme library** — the only coupling point to the theme side is step 4 (projecting the three vocabulary fields):
 
 ```ts
 // src/view/devices.ts — device facts (host): array order = priority, LAST entry = fallback
 import type { Component } from 'vue';
-import type { DeviceVocab } from 'skinsuite/vue';
+import { createDeviceModule, pageContainers } from '@/device';   // your device mechanism layer
+import type { HostDeviceInput } from '@/device';
 
-export interface HostDeviceDef extends DeviceVocab {
-  containers: ReadonlyMap<string, () => Promise<{ default: Component }>>;  // page → container
-}
-
-/** glob result → "page name → loader" map: second-to-last path segment = page name (your own helper, any shape) */
-function containerMap(glob: Record<string, () => Promise<{ default: Component }>>) {
-  const map = new Map<string, () => Promise<{ default: Component }>>();
-  for (const [path, loader] of Object.entries(glob)) {
-    const page = path.split('/').at(-2);
-    if (page) map.set(page, loader);
-  }
-  return map;
-}
-
-export const DEVICES: readonly HostDeviceDef[] = [
+export const DEVICES: readonly HostDeviceInput[] = [
   {
     id: 'mobile',
     label: 'Mobile',
     urlKey: 'mobile',
-    containers: containerMap(import.meta.glob<{ default: Component }>('/src/view/app/*/index.vue'))
+    containers: () => pageContainers(import.meta.glob<{ default: Component }>('/src/view/app/*/index.vue'), /^index\.vue$/)
   },
   {
     id: 'standard',
     label: 'Desktop',
     urlKey: 'std',
-    containers: containerMap(import.meta.glob<{ default: Component }>('/src/view/web/*/Standard*.vue'))
+    containers: () => pageContainers(import.meta.glob<{ default: Component }>('/src/view/web/*/Standard*.vue'), /^Standard/)
   }
 ];
 
-export const deviceIds = (): string[] => DEVICES.map(d => d.id);
-export const fallbackDevice = (): string => DEVICES[DEVICES.length - 1]?.id ?? '';
-export function resolveContainerOf(id: string, page: string) {
-  const device = DEVICES.find(d => d.id === id) ?? DEVICES[DEVICES.length - 1];
-  const loader = device?.containers.get(page);
-  if (!loader) throw new Error(`[devices] no container for page "${page}" on ${device?.id}`);
-  return loader;
-}
+/** Device module instance (judgment wiring + page assembly) — consumed by your page dispatchers */
+export const device = createDeviceModule({ devices: DEVICES });
 ```
 
-::: warning Split from the host's device mechanism
-The container-wiring tools and judgment mechanics are **not part of this library**: oauth21 keeps them in its own `src/device/` mechanism layer (`createDeviceModule` + `pageContainers`), with `view/devices.ts` holding only host facts assembled via `createDeviceModule({ devices: DEVICES })` for its dispatchers — none of that is a `skinsuite` export. When injecting into the theme store, only the three vocabulary fields are consumed (`containers` is a host-side extension field; pass the whole list as long as it's structurally compatible).
-:::
-
-Container location convention: the **parent directory name is the page name** (`view/app/login/index.vue` → page `login`). Globs and file-naming per device are your own convention (mobile taking `index.vue`, standard taking `Standard*.vue` above is just an example).
+Container location convention: the **parent directory name is the page name** (`view/app/login/index.vue` → page `login`); the web family shares one glob and distinguishes devices by file-name prefix (the above is an example — globs and naming are yours). The judgment policy (viewport / UA / what `?device=` means) lives in your device mechanism layer too — nothing to do with themes.
 
 ### 3. Create the theme directory
 
@@ -185,16 +162,22 @@ Uniqueness scope of a color id is **package × device × page** — `white` may 
 ### 4. Assemble the store
 
 ```ts
-// src/stores/theme.ts
+// src/stores/theme.ts — theme side
 import { defineStore } from 'pinia';
 import { createThemeState } from 'skinsuite/vue';
+import type { DeviceVocab } from 'skinsuite/vue';
 import { DEVICES } from '@/view/devices';
 import 'virtual:theme';   // side effect: installs registry + views + manifest
 
+// The single coupling point from device side to theme side: project only the
+// three vocabulary fields (id / label / urlKey) — containers and other device
+// facts never enter the theme
+const deviceVocab: DeviceVocab[] = DEVICES.map(({ id, label, urlKey }) => ({ id, label, urlKey }));
+
 export const useThemeStore = defineStore('theme', () =>
   createThemeState({
-    devices: DEVICES          // vocabulary injection; the library holds no device registry
-    // storageKeys, colorParam, viewParam, defaultPage — see options below
+    devices: deviceVocab      // vocabulary injection; the library holds no device registry
+    // storageKeys, colorParam, viewParam, defaultPage, remoteParams — see options below
   })
 );
 ```
@@ -247,19 +230,21 @@ const ctx = { /* anything your layouts need */ };
 
 ### 7. Pick the device per page (dispatcher)
 
-The library never decides "which device is this" — viewport thresholds, UA, `?device=` locks are **host policy**. Typical dispatcher:
+The library never decides "which device is this" — viewport thresholds, UA, `?device=` locks are **host policy**. The dispatcher picks containers from the device-side list (no theme involvement):
 
 ```ts
 // src/view/web/login/index.vue (route component)
-import { useRenderDevice } from '@/composables/useRenderDevice';   // your judgment
-import { deviceIds, fallbackDevice, resolveContainerOf } from '@/view/devices';
+import { computed, defineAsyncComponent } from 'vue';
+import { DEVICES } from '@/view/devices';
+import { useRenderDevice } from '@/composables/useRenderDevice';   // judgment from your device mechanism
 
 const device = useRenderDevice();   // e.g. viewport + ?device= + iframe-source rules → device id
 const deviceComponents = new Map(
-  deviceIds().map(id => [id, defineAsyncComponent(resolveContainerOf(id, 'login'))])
+  DEVICES.map(d => [d.id, defineAsyncComponent(d.containers().get('login')!)])
 );
 const activeComponent = computed(
-  () => deviceComponents.get(device.value) ?? deviceComponents.get(fallbackDevice())!
+  () => deviceComponents.get(device.value)
+    ?? deviceComponents.get(DEVICES[DEVICES.length - 1]!.id)!
 );
 ```
 

@@ -53,59 +53,36 @@ export default defineConfig({
 
 插件在构建期扫主题目录，生成虚拟模块 `virtual:theme`——整个主题体系的唯一数据源。目录不存在退化为空注册表（应用照常起）；写歪的条目被跳过并在 dev 下报 `[theme] 扫描跳过 …` 警告。
 
-### 2. 声明设备清单
+### 2. 声明设备清单（设备侧，不 import skinsuite）
 
-设备是**宿主的事实**：有哪些设备、叫什么、顺序如何、容器组件在哪，全部是宿主的决定；判定与布线的机制也在宿主。本库不硬编码任何设备名、不提供判定/布线工具，只消费两样东西：装配期注入的**词汇**（`DeviceVocab`）与容器里的 `<ThemeView device>` props：
+设备是**独立的子系统**：设备机制（判定 / 容器布线 / 装配）是宿主自己的事（oauth21 收在 `src/device/` 机制层），设备清单文件**不 import 任何主题库的东西**——主题侧与设备侧的唯一耦合点在第 4 步（只投影词汇三字段）：
 
 ```ts
 // src/view/devices.ts —— 设备事实（宿主）：数组序 = 优先级，末条 = 兜底设备
 import type { Component } from 'vue';
-import type { DeviceVocab } from 'skinsuite/vue';
+import { createDeviceModule, pageContainers } from '@/device';   // 你的设备机制层
+import type { HostDeviceInput } from '@/device';
 
-export interface HostDeviceDef extends DeviceVocab {
-  containers: ReadonlyMap<string, () => Promise<{ default: Component }>>;  // 页面 → 容器
-}
-
-/** glob 结果 → 「页面名 → 加载器」表：路径倒数第二段 = 页面名（宿主自己的工具，形状自定） */
-function containerMap(glob: Record<string, () => Promise<{ default: Component }>>) {
-  const map = new Map<string, () => Promise<{ default: Component }>>();
-  for (const [path, loader] of Object.entries(glob)) {
-    const page = path.split('/').at(-2);
-    if (page) map.set(page, loader);
-  }
-  return map;
-}
-
-export const DEVICES: readonly HostDeviceDef[] = [
+export const DEVICES: readonly HostDeviceInput[] = [
   {
     id: 'mobile',
     label: '手机端',
     urlKey: 'mobile',
-    containers: containerMap(import.meta.glob<{ default: Component }>('/src/view/app/*/index.vue'))
+    containers: () => pageContainers(import.meta.glob<{ default: Component }>('/src/view/app/*/index.vue'), /^index\.vue$/)
   },
   {
     id: 'standard',
     label: '桌面端',
     urlKey: 'std',
-    containers: containerMap(import.meta.glob<{ default: Component }>('/src/view/web/*/Standard*.vue'))
+    containers: () => pageContainers(import.meta.glob<{ default: Component }>('/src/view/web/*/Standard*.vue'), /^Standard/)
   }
 ];
 
-export const deviceIds = (): string[] => DEVICES.map(d => d.id);
-export const fallbackDevice = (): string => DEVICES[DEVICES.length - 1]?.id ?? '';
-export function resolveContainerOf(id: string, page: string) {
-  const device = DEVICES.find(d => d.id === id) ?? DEVICES[DEVICES.length - 1];
-  const loader = device?.containers.get(page);
-  if (!loader) throw new Error(`[devices] ${device?.id} 端没有页面「${page}」的容器`);
-  return loader;
-}
+/** 设备模块实例（判定接线 + 页面装配）—— 页面分发器经此消费 */
+export const device = createDeviceModule({ devices: DEVICES });
 ```
 
-::: warning 与宿主设备机制层的分工
-容器布线工具与判定机制**不在本库**：oauth21 把它们收在自己的 `src/device/` 机制层（`createDeviceModule` + `pageContainers`），`view/devices.ts` 只写宿主事实并经 `createDeviceModule({ devices: DEVICES })` 装配成实例供分发器消费——那些不是 `skinsuite` 的导出。注入主题 store 时只有词汇三字段被消费（`containers` 是宿主自用扩展字段，结构兼容即可直接传整份清单）。
-:::
-
-容器位置约定：**文件上一级目录名 = 页面名**（`view/app/login/index.vue` → 页面 `login`）。不同设备的 glob 与文件名约定由你自己的清单决定（上面 mobile 取 `index.vue`、standard 取 `Standard*.vue` 只是示例）。
+容器位置约定：**页面名 = 容器文件的上一级目录名**（`view/app/login/index.vue` → 页面 `login`）；web 家族共用一份 glob、靠文件名前缀区分（上面是示例，模式与文件名约定由你定）。判定口径（视口 / UA / `?device=` 语义）同样在你的设备机制层——与主题无关。
 
 ### 3. 建主题目录
 
@@ -183,16 +160,21 @@ export default defineThemeManifest({
 ### 4. 装 store
 
 ```ts
-// src/stores/theme.ts
+// src/stores/theme.ts —— 主题侧
 import { defineStore } from 'pinia';
 import { createThemeState } from 'skinsuite/vue';
+import type { DeviceVocab } from 'skinsuite/vue';
 import { DEVICES } from '@/view/devices';
 import 'virtual:theme';   // 副作用：装注册表 + 版式表 + 清单
 
+// 设备侧 → 主题侧的唯一耦合点：只投影词汇三字段（id / label / urlKey），
+// containers 等设备侧事实不进主题
+const deviceVocab: DeviceVocab[] = DEVICES.map(({ id, label, urlKey }) => ({ id, label, urlKey }));
+
 export const useThemeStore = defineStore('theme', () =>
   createThemeState({
-    devices: DEVICES          // 词汇注入；库不自持设备注册表
-    // storageKeys / colorParam / viewParam / defaultPage —— 见下节
+    devices: deviceVocab      // 词汇注入；库不自持设备注册表
+    // storageKeys / colorParam / viewParam / defaultPage / remoteParams —— 见下节
   })
 );
 ```
@@ -244,19 +226,21 @@ const ctx = { /* 版式需要的任何上下文 */ };
 
 ### 7. 每页选设备（分发器）
 
-「当前是哪台设备」**库不判定**——视口阈值、UA、`?device=` 锁定都是宿主口径。典型分发器：
+「当前是哪台设备」**库不判定**——视口阈值、UA、`?device=` 锁定都是宿主口径。分发器经设备侧的清单选容器（不碰主题）：
 
 ```ts
 // src/view/web/login/index.vue（路由组件）
-import { useRenderDevice } from '@/composables/useRenderDevice';   // 你的判定
-import { deviceIds, fallbackDevice, resolveContainerOf } from '@/view/devices';
+import { computed, defineAsyncComponent } from 'vue';
+import { DEVICES } from '@/view/devices';
+import { useRenderDevice } from '@/composables/useRenderDevice';   // 你的设备机制层的判定
 
 const device = useRenderDevice();   // 例：视口 + ?device= + iframe 来源规则 → 设备 id
 const deviceComponents = new Map(
-  deviceIds().map(id => [id, defineAsyncComponent(resolveContainerOf(id, 'login'))])
+  DEVICES.map(d => [d.id, defineAsyncComponent(d.containers().get('login')!)])
 );
 const activeComponent = computed(
-  () => deviceComponents.get(device.value) ?? deviceComponents.get(fallbackDevice())!
+  () => deviceComponents.get(device.value)
+    ?? deviceComponents.get(DEVICES[DEVICES.length - 1]!.id)!
 );
 ```
 

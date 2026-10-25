@@ -4,12 +4,12 @@
 
 库**零判定、零词汇、零布线工具**：「当前属于哪台设备」「有哪些设备」「容器组件在哪」全部是宿主的决定——视口阈值取 768 还是别的、UA 命中算不算、`?isMobile=true` / `?from=mini` / `?device=` 这些 URL 词汇，换个产品就变。所以：
 
-- **取值集合 + 容器布线** → 宿主设备清单（一份声明 = 词汇 + 布线），`createThemeState({ devices })` 注入；
+- **取值集合 + 容器布线** → 宿主设备清单（一份声明 = 词汇 + 布线），以**词汇投影**注入 `createThemeState({ devices })`；
 - **判定与装配机制** → 宿主自己的设备机制层（oauth21 = `src/device/`：`createDeviceModule` 工厂 + `pageContainers` 布线工具 + 判定纯函数）；
 - 库只经 `<ThemeView device>` props **接收结果**并按设备渲染。
 
 ::: warning 别把宿主设备机制当成 skinsuite 的导出
-`pageContainers` / `createDeviceModule` / `HostDeviceInput` 住在宿主 `src/device/`，**不是 `skinsuite` 的导出**——本库自 0.9 起不持有设备注册表与布线工具。注入主题 store 时只有词汇三字段（id / label / urlKey）被消费，`containers` 是宿主自用的扩展字段（结构兼容 `DeviceVocab` 即可直接传整份清单）。
+`pageContainers` / `createDeviceModule` / `HostDeviceInput` 住在宿主 `src/device/`，**不是 `skinsuite` 的导出**——本库自 0.9 起不持有设备注册表与布线工具。设备侧与主题侧**彻底分离**：设备清单文件不 import 任何主题库的东西；注入主题 store 时用一份**词汇投影**（只取 id / label / urlKey 三字段，`containers` 等设备侧事实不进主题）：
 :::
 
 ## 清单文件（宿主 `src/view/devices.ts`，2026-10-24 定稿形态）
