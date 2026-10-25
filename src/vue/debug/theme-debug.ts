@@ -1,3 +1,4 @@
+/// <reference path="../env.d.ts" />
 /**
  * 主题调试句柄（dev-only）—— window.__MAUTH_STORE__ 探针 + 右下角角标 + URL 参数审计
  *

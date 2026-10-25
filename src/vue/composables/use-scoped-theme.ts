@@ -1,3 +1,4 @@
+/// <reference path="../env.d.ts" />
 /**
  * 作用域主题注入（composable 半边）—— 把某份配色记录注入到给定元素
  *

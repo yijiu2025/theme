@@ -1,3 +1,4 @@
+/// <reference path="../env.d.ts" />
 /**
  * 主题状态机装配入口 —— createThemeState(options)，宿主一行 defineStore 包起来
  *

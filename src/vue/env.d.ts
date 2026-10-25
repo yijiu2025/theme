@@ -8,6 +8,10 @@
  * 声明与 `vite/client` **逐字同形**（含 any 索引签名）：两边同时在场的程序里，
  * 同名接口声明合并成超集，互不冲突；只有本声明在场时独立成立。
  * Vite 构建时 `import.meta.env.DEV` 仍由 Vite 静态替换（prod 消除逻辑不受影响）。
+ *
+ * 引用约定：使用 `import.meta.env` 的源文件顶部写
+ * `/// <reference path="…/env.d.ts" />` —— 路径引用在任何检查上下文都生效
+ * （含编辑器把文件当「游离文件」、不加载包内其它文件的场景）。
  */
 interface ImportMeta {
   readonly env: ImportMetaEnv;
