@@ -2,11 +2,25 @@
 
 本包遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)：0.x 阶段的次要版本允许重命名与结构调整（公开出口是显式具名导出，改名即 semver-minor）。
 
-## 未发布
+## 0.11.0 — 2026-10-25
 
-- **`fetchRemoteThemeConfig` 身份参数通用化（公开面变更）**：签名从 `(clientId, options)` 改为 `(options)`，身份上下文收进 `RemoteThemeFetchOptions.params`（键名与取值由调用方决定 —— `client_id` / `user_id` / 接入应用标识等；库不再硬编码 oauth21 的 `client_id`、不再读 `location.search`）。空串 / undefined 的参数不发送。此前无任何宿主直接调用（机制未启用），无迁移成本
+### 公开面（0.x 口径记 minor）
+
+- **`fetchRemoteThemeConfig` 身份参数通用化**：签名从 `(clientId, options)` 改为 `(options)`，身份上下文收进 `RemoteThemeFetchOptions.params`（键名与取值由调用方决定 —— `client_id` / `user_id` / 接入应用标识等；库不再硬编码 oauth21 的 `client_id`、不再读 `location.search`）。空串 / undefined 的参数不发送。此前无任何宿主直接调用（机制未启用），无迁移成本
 - **`ThemeStateOptions.remoteParams`**：拉远程主题配置时的身份参数 provider（`() => Record<string, string | undefined>`），经 `useThemeRuntime` → `useThemeSources` 传到取数层，发请求前才取值。缺省不带参数；oauth21 启用该机制时传 `remoteParams: () => ({ client_id: … })` 即恢复原行为
-- 新增 `test/vue/remote-fetch.test.ts`（5 例：任意键名参数 / 空值剔除 / 端点关闭零请求 / 默认无凭据 / 响应归一）
+- **`parseThemeParams` 加可选 `{ debugQuery }`**：审计的调试触发键跟随清单 `debug.query` 配置（缺省 `'debug'`，缺省行为不变）；新增导出类型 `ParseThemeParamsOptions`
+
+### 修复
+
+- **审计调试键硬编码**：宿主自定义 `debug.query` 后，探针 `url.debug` 显影恒 null、自定义键重复定义漏报、默认 `debug` 键被误当主题键显影 —— `theme-debug` 三处调用收进 `themeParams()` 助手统一传清单配置，审计与门控同源
+- **`import.meta.env` 类型兜底**：新增 `src/vue/env.d.ts`（与 `vite/client` 逐字同形的自包含声明，同场时接口合并零冲突），4 个使用 `import.meta.env` 的源文件加 `/// <reference path>` 路径引用 —— 编辑器游离文件 / 纯 tsc 上下文不再报 TS2339
+
+### 文档
+
+- **VitePress 文档站**（`https://yijiu2025.github.io/theme/`）：指南 11 章 + API 参考 3 篇 + 进阶 2 篇（逐文件架构地图 / 发布流程），中文界面 + 三区侧边栏 + 本地搜索；`docs-pages.yml` 推 main 自动部署 GitHub Pages（`base: '/theme/'` + `cleanUrls: false` 适配子路径托管）；旧 `docs/onboarding.md` / `usage-and-flows.md` / `structure.md` 内容并入新章节后移除
+- **设备清单章节对齐 2026-10-24 定稿形态**：指南与双语 README 明确「宿主事实 + 宿主 `src/device/` 机制层（`createDeviceModule` / `pageContainers`）」分工 —— 那些不是 skinsuite 的导出；注入主题 store 只消费词汇三字段
+- devDeps 加 `vitepress`（docs 构建用，不触碰运行时零依赖承诺）；本仓补 `package-lock.json`（与根仓 workspaces 脱钩后独立安装复现）
+- 新增 `test/vue/remote-fetch.test.ts` 5 例（任意键名参数 / 空值剔除 / 端点关闭零请求 / 默认无凭据 / 响应归一），全量 86 例
 
 > **命名沿革**：2026-09-27 当天两度改名，最终定为 **`skinsuite`**：
 >   ① 初版发布名 `mauth-theme-core@0.1.0`（前缀取自宿主的 `mauth-*` 主题层，对外没有意义）；
