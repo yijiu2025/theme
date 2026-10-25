@@ -334,7 +334,7 @@ npm test            # 构建 + node:test（内核 .mjs + vue 层编译产物）
 | 接入教程 / 查 API | [文档站](https://yijiu2025.github.io/theme/)（guide / api / advanced） |
 | 看路线图 / 版本政策 / 常见问题 | [Wiki](https://github.com/yijiu2025/theme/wiki) |
 | 使用提问 | [Discussions · Q&A](https://github.com/yijiu2025/theme/discussions/categories/q-a) |
-| 功能想法 | [Discussions · 想法](https://github.com/yijiu2025/theme/discussions/categories/想法)（达成共识转 issue） |
+| 功能想法 | [Discussions · Ideas](https://github.com/yijiu2025/theme/discussions/categories/ideas)（达成共识转 issue） |
 | 报缺陷 | [Issue · 缺陷报告](https://github.com/yijiu2025/theme/issues/new?template=bug_report.yml)（带最小复现） |
 | 安全漏洞 | [私密报告](https://github.com/yijiu2025/theme/security/advisories/new)（勿开公开 issue） |
 | 参与贡献 | [CONTRIBUTING.md](./CONTRIBUTING.md) |

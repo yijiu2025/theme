@@ -84,9 +84,9 @@ PR 标题同样要符合 Conventional Commits——squash 合并时它会成为 
 | 情况 | 去处 |
 | --- | --- |
 | 疑似缺陷，有可复现代码 | [Issue · 缺陷报告](https://github.com/yijiu2025/theme/issues/new?template=bug_report.yml) |
-| 功能建议 / 新能力想法 | **先**开 [Discussion · 想法](https://github.com/yijiu2025/theme/discussions/categories/想法)——讨论清楚要不要、什么形态，再转成 issue 排期 |
+| 功能建议 / 新能力想法 | **先**开 [Discussion · Ideas](https://github.com/yijiu2025/theme/discussions/categories/ideas)——讨论清楚要不要、什么形态，再转成 issue 排期 |
 | 使用方法提问（接入 / 设计为什么这样） | [Discussion · Q&A](https://github.com/yijiu2025/theme/discussions/categories/q-a) |
-| 已上线功能的公告与变更 | 维护者发 [Discussion · 公告](https://github.com/yijiu2025/theme/discussions/categories/公告) |
+| 已上线功能的公告与变更 | 维护者发 [Discussion · Announcements](https://github.com/yijiu2025/theme/discussions/categories/announcements) |
 | 安全漏洞 | **勿开公开 issue / 讨论**，走私密报告，见 [SECURITY.md](SECURITY.md) |
 | 下游应用的具体表现 | 到对应应用仓（如 [CoreFlow](https://github.com/yijiu2025/CoreFlow/issues)），这里只管库本身 |
 

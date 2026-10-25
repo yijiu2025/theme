@@ -338,7 +338,7 @@ During 0.x, minor versions may rename exports (explicit named exports make renam
 | Learn / look up APIs | [Documentation site](https://yijiu2025.github.io/theme/) (guide / api / advanced) |
 | See the roadmap / version policy / FAQ | [Wiki](https://github.com/yijiu2025/theme/wiki) |
 | Ask how to use it | [Discussions · Q&A](https://github.com/yijiu2025/theme/discussions/categories/q-a) |
-| Propose a feature | [Discussions · Ideas](https://github.com/yijiu2025/theme/discussions/categories/想法) (becomes an issue once agreed) |
+| Propose a feature | [Discussions · Ideas](https://github.com/yijiu2025/theme/discussions/categories/ideas) (becomes an issue once agreed) |
 | Report a bug | [Issue · bug report](https://github.com/yijiu2025/theme/issues/new?template=bug_report.yml) (with a minimal reproduction) |
 | Report a security issue | [Private advisory](https://github.com/yijiu2025/theme/security/advisories/new) (never a public issue) |
 | Contribute | [CONTRIBUTING.md](./CONTRIBUTING.md) |

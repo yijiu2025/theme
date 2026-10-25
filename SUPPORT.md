@@ -7,7 +7,7 @@
 | 情况 | 去处 |
 | --- | --- |
 | 疑似缺陷（有可复现代码） | [Issue · 缺陷报告](https://github.com/yijiu2025/theme/issues/new?template=bug_report.yml) |
-| 功能建议 / 新能力提案 | 先去 [Discussions · 想法](https://github.com/yijiu2025/theme/discussions/categories/想法) 讨论，达成共识再转 issue |
+| 功能建议 / 新能力提案 | 先去 [Discussions · Ideas](https://github.com/yijiu2025/theme/discussions/categories/ideas) 讨论，达成共识再转 issue |
 | 使用方法提问（怎么接入 / 为什么这样设计） | [Discussions · Q&A](https://github.com/yijiu2025/theme/discussions/categories/q-a) |
 | 安全漏洞 | **勿开公开 issue / 讨论**，走私密报告：[Security Advisories](https://github.com/yijiu2025/theme/security/advisories/new)（见 [SECURITY.md](SECURITY.md)） |
 | 下游应用的具体表现（登录页 / 某前端页面） | 到对应应用仓报（如 [CoreFlow](https://github.com/yijiu2025/CoreFlow/issues)），这里只管库本身 |
