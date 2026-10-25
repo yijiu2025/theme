@@ -2,15 +2,14 @@
 
 本包遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)：0.x 阶段的次要版本允许重命名与结构调整（公开出口是显式具名导出，改名即 semver-minor）。
 
-## 未发布
+## 0.11.3 — 2026-10-25
 
-- **赞助区块两码 + 公众号独立区块**：README 双语「赞助支持」只留微信收款码与支付宝（两列表格）；公众号「柒染靓月」二维码拆出为独立「关注公众号」区块（二维码 + 引导文案，置于三入口表之后），关注与赞助分流（.github/assets/ 三张图）；FUNDING.yml custom 指向 README「#赞助支持」锚点（爱发电已停服，收款码直贴不依赖第三方平台）
-- **设备机制层参考示例（新 guide 页）**：`docs/guide/device-layer.md` —— types / tools（pageContainers）/ runtime（createDeviceModule）三件最小实现 + 判定接线（纯函数 / useRenderDevice / 分发器装配）+ 与主题侧的边界表；README 双语 step2 与 guide 两章互链；README 安装命令恢复不带版本号
-- **设备侧与主题侧彻底分离（文档口径定稿）**：设备清单文件（`view/devices.ts`）**零主题库 import**——机制收在宿主 `src/device/`（`createDeviceModule` + `pageContainers`）；主题侧注入的不是整份清单，而是**词汇投影**（`DEVICES.map(({ id, label, urlKey }) => …)`，containers 等设备侧事实不进主题，两侧唯一耦合点）；分发器经设备侧清单选容器。README 双语 step2/4/7、guide 三篇、api/vue 同步，旧手搓 helper 样例（containerMap / deviceIds / fallbackDevice / resolveContainerOf）全仓清除
-- **README 完善（双语）**：顶部加 badges（npm 版本 / CI / 文档站 / license / node）；新增「特性速览」六条（对齐文档站首页）；安装示例改为显式版本号 + 0.x 提示；新增「社区与支持」分流表（文档站 / Wiki / Discussions / Issue / 私密安全报告 / CONTRIBUTING / SUPPORT）
-- **社区基准补全**：新增 `SUPPORT.md`（求助分流表 + 响应口径）；CONTRIBUTING「报告问题」扩为「报告问题与社区讨论」（Issue vs Discussion 分流判据、好 bug 报告三要素、标签语义、维护者口径）；issue 模板 config 的 contact_links 补 Discussions / 文档站入口
-- **Wiki 建站**（github.com/yijiu2025/theme/wiki）：Home / Roadmap（L1–L3 三层模型）/ Versioning（0.x 口径与发版链）/ Community（讨论与 Issue 规范镜像 + 分类改名对照）/ FAQ（精选）/ 侧边栏
-- Discussions 已开启（默认英文分类）；中文分类改名对照表见 wiki Community 页（GitHub 未开放分类创建 API，需网页一次性改名）
+### 文档与社区设施（代码零变化 —— `src/` / `test/` 自 0.11.2 零 diff；发版目的 = npm 主页 README 刷新）
+
+- **赞助与关注分流**：README 双语「赞助支持」只留微信收款码（扫码直接转账）与支付宝（两列表格）；公众号「柒染靓月」二维码拆出为独立「关注公众号」区块（二维码 + 引导文案，置于三入口表之后）——关注归关注、赞助归赞助；FUNDING.yml custom 指向 README「#赞助支持」锚点（爱发电已停服，收款码直贴不依赖第三方平台），仓库页 Sponsor 按钮直达二维码
+- **设备侧与主题侧分离口径定稿**：设备清单文件（`view/devices.ts`）**零主题库 import**——机制收在宿主 `src/device/`（`createDeviceModule` + `pageContainers`）；主题侧注入的不是整份清单，而是**词汇投影**（`DEVICES.map(({ id, label, urlKey }) => …)`，containers 等设备侧事实不进主题，两侧唯一耦合点）；分发器经设备侧清单选容器。README 双语 step2/4/7、guide 三篇、api/vue 同步，旧手搓 helper 样例（containerMap / deviceIds / fallbackDevice / resolveContainerOf）全仓清除
+- **设备机制层参考示例（新 guide 页）**：`docs/guide/device-layer.md` —— types / tools（pageContainers）/ runtime（createDeviceModule）三件最小实现 + 判定接线（纯函数 / useRenderDevice / 分发器装配）+ 与主题侧的边界表；侧边栏与 README 双语互链
+- 公开面：**无任何变化**（0.x patch）
 
 ## 0.11.2 — 2026-10-25
 
