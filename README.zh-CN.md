@@ -340,7 +340,7 @@ npm test            # 构建 + node:test（内核 .mjs + vue 层编译产物）
 
 如果 skinsuite 帮到了你，欢迎请作者喝杯咖啡，或扫码关注公众号获取更新：
 
-| 微信（加好友转账，备注「赞助」） | 支付宝 | 公众号「柒染靓月」 |
+| 微信收款码（扫码直接转账） | 支付宝 | 公众号「柒染靓月」 |
 | --- | --- | --- |
 | <img src=".github/assets/sponsor-wechat.png" width="180" alt="微信二维码"> | <img src=".github/assets/sponsor-alipay.png" width="180" alt="支付宝收款码"> | <img src=".github/assets/sponsor-official-account.jpg" width="180" alt="公众号二维码"> |
 

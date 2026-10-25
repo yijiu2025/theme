@@ -344,7 +344,7 @@ Contributions of every kind are welcome: bug reports, docs, code. Read the "red 
 
 If skinsuite has helped you, coffee is appreciated — or follow the official account for updates:
 
-| WeChat (add friend, note "sponsor", then transfer) | Alipay | Official account |
+| WeChat pay (scan to transfer) | Alipay | Official account |
 | --- | --- | --- |
 | <img src=".github/assets/sponsor-wechat.png" width="180" alt="WeChat QR"> | <img src=".github/assets/sponsor-alipay.png" width="180" alt="Alipay QR"> | <img src=".github/assets/sponsor-official-account.jpg" width="180" alt="Official account QR"> |
 
