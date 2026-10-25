@@ -41,6 +41,9 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json && tsc -p tsconfig.vite.json",
     "build:vue-tests": "node scripts/build-vue-tests.mjs",
+    "docs": "vitepress dev docs",
+    "docs:build": "vitepress build docs",
+    "docs:preview": "vitepress preview docs",
     "typecheck": "tsc -p tsconfig.json && vue-tsc -p tsconfig.vue.json",
     "test": "npm run build && npm run build:vue-tests && node scripts/run-tests.mjs",
     "publish:sync": "node scripts/publish-and-sync.mjs",
@@ -63,7 +66,7 @@
     "type": "git",
     "url": "git+https://github.com/yijiu2025/theme.git"
   },
-  "homepage": "https://github.com/yijiu2025/theme#readme",
+  "homepage": "https://yijiu2025.github.io/theme/",
   "bugs": {
     "url": "https://github.com/yijiu2025/theme/issues"
   },
@@ -87,6 +90,7 @@
     "happy-dom": "^21.0.4",
     "typescript": "^6.0.3",
     "vite": "^7.0.0",
+    "vitepress": "^1.6.4",
     "vue": "^3.5.38",
     "vue-tsc": "^3.3.13"
   }

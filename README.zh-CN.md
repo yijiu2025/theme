@@ -20,7 +20,7 @@ npm install skinsuite
 
 ## 快速上手（Vue + Vite）
 
-从零七步。完整可抄样例见 [docs/onboarding.md](./docs/onboarding.md)，每个公开入口的调用链路见 [docs/usage-and-flows.md](./docs/usage-and-flows.md)，逐文件职责地图见 [docs/structure.md](./docs/structure.md)。
+从零七步。完整教程见[文档站](https://yijiu2025.github.io/theme/)（[快速上手](./docs/guide/getting-started.md)），API 参考见 [docs/api/](./docs/api/kernel.md)，逐文件职责地图见 [docs/advanced/structure.md](./docs/advanced/structure.md)。
 
 ### 1. 挂构建插件
 

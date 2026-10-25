@@ -20,7 +20,7 @@ Three entry points, import what you need:
 
 ## Quick start (Vue + Vite)
 
-Seven steps from zero. A complete working sample lives in [docs/onboarding.md](./docs/onboarding.md); every public API's call chain is documented in [docs/usage-and-flows.md](./docs/usage-and-flows.md); the per-file responsibilities map lives in [docs/structure.md](./docs/structure.md).
+Seven steps from zero. Full tutorials live on the [docs site](https://yijiu2025.github.io/theme/) ([getting started](./docs/guide/getting-started.md)); API references in [docs/api/](./docs/api/kernel.md); the per-file responsibilities map in [docs/advanced/structure.md](./docs/advanced/structure.md).
 
 ### 1. Register the build plugin
 
