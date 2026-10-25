@@ -1,15 +1,21 @@
 blank_issues_enabled: true
 
 contact_links:
+  - name: 使用提问 / 功能想法（Discussions）
+    url: https://github.com/yijiu2025/theme/discussions
+    about: 用法问题去 Q&A，功能提案先去 想法 —— 讨论清了再转 issue（分流表见 Community wiki）
   - name: 安全漏洞报告（私密渠道）
     url: https://github.com/yijiu2025/theme/security/advisories/new
     about: 安全漏洞请勿开公开 issue，走私密报告（需管理员已开启 Private vulnerability reporting）
   - name: 契约与使用说明
     url: https://github.com/yijiu2025/theme#readme
     about: 公开 API 契约表、零依赖原则、两种消费形态（npm 版 / monorepo 源码直供）
+  - name: 文档站
+    url: https://yijiu2025.github.io/theme/
+    about: 接入教程（guide）、API 参考（api）、架构地图与发布流程（advanced）、常见坑
   - name: 贡献指南
     url: https://github.com/yijiu2025/theme/blob/main/CONTRIBUTING.md
-    about: 上手、代码红线、提交与 PR 流程，提 bug 前建议先读
+    about: 上手、代码红线、提交与 PR 流程、报告问题与社区讨论，提 bug 前建议先读
   - name: 下游应用问题
     url: https://github.com/yijiu2025/CoreFlow/issues
     about: 具体前端应用（登录页 / 主题替换表现等）的问题请到 CoreFlow 主仓报告

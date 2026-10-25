@@ -77,7 +77,42 @@ PR 标题同样要符合 Conventional Commits——squash 合并时它会成为 
 
 细则（含敏感词自查）见根仓 [git-release-rules.md](https://github.com/yijiu2025/CoreFlow/blob/main/docs/standards/git-release-rules.md)。
 
-## 六、报告问题
+## 六、报告问题与社区讨论
 
-- 缺陷 / 功能建议：走 [issue 模板](.github/ISSUE_TEMPLATE)（选缺陷报告或功能建议）
-- 安全漏洞：**勿开公开 issue**，走私密渠道，见 [SECURITY.md](SECURITY.md)
+### 去哪说（分流表）
+
+| 情况 | 去处 |
+| --- | --- |
+| 疑似缺陷，有可复现代码 | [Issue · 缺陷报告](https://github.com/yijiu2025/theme/issues/new?template=bug_report.yml) |
+| 功能建议 / 新能力想法 | **先**开 [Discussion · 想法](https://github.com/yijiu2025/theme/discussions/categories/想法)——讨论清楚要不要、什么形态，再转成 issue 排期 |
+| 使用方法提问（接入 / 设计为什么这样） | [Discussion · Q&A](https://github.com/yijiu2025/theme/discussions/categories/q-a) |
+| 已上线功能的公告与变更 | 维护者发 [Discussion · 公告](https://github.com/yijiu2025/theme/discussions/categories/公告) |
+| 安全漏洞 | **勿开公开 issue / 讨论**，走私密报告，见 [SECURITY.md](SECURITY.md) |
+| 下游应用的具体表现 | 到对应应用仓（如 [CoreFlow](https://github.com/yijiu2025/CoreFlow/issues)），这里只管库本身 |
+
+一句话判据：**Issue = 维护者要做的事**（修 bug、做功能）；**Discussion = 大家在聊的事**（提问、想法、公告）。拿不准就先开 Discussion。
+
+### 好 bug 报告的三要素
+
+issue 模板已经把这些做成必填项，开之前自己先过一遍：
+
+1. **现象与期望**：发生了什么、期望是什么——分开写，不要只说「不对」；
+2. **最小复现**：npm 版给 `import` 语句 + 调用行（带实际输出注释）；源码直供给文件路径 + 片段。能三行复现的不要贴三十行；
+3. **环境**：`skinsuite` 版本（npm 版 / 源码直供）、消费形态、Node 版本——两种消费路径的排查方向不同，模板会问。
+
+### 标签语义
+
+| 标签 | 含义 |
+| --- | --- |
+| `bug` | 可复现缺陷（带复现代码才打） |
+| `enhancement` | 已确认要做的新能力（从 Discussion 转来的提案带 `from:discussion`） |
+| `docs` | 文档问题 |
+| `question` | 补充信息后才能分流的 issue（分流后改打 bug / 关闭转 Discussion） |
+
+### 维护者口径
+
+- 无响应时限承诺，尽量一周内首次回复；带最小复现的 `bug` 优先；
+- 缺信息（无复现 / 无版本）的 issue 打 `question` 并指出缺什么，**两周无补充**礼貌关闭（欢迎补充后重开）；
+- Discussion 的 `Q&A` 被采纳的答案点「Mark as answer」，沉淀成可检索的知识库。
+
+社区行为准则见 [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)。更多背景（路线图 / 版本政策 / 本规范的 wiki 版）见 [Wiki](https://github.com/yijiu2025/theme/wiki)。

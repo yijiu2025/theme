@@ -2,6 +2,12 @@
 
 本包遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)：0.x 阶段的次要版本允许重命名与结构调整（公开出口是显式具名导出，改名即 semver-minor）。
 
+## 未发布
+
+- **社区基准补全**：新增 `SUPPORT.md`（求助分流表 + 响应口径）；CONTRIBUTING「报告问题」扩为「报告问题与社区讨论」（Issue vs Discussion 分流判据、好 bug 报告三要素、标签语义、维护者口径）；issue 模板 config 的 contact_links 补 Discussions / 文档站入口
+- **Wiki 建站**（github.com/yijiu2025/theme/wiki）：Home / Roadmap（L1–L3 三层模型）/ Versioning（0.x 口径与发版链）/ Community（讨论与 Issue 规范镜像 + 分类改名对照）/ FAQ（精选）/ 侧边栏
+- Discussions 已开启（默认英文分类）；中文分类改名对照表见 wiki Community 页（GitHub 未开放分类创建 API，需网页一次性改名）
+
 ## 0.11.0 — 2026-10-25
 
 ### 公开面（0.x 口径记 minor）
