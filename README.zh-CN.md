@@ -11,7 +11,7 @@
 多主题 / 多版式机制的实现库：**主题包 × 设备 × 页面 × 配色** 四段键 + 明暗联动 + CSS 变量安全校验 + 设备维度 URL 参数。零运行时依赖，Vue / React / Node / SSR 通用。
 
 ```bash
-npm install skinsuite@~0.11.0   # 0.x 请显式写版本号：caret 不跨 minor，latest 可能落后于文档
+npm install skinsuite
 ```
 
 **特性速览**
@@ -82,7 +82,7 @@ export const DEVICES: readonly HostDeviceInput[] = [
 export const device = createDeviceModule({ devices: DEVICES });
 ```
 
-容器位置约定：**页面名 = 容器文件的上一级目录名**（`view/app/login/index.vue` → 页面 `login`）；web 家族共用一份 glob、靠文件名前缀区分（上面是示例，模式与文件名约定由你定）。判定口径（视口 / UA / `?device=` 语义）同样在你的设备机制层——与主题无关。
+容器位置约定：**页面名 = 容器文件的上一级目录名**（`view/app/login/index.vue` → 页面 `login`）；web 家族共用一份 glob、靠文件名前缀区分（上面是示例，模式与文件名约定由你定）。判定口径（视口 / UA / `?device=` 语义）同样在你的设备机制层——与主题无关。设备机制层自身的最小参考实现见 [docs/guide/device-layer.md](./docs/guide/device-layer.md)。
 
 ### 3. 建主题目录
 

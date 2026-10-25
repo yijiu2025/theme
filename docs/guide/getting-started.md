@@ -75,7 +75,7 @@ const deviceVocab: DeviceVocab[] = DEVICES.map(({ id, label, urlKey }) => ({ id,
 createThemeState({ devices: deviceVocab })   // 词汇注入；容器布线留在宿主分发器
 ```
 
-容器位置约定：**页面名 = 容器文件的上一级目录名**（`view/web/login/MiniLogin.vue` → 页面 `login`）；web 家族（mini/standard）共用同一份 glob、靠文件名前缀区分；mobile/tablet 各自目录树以 `index.vue` 为入口。详见[设备与容器](/guide/devices)。
+容器位置约定：**页面名 = 容器文件的上一级目录名**（`view/web/login/MiniLogin.vue` → 页面 `login`）；web 家族（mini/standard）共用同一份 glob、靠文件名前缀区分；mobile/tablet 各自目录树以 `index.vue` 为入口。设备机制层自身的最小参考实现（types / tools / runtime 三件）见[设备机制层（宿主示例）](/guide/device-layer)。详见[设备与容器](/guide/devices)。
 :::
 
 ## 4. 建主题目录

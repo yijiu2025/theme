@@ -57,6 +57,10 @@ export const device = createDeviceModule({ devices: DEVICES });
 | `label` | 显示名（调试面板 / 日志用） |
 | `urlKey?` | URL 参数后缀（`?th_<urlKey>` / `?th_color_<urlKey>`）；缺省回落 `id` |
 
+::: tip 设备机制层怎么写
+`createDeviceModule` / `pageContainers` 这一层的最小参考实现（types / tools / runtime 三件 + 判定接线 + 分发器装配）见[设备机制层（宿主示例）](/guide/device-layer)。
+:::
+
 数据口径：容器位置约定 = **页面名是容器文件的上一级目录名**（`view/web/login/MiniLogin.vue` → 页面 `login`）；web 家族（mini / standard）共用 `view/web` 同一份 glob、靠文件名前缀区分；mobile / tablet 各自目录树以 `index.vue` 为入口。
 
 ## 判定放 utils 层（宿主）

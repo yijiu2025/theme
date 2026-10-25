@@ -4,6 +4,7 @@
 
 ## 未发布
 
+- **设备机制层参考示例（新 guide 页）**：`docs/guide/device-layer.md` —— types / tools（pageContainers）/ runtime（createDeviceModule）三件最小实现 + 判定接线（纯函数 / useRenderDevice / 分发器装配）+ 与主题侧的边界表；README 双语 step2 与 guide 两章互链；README 安装命令恢复不带版本号
 - **设备侧与主题侧彻底分离（文档口径定稿）**：设备清单文件（`view/devices.ts`）**零主题库 import**——机制收在宿主 `src/device/`（`createDeviceModule` + `pageContainers`）；主题侧注入的不是整份清单，而是**词汇投影**（`DEVICES.map(({ id, label, urlKey }) => …)`，containers 等设备侧事实不进主题，两侧唯一耦合点）；分发器经设备侧清单选容器。README 双语 step2/4/7、guide 三篇、api/vue 同步，旧手搓 helper 样例（containerMap / deviceIds / fallbackDevice / resolveContainerOf）全仓清除
 - **README 完善（双语）**：顶部加 badges（npm 版本 / CI / 文档站 / license / node）；新增「特性速览」六条（对齐文档站首页）；安装示例改为显式版本号 + 0.x 提示；新增「社区与支持」分流表（文档站 / Wiki / Discussions / Issue / 私密安全报告 / CONTRIBUTING / SUPPORT）
 - **社区基准补全**：新增 `SUPPORT.md`（求助分流表 + 响应口径）；CONTRIBUTING「报告问题」扩为「报告问题与社区讨论」（Issue vs Discussion 分流判据、好 bug 报告三要素、标签语义、维护者口径）；issue 模板 config 的 contact_links 补 Discussions / 文档站入口

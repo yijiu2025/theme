@@ -11,7 +11,7 @@
 Implementation library for a multi-theme / multi-layout system: a **package × device × page × color** four-segment key, light/dark mode linked to color families, safe CSS-variable token validation, and device-scoped URL parameters. Zero runtime dependencies — works with Vue, React, plain Node, or SSR.
 
 ```bash
-npm install skinsuite@~0.11.0   # pin the version in 0.x: caret doesn't cross minor, latest may lag the docs
+npm install skinsuite
 ```
 
 **Highlights**
@@ -83,7 +83,7 @@ export const DEVICES: readonly HostDeviceInput[] = [
 export const device = createDeviceModule({ devices: DEVICES });
 ```
 
-Container location convention: the **parent directory name is the page name** (`view/app/login/index.vue` → page `login`); the web family shares one glob and distinguishes devices by file-name prefix (the above is an example — globs and naming are yours). The judgment policy (viewport / UA / what `?device=` means) lives in your device mechanism layer too — nothing to do with themes.
+Container location convention: the **parent directory name is the page name** (`view/app/login/index.vue` → page `login`); the web family shares one glob and distinguishes devices by file-name prefix (the above is an example — globs and naming are yours). The judgment policy (viewport / UA / what `?device=` means) lives in your device mechanism layer too — nothing to do with themes. A minimal reference implementation of the device layer itself: [docs/guide/device-layer.md](./docs/guide/device-layer.md).
 
 ### 3. Create the theme directory
 

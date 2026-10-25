@@ -7,6 +7,7 @@ const guide = [
   { text: '目录约定', link: '/guide/directory' },
   { text: '主题包 · 配色 · 版式', link: '/guide/packages' },
   { text: '设备与容器', link: '/guide/devices' },
+  { text: '设备机制层（宿主示例）', link: '/guide/device-layer' },
   { text: 'URL 参数手册', link: '/guide/url-params' },
   { text: '明暗与色系', link: '/guide/modes' },
   { text: '无路由 · 作用域 · 部件', link: '/guide/routerless' },
