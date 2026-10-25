@@ -421,10 +421,9 @@ function renderLoaderTable<T extends { key: string; file: string; pkg: string }>
         const idx = builtin.indexOf(entry);
         lines.push(`    ${JSON.stringify(entry.key)}: () => __${tag}${idx},`);
       } else {
-        // codeql[js/bad-code-sanitization] : 值是本插件构建期扫描宿主仓主题目录得到的文件路径，
-        // JSON.stringify 做的是字符串字面量转义（codegen 的正确编码），且 toSpecifier 内有
-        // assertSafeModuleSpec 白名单断言 —— 非外部输入，豁免。
-        const spec = JSON.stringify(toSpecifier(entry.file, root));
+        // 值是本插件构建期扫描宿主仓主题目录得到的文件路径，JSON.stringify 做的是
+        // 字符串字面量转义（codegen 的正确编码），且 toSpecifier 内有白名单断言。
+        const spec = JSON.stringify(toSpecifier(entry.file, root)); // codeql[js/bad-code-sanitization] 构建期自扫描路径+字面量转义+白名单断言，非外部输入
         lines.push(`    ${JSON.stringify(entry.key)}: () => import(${spec}),`);
       }
     });
@@ -468,8 +467,7 @@ function render(result: ScanResult, root: string, manifestSpec: string | null): 
 
   lines.push('export const styles = {');
   result.styles.forEach((entry, index) => {
-    // codeql[js/bad-code-sanitization] : 同上——构建期自扫描路径 + 字面量转义 + 白名单断言，非外部输入。
-    const spec = JSON.stringify(toSpecifier(entry.file, root) + '?inline');
+    const spec = JSON.stringify(toSpecifier(entry.file, root) + '?inline'); // codeql[js/bad-code-sanitization] 构建期自扫描路径+字面量转义+白名单断言，非外部输入
     lines.push(
       `  ${JSON.stringify(entry.key)}: () => import(${spec}).then(__m${index} => __m${index}.default),`
     );
