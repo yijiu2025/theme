@@ -4,6 +4,7 @@
 
 ## 未发布
 
+- **设备侧与主题侧彻底分离（文档口径定稿）**：设备清单文件（`view/devices.ts`）**零主题库 import**——机制收在宿主 `src/device/`（`createDeviceModule` + `pageContainers`）；主题侧注入的不是整份清单，而是**词汇投影**（`DEVICES.map(({ id, label, urlKey }) => …)`，containers 等设备侧事实不进主题，两侧唯一耦合点）；分发器经设备侧清单选容器。README 双语 step2/4/7、guide 三篇、api/vue 同步，旧手搓 helper 样例（containerMap / deviceIds / fallbackDevice / resolveContainerOf）全仓清除
 - **README 完善（双语）**：顶部加 badges（npm 版本 / CI / 文档站 / license / node）；新增「特性速览」六条（对齐文档站首页）；安装示例改为显式版本号 + 0.x 提示；新增「社区与支持」分流表（文档站 / Wiki / Discussions / Issue / 私密安全报告 / CONTRIBUTING / SUPPORT）
 - **社区基准补全**：新增 `SUPPORT.md`（求助分流表 + 响应口径）；CONTRIBUTING「报告问题」扩为「报告问题与社区讨论」（Issue vs Discussion 分流判据、好 bug 报告三要素、标签语义、维护者口径）；issue 模板 config 的 contact_links 补 Discussions / 文档站入口
 - **Wiki 建站**（github.com/yijiu2025/theme/wiki）：Home / Roadmap（L1–L3 三层模型）/ Versioning（0.x 口径与发版链）/ Community（讨论与 Issue 规范镜像 + 分类改名对照）/ FAQ（精选）/ 侧边栏
