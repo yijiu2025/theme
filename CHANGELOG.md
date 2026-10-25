@@ -11,6 +11,22 @@
 - **Wiki 建站**（github.com/yijiu2025/theme/wiki）：Home / Roadmap（L1–L3 三层模型）/ Versioning（0.x 口径与发版链）/ Community（讨论与 Issue 规范镜像 + 分类改名对照）/ FAQ（精选）/ 侧边栏
 - Discussions 已开启（默认英文分类）；中文分类改名对照表见 wiki Community 页（GitHub 未开放分类创建 API，需网页一次性改名）
 
+## 0.11.2 — 2026-10-25
+
+### 修复
+
+- **vite 构建插件加固**：`toSpecifier` 两条返回路径都过 `assertSafeModuleSpec` 白名单断言——虚拟模块生成的 `import()` 说明符中，引号 / 反引号 / 反斜杠 / 尖括号 / 控制字符一律抛错（纵深防御：锁定 codegen 说明符形态，不依赖扫描器认可）
+- **devDeps**：vitepress 1.6.4 嵌套的 vite `5.4.21 → 6.4.5`、esbuild `→ 0.25.12`（范围化 override `{ "vitepress": { "vite": "^6.4.4" } }`，只压嵌套副本、直装 vite 7.3.7 不动），清掉 Dependabot 全部 9 条告警（8 vite + 1 esbuild，含 2 条 high）
+
+### 其它
+
+- 新增 `.github/FUNDING.yml`（github: yijiu2025）
+- CodeQL 两条 `js/bad-code-sanitization` 误报：白名单断言加固后经 API 以 false_positive 关闭（default setup 不认行内豁免注释；dismiss 说明含完整依据）
+
+### 公开面
+
+无变化（`src/vite/plugin.ts` 为构建期插件内部加固，86 例全绿含插件 fixture 测试）。
+
 ## 0.11.1 — 2026-10-25
 
 ### 文档与社区设施（代码零变化 —— `src/` / `test/` 自 0.11.0 零 diff；发版目的 = npm 主页 README 刷新）
