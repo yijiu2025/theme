@@ -20,6 +20,12 @@ export interface RemoteThemeFetchOptions {
    * 与内部超时合并：任一触发即中止 —— fetch 只认一个 signal，这里桥接。
    */
   signal?: AbortSignal;
+  /**
+   * 附到请求 URL 的身份参数（client_id / user_id / 接入应用标识等）。
+   * 键名与取值全由调用方决定 —— 库不预设任何业务词汇、不读任何来源；
+   * 值为空串 / undefined 的项不发送。
+   */
+  params?: Record<string, string | undefined>;
 }
 
 /** 后端换配色是否启用（端点非空） */
@@ -30,12 +36,10 @@ export function isRemoteThemeEnabled(endpoint: string | undefined): boolean {
 /**
  * 拉取后端主题配置
  *
- * @param clientId 接入应用的 client_id（决定用哪套品牌配色），可为空
- * @param options  见 `RemoteThemeFetchOptions`
+ * @param options 见 `RemoteThemeFetchOptions`
  * @returns 配置对象；未启用 / 失败 / 无有效内容时返回 null
  */
 export async function fetchRemoteThemeConfig(
-  clientId: string | undefined,
   options: RemoteThemeFetchOptions
 ): Promise<RemoteThemeConfig | null> {
   const endpoint = options.endpoint;
@@ -47,7 +51,9 @@ export async function fetchRemoteThemeConfig(
   } catch {
     return null; // endpoint 写了个非法 URL
   }
-  if (clientId) url.searchParams.set('client_id', clientId);
+  for (const [key, value] of Object.entries(options.params ?? {})) {
+    if (typeof value === 'string' && value !== '') url.searchParams.set(key, value);
+  }
 
   // 超时与外部 signal 桥接到同一个 controller（fetch 只认一个 signal）
   const controller = new AbortController();

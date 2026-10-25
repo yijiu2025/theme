@@ -330,13 +330,14 @@ runtime 注入链（每次作用域变化）
 - **`currentQuery()`**：有 routerRef → `currentRoute.value.query`（响应式）；
   无 → **装载时读一次** `window.location.search`（重复键折叠成数组），**保存**模块级快照
   `routerlessQuery`，之后一直返回同一份（无路由应用 URL 不变）。
-- **`replaceQuery(patch)`**：保留 `client_id` 等既有 query，增删目标项后 `router.replace({query})`；
+- **`replaceQuery(patch)`**：保留既有业务 query（授权上下文等），增删目标项后 `router.replace({query})`；
   无 router 或未实现 replace 则 no-op（Q4：不警告，无路由应用本就不该改 URL）。
 
 ### 4.2 状态机：`createThemeState(options?)` —— 总装配
 
-- **输入**：`{ devices?, storageKeys?, colorParam='th_color', viewParam='th', defaultPage='' }`
-  （`devices` = 宿主设备清单 `DeviceVocab[]`，数组序 = 优先级、末条 = 兜底设备）
+- **输入**：`{ devices?, remoteParams?, storageKeys?, colorParam='th_color', viewParam='th', defaultPage='' }`
+  （`devices` = 宿主设备清单 `DeviceVocab[]`，数组序 = 优先级、末条 = 兜底设备；
+  `remoteParams` = 拉远程主题配置的身份参数 provider，键名宿主决定）
 - **内部链**（顺序敏感）：
 
 ```
@@ -450,11 +451,11 @@ runtime 注入链（每次作用域变化）
 
 ### 4.7 来源同步：`useThemeSources` / `fetchRemoteThemeConfig` / `useParentThemeSync` / `useScopedTheme` / `resolveScopedRecord`
 
-- **`useThemeSources({applyThemeConfig, applyTheme})`**：读 env（`VITE_ALLOWED_PARENT_ORIGINS` /
-  `VITE_THEME_ENDPOINT`）→ 有白名单就 `useParentThemeSync`（postMessage `THEME_CHANGE`，origin
-  校验后 `apply/applyDark`）；有端点就 `fetchRemoteThemeConfig`（3s 超时 + AbortController +
-  credentials omit + `client_id` query）→ `applyThemeConfig`。返回 cleanup（摘监听 + abort 在途 +
-  disposed 标志兜迟到响应）。
+- **`useThemeSources({applyThemeConfig, applyTheme, remoteParams?})`**：读 env
+  （`VITE_ALLOWED_PARENT_ORIGINS` / `VITE_THEME_ENDPOINT`）→ 有白名单就 `useParentThemeSync`
+  （postMessage `THEME_CHANGE`，origin 校验后 `apply/applyDark`）；有端点就 `fetchRemoteThemeConfig`
+  （3s 超时 + AbortController + credentials omit + `remoteParams` 注入的身份参数，键名宿主决定）
+  → `applyThemeConfig`。返回 cleanup（摘监听 + abort 在途 + disposed 标志兜迟到响应）。
 - **`resolveScopedRecord({page,device,pkg?,colorId?})`**：纯查询——`colorId ?? getDefaultThemeId(...)`
   → `getThemeRecord`；指定 colorId 落空 dev 警告。返回 `MauthThemeRecord`。
 - **`useScopedTheme(recordRef, elRef)`**：watch 记录 → 注入 token / `data-mauth-theme` / `.dark`

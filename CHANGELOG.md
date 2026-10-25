@@ -2,6 +2,12 @@
 
 本包遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)：0.x 阶段的次要版本允许重命名与结构调整（公开出口是显式具名导出，改名即 semver-minor）。
 
+## 未发布
+
+- **`fetchRemoteThemeConfig` 身份参数通用化（公开面变更）**：签名从 `(clientId, options)` 改为 `(options)`，身份上下文收进 `RemoteThemeFetchOptions.params`（键名与取值由调用方决定 —— `client_id` / `user_id` / 接入应用标识等；库不再硬编码 oauth21 的 `client_id`、不再读 `location.search`）。空串 / undefined 的参数不发送。此前无任何宿主直接调用（机制未启用），无迁移成本
+- **`ThemeStateOptions.remoteParams`**：拉远程主题配置时的身份参数 provider（`() => Record<string, string | undefined>`），经 `useThemeRuntime` → `useThemeSources` 传到取数层，发请求前才取值。缺省不带参数；oauth21 启用该机制时传 `remoteParams: () => ({ client_id: … })` 即恢复原行为
+- 新增 `test/vue/remote-fetch.test.ts`（5 例：任意键名参数 / 空值剔除 / 端点关闭零请求 / 默认无凭据 / 响应归一）
+
 > **命名沿革**：2026-09-27 当天两度改名，最终定为 **`skinsuite`**：
 >   ① 初版发布名 `mauth-theme-core@0.1.0`（前缀取自宿主的 `mauth-*` 主题层，对外没有意义）；
 >   ② 改 `multitheme` 时被 npm 拒绝（403：与已存在的 `multi-theme` 过于相似，官方建议改 scope）；

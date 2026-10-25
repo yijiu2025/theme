@@ -45,6 +45,12 @@ export interface ThemeStateOptions {
    * 不给时为空清单：设备维度 URL 参数不解析、兜底设备为空串（themeId 走落盘/默认链）。
    */
   devices?: readonly DeviceVocab[];
+  /**
+   * 拉远程主题配置（VITE_THEME_ENDPOINT）时附带的身份参数 provider：
+   * `() => ({ client_id: … })` / `() => ({ user_id: … })` 等 —— 键名与取值宿主决定，
+   * 库不读 URL、不预设业务词汇。缺省不带参数。
+   */
+  remoteParams?(): Record<string, string | undefined>;
 }
 
 /**
@@ -71,7 +77,7 @@ export function createThemeState(options: ThemeStateOptions = {}) {
   // ② 意图（明暗三态 + 记忆槽 + 色系联动 + 用户操作入口）
   const intent = useThemeIntent(scope, keys);
   // ③ 运行时（token 注入 + 附加样式 + 明暗类 + 外部配置）；必须最后创建（内部 watch immediate 依赖前两步）
-  const runtime = useThemeRuntime(scope, intent);
+  const runtime = useThemeRuntime(scope, intent, options.remoteParams);
 
   // -------------------------------------------------------------------------
   // URL 上 `th*` 原始值变化 → 同步版式意图进 store（2026-10-20 store 化）

@@ -22,7 +22,11 @@ import type { ThemeIntent } from '../store/theme-intent';
 /** 承载主题附加样式（theme.scss）的 <style> 元素 id，切换主题时整体替换 */
 const STYLE_ELEMENT_ID = 'mauth-theme-css';
 
-export function useThemeRuntime(scope: ThemeScope, intent: ThemeIntent) {
+export function useThemeRuntime(
+  scope: ThemeScope,
+  intent: ThemeIntent,
+  remoteParams?: () => Record<string, string | undefined>
+) {
   /** 主题包自带 token（按当前生效作用域解析；一组扁平值，不分明暗档） */
   const themeTokens = ref<ThemeTokenOverrides | null>(scope.themeRecordFor().tokens ?? null);
   /** 外部覆写 token（后端下发 / 父应用 postMessage）；优先级高于主题包 */
@@ -139,10 +143,11 @@ export function useThemeRuntime(scope: ThemeScope, intent: ThemeIntent) {
     if (config.tokens) externalTokens.value = config.tokens;
   }
 
-  // 主题意图来源同步：父主题同步 + 拉后端配色（读 env，宿主零传参）
+  // 主题意图来源同步：父主题同步 + 拉后端配色（端点读 env；身份参数宿主经 remoteParams 注入）
   const disposeSources = useThemeSources({
     applyThemeConfig,
-    applyTheme: dark => intent.applyTheme(dark)
+    applyTheme: dark => intent.applyTheme(dark),
+    remoteParams
   });
 
   /**

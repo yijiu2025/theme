@@ -89,7 +89,7 @@ kernel 内部 ──→ constants / types（叶子）
 | --- | --- |
 | `use-scoped-theme.ts` | 作用域注入的 composable 半边（`resolveScopedRecord` 纯查询 + `useScopedTheme` 注入到任意元素，差集清理）——ThemeProvider / ThemePart 共用 |
 | `useThemeDebugPanel.ts` | 面板**适配器**：从 store / 页面域 / 内核注册表自动组装 `model` + `actions`（切设备/版式/配色只写 store 不碰路由） |
-| `useThemeSources.ts` | 主题意图**来源接入**：父应用 postMessage 同步 + 后端配色拉取（读 env，宿主零传参），返回 cleanup 供 dispose |
+| `useThemeSources.ts` | 主题意图**来源接入**：父应用 postMessage 同步 + 后端配色拉取（端点读 env；身份参数宿主经 `remoteParams` 注入），返回 cleanup 供 dispose |
 | `useParentThemeSync.ts` | postMessage **协议解析与分发**（`THEME_CHANGE` 新旧协议；origin 白名单由宿主参数给） |
 
 ### `runtime/` —— DOM 与取数支撑

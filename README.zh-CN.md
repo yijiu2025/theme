@@ -274,7 +274,8 @@ createThemeState({
   storageKeys: { mode: 'my:mode', theme: 'my:theme' },  // 同源多应用隔离
   colorParam: 'brand',                      // → ?brand=<id> / ?brand_<urlKey>=<id>
   viewParam: 'layout',                      // → ?layout=<pkg> / ?layout_<urlKey>=<pkg>
-  defaultPage: 'app'                        // 无路由播种：token 从首帧即可解析
+  defaultPage: 'app',                       // 无路由播种：token 从首帧即可解析
+  remoteParams: () => ({ client_id: '…' })  // 拉远程主题配置的身份参数（键名你定）；配合 VITE_THEME_ENDPOINT
 })
 ```
 

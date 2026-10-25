@@ -73,7 +73,7 @@ export function currentQuery(): Record<string, unknown> {
 }
 
 /**
- * 替换当前路由的 query（**保留 `client_id` 等授权上下文**，只增删目标项）
+ * 替换当前路由的 query（保留既有业务参数如授权上下文，只增删目标项）
  *
  * 库不 import vue-router，只认 `router.replace({ query })` 这个最小结构。
  */

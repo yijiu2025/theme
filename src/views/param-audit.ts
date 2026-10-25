@@ -116,7 +116,7 @@ export function parseThemeParams(
     typeof value === 'string' && value.trim() !== '' ? value : null;
 
   for (const [key, value] of Object.entries(query)) {
-    // 重复键只对白名单键显影（业务键如 client_id 重复不归主题管）
+    // 重复键只对白名单键显影（业务键如授权上下文重复不归主题管）
     if (Array.isArray(value) && (isWhitelistKey(key, debugQuery) || isScopedViewKey(key))) {
       repeated.push({ key, first: present(value[0]) });
     }

@@ -277,7 +277,8 @@ createThemeState({
   storageKeys: { mode: 'my:mode', theme: 'my:theme' },  // avoid same-origin collisions
   colorParam: 'brand',                      // → ?brand=<id> / ?brand_<urlKey>=<id>
   viewParam: 'layout',                      // → ?layout=<pkg> / ?layout_<urlKey>=<pkg>
-  defaultPage: 'app'                        // no-router seeding: tokens resolve from first frame
+  defaultPage: 'app',                       // no-router seeding: tokens resolve from first frame
+  remoteParams: () => ({ client_id: '…' })  // identity params for the remote theme fetch (your keys); pairs with VITE_THEME_ENDPOINT
 })
 ```
 
