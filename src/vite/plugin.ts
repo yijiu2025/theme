@@ -360,9 +360,22 @@ function toSpecifier(abs: string, root: string): string {
   const absolute = resolve(abs);
   const base = resolve(root);
   if (absolute.startsWith(base + sep)) {
-    return '/' + absolute.slice(base.length + 1).split(sep).join('/');
+    return assertSafeModuleSpec('/' + absolute.slice(base.length + 1).split(sep).join('/'));
   }
-  return absolute.split(sep).join('/');
+  return assertSafeModuleSpec(absolute.split(sep).join('/'));
+}
+
+/**
+ * 模块说明符安全断言（纵深防御）：说明符会以 `import(<spec>)` 形式进入生成的
+ * 虚拟模块代码。路径来自本插件构建期对宿主仓内主题目录的扫描，`JSON.stringify`
+ * 已做字面量转义；这层断言锁定形态 —— 引号 / 反引号 / 反斜杠 / 尖括号 / 控制字符
+ * 一律拒绝，杜绝任何把路径变成可执行载荷的可能。
+ */
+function assertSafeModuleSpec(spec: string): string {
+  if (/["'`\\<>]|\r|\n|\u0000/.test(spec)) {
+    throw new Error(`[theme] 模块说明符含不允许的字符，已拒绝生成 import：${spec}`);
+  }
+  return spec;
 }
 
 /**
@@ -408,6 +421,9 @@ function renderLoaderTable<T extends { key: string; file: string; pkg: string }>
         const idx = builtin.indexOf(entry);
         lines.push(`    ${JSON.stringify(entry.key)}: () => __${tag}${idx},`);
       } else {
+        // codeql[js/bad-code-sanitization] : 值是本插件构建期扫描宿主仓主题目录得到的文件路径，
+        // JSON.stringify 做的是字符串字面量转义（codegen 的正确编码），且 toSpecifier 内有
+        // assertSafeModuleSpec 白名单断言 —— 非外部输入，豁免。
         const spec = JSON.stringify(toSpecifier(entry.file, root));
         lines.push(`    ${JSON.stringify(entry.key)}: () => import(${spec}),`);
       }
@@ -452,6 +468,7 @@ function render(result: ScanResult, root: string, manifestSpec: string | null): 
 
   lines.push('export const styles = {');
   result.styles.forEach((entry, index) => {
+    // codeql[js/bad-code-sanitization] : 同上——构建期自扫描路径 + 字面量转义 + 白名单断言，非外部输入。
     const spec = JSON.stringify(toSpecifier(entry.file, root) + '?inline');
     lines.push(
       `  ${JSON.stringify(entry.key)}: () => import(${spec}).then(__m${index} => __m${index}.default),`
