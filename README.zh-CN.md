@@ -2,11 +2,26 @@
 
 [English](./README.md) | [简体中文](./README.zh-CN.md)
 
+[![npm](https://img.shields.io/npm/v/skinsuite)](https://www.npmjs.com/package/skinsuite)
+[![CI](https://github.com/yijiu2025/theme/actions/workflows/ci.yml/badge.svg)](https://github.com/yijiu2025/theme/actions/workflows/ci.yml)
+[![Docs](https://img.shields.io/badge/docs-yijiu2025.github.io%2Ftheme-blue)](https://yijiu2025.github.io/theme/)
+[![license](https://img.shields.io/npm/l/skinsuite)](./LICENSE)
+![node](https://img.shields.io/node/v/skinsuite)
+
 多主题 / 多版式机制的实现库：**主题包 × 设备 × 页面 × 配色** 四段键 + 明暗联动 + CSS 变量安全校验 + 设备维度 URL 参数。零运行时依赖，Vue / React / Node / SSR 通用。
 
 ```bash
-npm install skinsuite
+npm install skinsuite@~0.11.0   # 0.x 请显式写版本号：caret 不跨 minor，latest 可能落后于文档
 ```
+
+**特性速览**
+
+- 🎨 **主题包 = 版式 + 配色**：换设计 = 新建包，不碰业务代码；换色值 = 改配色目录
+- 📱 **设备词汇完全宿主化**：mobile / desktop / mini 由你定义，库零判定、只接收渲染
+- 🔗 **URL 即状态**：`?th` / `?th_color` / `?device` 三族参数；非法值 dev 告警、永不锁死页面
+- 🌗 **明暗 ≡ 色系**：切暗 = 切黑系配色，双侧记忆槽；点色卡不改明暗（正交 + 单向联动）
+- 🛡️ **白名单安全校验**：token 名值双闸，拒 `url()` 与规则闭合字符——外部下发每个值都过闸
+- 🧩 **无路由 / 作用域 / 部件**：`<ThemeScope>` / `<ThemeProvider>` / `<ThemePart>` 覆盖弹窗与悬浮窗
 
 包分三个入口，按需 import：
 
@@ -321,6 +336,21 @@ npm test            # 构建 + node:test（内核 .mjs + vue 层编译产物）
 `src/` 相对 import **必须带 `.js` 后缀**（NodeNext 编译原样保留说明符）。exports 双轨：`types` 指向 `src/`（类型源码直供），`.` 与 `./vite` 的 `import` 指 `dist/`；`./vue` 以源码形态发布（tsc 编不出 SFC）。
 
 0.x 阶段次要版本可能重命名导出（显式具名导出，改名即 semver-minor）。
+
+## 社区与支持
+
+| 我要… | 去哪 |
+| --- | --- |
+| 接入教程 / 查 API | [文档站](https://yijiu2025.github.io/theme/)（guide / api / advanced） |
+| 看路线图 / 版本政策 / 常见问题 | [Wiki](https://github.com/yijiu2025/theme/wiki) |
+| 使用提问 | [Discussions · Q&A](https://github.com/yijiu2025/theme/discussions/categories/q-a) |
+| 功能想法 | [Discussions · 想法](https://github.com/yijiu2025/theme/discussions/categories/想法)（达成共识转 issue） |
+| 报缺陷 | [Issue · 缺陷报告](https://github.com/yijiu2025/theme/issues/new?template=bug_report.yml)（带最小复现） |
+| 安全漏洞 | [私密报告](https://github.com/yijiu2025/theme/security/advisories/new)（勿开公开 issue） |
+| 参与贡献 | [CONTRIBUTING.md](./CONTRIBUTING.md) |
+| 求助分流 / 响应口径 | [SUPPORT.md](./SUPPORT.md) |
+
+欢迎一切形式的贡献：报告问题、完善文档、提交代码。动手前读一遍 CONTRIBUTING 的「代码红线」——每一条都是实战踩出来的。
 
 ## License
 

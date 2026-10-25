@@ -2,11 +2,26 @@
 
 [English](./README.md) | [简体中文](./README.zh-CN.md)
 
+[![npm](https://img.shields.io/npm/v/skinsuite)](https://www.npmjs.com/package/skinsuite)
+[![CI](https://github.com/yijiu2025/theme/actions/workflows/ci.yml/badge.svg)](https://github.com/yijiu2025/theme/actions/workflows/ci.yml)
+[![Docs](https://img.shields.io/badge/docs-yijiu2025.github.io%2Ftheme-blue)](https://yijiu2025.github.io/theme/)
+[![license](https://img.shields.io/npm/l/skinsuite)](./LICENSE)
+![node](https://img.shields.io/node/v/skinsuite)
+
 Implementation library for a multi-theme / multi-layout system: a **package × device × page × color** four-segment key, light/dark mode linked to color families, safe CSS-variable token validation, and device-scoped URL parameters. Zero runtime dependencies — works with Vue, React, plain Node, or SSR.
 
 ```bash
-npm install skinsuite
+npm install skinsuite@~0.11.0   # pin the version in 0.x: caret doesn't cross minor, latest may lag the docs
 ```
+
+**Highlights**
+
+- 🎨 **A theme package = layout + colors**: a new design is a new package — no business code touched; recoloring is just another color directory
+- 📱 **Device vocabulary is fully host-owned**: you define mobile / desktop / mini; the library holds zero judgment, it only receives and renders
+- 🔗 **URL is state**: the `?th` / `?th_color` / `?device` families; invalid values warn in dev and never lock the page
+- 🌗 **Mode ≡ tone family**: switching dark = switching to the dark-family colors with dual memory slots; picking a color never flips the mode
+- 🛡️ **Whitelist validation**: token names and values both gated — `url()` and rule-breaking characters rejected; every externally supplied value passes the gate
+- 🧩 **Routerless / scoped / parts**: `<ThemeScope>` / `<ThemeProvider>` / `<ThemePart>` cover popovers and floating panels
 
 Three entry points, import what you need:
 
@@ -324,6 +339,21 @@ npm test            # build + node:test (kernel .mjs + compiled vue tests)
 Relative imports inside `src/` **must carry `.js` suffixes** (NodeNext compilation preserves specifiers). Exports are dual-track: `types` points at `src/` (source-of-truth typing), `import` points at `dist/` for `.` and `./vite`; `./vue` ships as source (tsc cannot compile SFCs).
 
 During 0.x, minor versions may rename exports (explicit named exports make renames semver-minor).
+
+## Community & support
+
+| I want to… | Go to |
+| --- | --- |
+| Learn / look up APIs | [Documentation site](https://yijiu2025.github.io/theme/) (guide / api / advanced) |
+| See the roadmap / version policy / FAQ | [Wiki](https://github.com/yijiu2025/theme/wiki) |
+| Ask how to use it | [Discussions · Q&A](https://github.com/yijiu2025/theme/discussions/categories/q-a) |
+| Propose a feature | [Discussions · Ideas](https://github.com/yijiu2025/theme/discussions/categories/想法) (becomes an issue once agreed) |
+| Report a bug | [Issue · bug report](https://github.com/yijiu2025/theme/issues/new?template=bug_report.yml) (with a minimal reproduction) |
+| Report a security issue | [Private advisory](https://github.com/yijiu2025/theme/security/advisories/new) (never a public issue) |
+| Contribute | [CONTRIBUTING.md](./CONTRIBUTING.md) |
+| Where to ask what | [SUPPORT.md](./SUPPORT.md) |
+
+Contributions of every kind are welcome: bug reports, docs, code. Read the "red lines" section of CONTRIBUTING first — each one was learned the hard way.
 
 ## License
 
