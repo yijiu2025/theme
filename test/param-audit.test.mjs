@@ -103,6 +103,25 @@ test('parseThemeParams：与主题无关的键（client_id 等）被忽略', () 
   assert.deepEqual(Object.keys(p.scoped), []);
 });
 
+test('parseThemeParams：debugQuery 跟随清单配置 —— 自定义触发键生效、默认 debug 键不再被认领', () => {
+  const p = parseThemeParams({ panel: 'on', debug: 'whatever' }, { debugQuery: 'panel' });
+  assert.equal(p.debug, 'on');
+});
+
+test('parseThemeParams：debugQuery 自定义后，自定义键的重复定义进 repeated、默认 debug 键的数组不再进', () => {
+  const p = parseThemeParams(
+    { panel: ['on', 'off'], debug: ['a', 'b'] },
+    { debugQuery: 'panel' }
+  );
+  assert.deepEqual(p.repeated, [{ key: 'panel', first: 'on' }]);
+});
+
+test('parseThemeParams：不传 debugQuery 时缺省认 debug 键（缺省行为不变）', () => {
+  const p = parseThemeParams({ panel: 'on', debug: 'theme' });
+  assert.equal(p.debug, 'theme');
+  assert.deepEqual(p.repeated, []);
+});
+
 /* ---------------------------------------------------------------------------
  * effectiveViewRaw：取值链（专属 > 通用 > 无）
  * ------------------------------------------------------------------------- */

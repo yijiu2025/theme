@@ -22,7 +22,7 @@ export interface ThemeUrlParams {
   th_color: string | null;
   /** 设备锁定 `?device` 原始值 */
   device: string | null;
-  /** 调试门控 `?debug` 原始值 */
+  /** 调试门控触发键的原始值（键名来自清单 debug.query 配置，缺省 `debug`） */
   debug: string | null;
   /**
    * 设备专属版式键 `?th_<urlKey>` → 原始值，**键 = urlKey（不含 `th_` 前缀）**
@@ -83,9 +83,18 @@ function isScopedViewKey(key: string): boolean {
   return suffix !== 'color' && !suffix.startsWith('color_');
 }
 
-/** 白名单键（重复判定用；设备专属键另行判定） */
-function isWhitelistKey(key: string): boolean {
-  return key === 'th' || key === 'th_color' || key === 'device' || key === 'debug';
+/** 白名单键（重复判定用；设备专属键另行判定；调试键名可配置，缺省 debug） */
+function isWhitelistKey(key: string, debugQuery: string): boolean {
+  return key === 'th' || key === 'th_color' || key === 'device' || key === debugQuery;
+}
+
+/** parseThemeParams 的可选配置 */
+export interface ParseThemeParamsOptions {
+  /**
+   * 调试门控的触发键名（清单 `debug.query` 的值，缺省 `debug`）。
+   * 宿主自定义过触发键时必须传入，否则该键不进审计、默认键会被误当主题键。
+   */
+  debugQuery?: string;
 }
 
 /**
@@ -94,7 +103,11 @@ function isWhitelistKey(key: string): boolean {
  * 与读取侧同口径：空串 = 未指定；数组（重复键）进 repeated 并带首值
  * （版式键读取侧按未指定、配色键取首值，两种语义在 collectWarnings 的④里分开说）。
  */
-export function parseThemeParams(query: Record<string, unknown> = {}): ThemeUrlParams {
+export function parseThemeParams(
+  query: Record<string, unknown> = {},
+  options: ParseThemeParamsOptions = {}
+): ThemeUrlParams {
+  const debugQuery = options.debugQuery ?? 'debug';
   const scoped: Record<string, string | null> = {};
   const repeated: RepeatedParam[] = [];
 
@@ -104,18 +117,19 @@ export function parseThemeParams(query: Record<string, unknown> = {}): ThemeUrlP
 
   for (const [key, value] of Object.entries(query)) {
     // 重复键只对白名单键显影（业务键如 client_id 重复不归主题管）
-    if (Array.isArray(value) && (isWhitelistKey(key) || isScopedViewKey(key))) {
+    if (Array.isArray(value) && (isWhitelistKey(key, debugQuery) || isScopedViewKey(key))) {
       repeated.push({ key, first: present(value[0]) });
     }
     if (isScopedViewKey(key)) scoped[key.slice(3)] = present(value);
   }
 
+  const debugRaw = query[debugQuery];
   return {
     th: present(query.th),
     th_color: present(query.th_color),
     device: present(query.device),
-    // debug 留原值（含空串）：门控判等 `=== 'theme'`，与库探针读取口径一致
-    debug: typeof query.debug === 'string' ? query.debug : null,
+    // debug 留原值（含空串）：门控判等 value，与库探针读取口径一致
+    debug: typeof debugRaw === 'string' ? debugRaw : null,
     scoped,
     repeated
   };

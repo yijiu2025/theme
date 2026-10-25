@@ -29,6 +29,11 @@ function debugGateOn(): boolean {
   return isThemeDebugVisible(themeManifest().debug, currentQuery());
 }
 
+/** 解析主题参数（审计键名跟随清单配置：宿主自定义过 debug.query 后审计同源生效） */
+function themeParams() {
+  return parseThemeParams(currentQuery(), { debugQuery: themeManifest().debug.query });
+}
+
 /**
  * 挂载主题调试句柄（`createThemeState` 装配末尾调一次；返回 dispose 供测试 / HMR）
  *
@@ -63,7 +68,7 @@ export function installThemeDebug(scope: ThemeScope, intent: ThemeIntent): () =>
 
   /** 当前设备生效的 URL 版式原始值 + 判定（探针的「输入 / 结果并排」） */
   function effectiveViewInfo(): { raw: string | null; legal: boolean | null } {
-    const params = parseThemeParams(currentQuery());
+    const params = themeParams();
     const ctx = auditContext();
     const activeUrlKey =
       ctx.devices.find(d => d.id === ctx.activeDevice)?.urlKey ?? ctx.activeDevice;
@@ -94,7 +99,7 @@ export function installThemeDebug(scope: ThemeScope, intent: ThemeIntent): () =>
       get activeTone() { return scope.themeRecordFor().tone; },
       // ---- #5 新增：链路显影（地址栏原始值 → store 意图 → 生效结果）----
       /** 地址栏主题参数原始值（store 同源：路由 query，非 location.search 字符串） */
-      get url(): ThemeUrlParams { return parseThemeParams(currentQuery()); },
+      get url(): ThemeUrlParams { return themeParams(); },
       /** 当前设备生效版式的「输入 + 判定」（legal = null 表示无 URL 值或页未注册） */
       get effectiveView() { return effectiveViewInfo(); },
       /** 当前存在的问题（每次刷新重算） */
@@ -143,7 +148,7 @@ export function installThemeDebug(scope: ThemeScope, intent: ThemeIntent): () =>
   }
 
   function refresh(): void {
-    const problems = collectWarnings(parseThemeParams(currentQuery()), auditContext());
+    const problems = collectWarnings(themeParams(), auditContext());
     current = problems;
     for (const problem of problems) {
       if (warned.has(problem)) continue;

@@ -75,6 +75,7 @@ export {
 } from './views/param-audit.js';
 export type {
   ParamAuditDevice,
+  ParseThemeParamsOptions,
   RepeatedParam,
   ThemeUrlParams,
   WarningContext
