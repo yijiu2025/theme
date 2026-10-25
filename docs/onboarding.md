@@ -361,6 +361,13 @@ VITE_THEME_DIR=src/theme
 
 缺省就是 `src/theme`，可不写。**换目录只改这一个变量，不动代码。**
 
+另有两个**可选的外部主题来源 env**（缺省关闭，见 README「配置项与进阶用法」）：
+
+| env | 作用 |
+| --- | --- |
+| `VITE_ALLOWED_PARENT_ORIGINS` | 父应用 postMessage 主题同步的 origin 白名单（逗号分隔；只写会嵌本页的父应用，留空 = 不启用） |
+| `VITE_THEME_ENDPOINT` | 后端主题下发端点（非空才启用）。请求 = `GET {端点}?{remoteParams 给的身份参数}` —— 键名宿主定（`createThemeState({ remoteParams })` 注入），库不读 URL、不预设键名 |
+
 ### 5.2 tsconfig / env 类型（必做一行）
 
 `skinsuite/vite` 自带 `virtual:theme` 的类型声明（`src/vite/theme.d.ts`），但**类型声明只有在  

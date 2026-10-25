@@ -282,7 +282,9 @@ createThemeState({
 - **无路由应用**：`app.use(theme)` 不传 router；壳层用 `<ThemeScope page device>`（只锚定作用域、只渲染 slot）；播种 `defaultPage` 让任何视图挂载前 token 就能解析。
 - **钉死配色的作用域**（弹窗必须保持自己的颜色）：`<ThemeProvider page device :pkg :color-id>`——纯查询解析，不读不写全局 store。
 - **部件主题化**（弹窗/通知组件本身换肤）：`<ThemePart id="confirm-modal" :ctx />`——渲染 `themes/<包>/<设备>/parts/<id>/index.vue`；一个包一种实现，与页面同一条法则。
-- **调试面板**：dev 下加 `?debug=theme`——查看 store 状态、切配色/版式、看 URL 非法值警告。
+- **调试面板**：dev 下加 `?debug=theme`——查看 store 状态、切配色/版式、看 URL 非法值警告（触发键可在 `theme.config.ts` 的 `debug.query` 自定义）。
+- **iframe 嵌入（父应用控制主题）**：父应用拼 iframe src 时直接带 URL 参数即可（`?th_color=blue`、`?th=<包>`）——首帧生效且锁定该设备，后端下发与本地偏好都压不过它。运行时跟随父应用切换走 `THEME_CHANGE` postMessage：env 配 `VITE_ALLOWED_PARENT_ORIGINS`（逗号分隔的父 origin 白名单，只写会嵌本页的父应用；留空 = 不启用同步）。
+- **后端按身份下发主题**：env 配 `VITE_THEME_ENDPOINT`（非空才启用），请求为 `GET {端点}?{remoteParams 给的参数}`——身份参数键名你定（`remoteParams: () => ({ client_id: … })` / `{ user_id }` / `{ app }`，库不读 URL、不预设键名），响应 `{ theme?, mode?, tokens? }`（`theme` 必须是已注册配色 id；`tokens` 逐条过白名单）。超时（默认 3s）/ 失败一律静默回落本地配色。优先级：URL 参数 ＞ 后端下发 ＞ 本地偏好。
 - **纯内核用法（React / Node / SSR）**：`sanitizeOverrides(payload)` 校验任何外部下发的 CSS 变量；`readDeviceParam(query, name, deviceKey)` 设备维度取值链；`THEME_ID_RE` 等常量做校验。全程无需 DOM。
 
 ## 什么不在包里

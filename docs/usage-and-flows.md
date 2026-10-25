@@ -294,8 +294,10 @@ runtime 注入链（每次作用域变化）
 
 ### 3.4 静默失败审计：`parseThemeParams` / `collectWarnings` / `effectiveViewRaw`
 
-- **`parseThemeParams(query)`**：白名单六键（`th` / `th_color` / `device` / `debug` + 设备专属
-  `th_<urlKey>`）归位；重复键进 `repeated`（带首值）；空串归一 null。
+- **`parseThemeParams(query, { debugQuery? })`**：白名单六键（`th` / `th_color` / `device` /
+  调试触发键 + 设备专属 `th_<urlKey>`）归位；重复键进 `repeated`（带首值）；空串归一 null。
+  `debugQuery` 缺省 `'debug'` —— 宿主在 `theme.config.ts` 自定义过 `debug.query` 时必须传入，
+  否则审计盯的是已废弃的默认键（库内探针已自动传 `themeManifest().debug.query`）。
 - **`collectWarnings(params, ctx)`**：检四类静默失败——未知 `?device=`、当前设备版式值不存在、
   其它设备专属键不存在、白名单键重复。返回人类可读警告 `string[]`（空 = 没问题）。
 - **`effectiveViewRaw(params, urlKey)`**：`th_<urlKey> ?? th ?? null`（与读取侧同口径）。
@@ -454,8 +456,14 @@ runtime 注入链（每次作用域变化）
 - **`useThemeSources({applyThemeConfig, applyTheme, remoteParams?})`**：读 env
   （`VITE_ALLOWED_PARENT_ORIGINS` / `VITE_THEME_ENDPOINT`）→ 有白名单就 `useParentThemeSync`
   （postMessage `THEME_CHANGE`，origin 校验后 `apply/applyDark`）；有端点就 `fetchRemoteThemeConfig`
-  （3s 超时 + AbortController + credentials omit + `remoteParams` 注入的身份参数，键名宿主决定）
-  → `applyThemeConfig`。返回 cleanup（摘监听 + abort 在途 + disposed 标志兜迟到响应）。
+  （见下）→ `applyThemeConfig`。返回 cleanup（摘监听 + abort 在途 + disposed 标志兜迟到响应）。
+- **`fetchRemoteThemeConfig({ endpoint, params?, timeoutMs?, omitCredentials?, signal? })`**：
+  端点空 → null（不发请求）；`new URL(endpoint, location.origin)` 解析后把 `params` 逐个
+  `searchParams.set`（**键名与取值全由调用方定** —— client_id / user_id / app 等，空串 /
+  undefined 不发送，库不读任何来源）；默认 3s 超时 + `credentials:'omit'`（不带 cookie）；
+  非 200 / 网络 / 超时 / JSON 坏 → 静默 null；成功 → `normalizeRemoteThemeConfig` 归一。
+  状态机内的调用链：`createThemeState({ remoteParams })` → `useThemeRuntime` → `useThemeSources`
+  （发请求前才取 `remoteParams()` 的值）。
 - **`resolveScopedRecord({page,device,pkg?,colorId?})`**：纯查询——`colorId ?? getDefaultThemeId(...)`
   → `getThemeRecord`；指定 colorId 落空 dev 警告。返回 `MauthThemeRecord`。
 - **`useScopedTheme(recordRef, elRef)`**：watch 记录 → 注入 token / `data-mauth-theme` / `.dark`
