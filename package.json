@@ -40,7 +40,8 @@
     "node": ">=18"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.build.json && tsc -p tsconfig.vite.json",
+    "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
+    "build": "npm run clean && tsc -p tsconfig.build.json && tsc -p tsconfig.vite.json",
     "build:vue-tests": "node scripts/build-vue-tests.mjs",
     "docs:dev": "vitepress dev docs",
     "docs:build": "vitepress build docs",

@@ -347,7 +347,9 @@ export function listColorsOf(device: string, page: string, pkg: string): MauthTh
   for (const record of records) {
     if (!seen.has(record.meta.id)) seen.set(record.meta.id, record.meta);
   }
-  return [...seen.values()].sort((a, b) => a.id.localeCompare(b.id));
+  // 码点序（与 sortedIdsByScope / listColorViews 同口径）：localeCompare 依赖宿主 locale
+  // （不确定），回退链「第一」语义必须确定 —— 全库统一码点序。
+  return [...seen.values()].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
 }
 
 /** 某配色在指定归属下的明暗系别；未登记返回 null */
@@ -378,7 +380,8 @@ export function listColorIdsOfTone(
     if (record.tone !== tone) continue;
     seen.add(record.meta.id);
   }
-  return [...seen].sort((a, b) => a.localeCompare(b));
+  // 码点序（与 listColorsOf / sortedIdsByScope 同口径，不用 localeCompare）
+  return [...seen].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
 }
 
 /** 归一化并校验外部传入的配色 id（URL 参数 / 后端下发） */

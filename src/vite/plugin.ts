@@ -32,6 +32,7 @@ import {
   THEME_COLORS_SEGMENT,
   THEME_DEF_FILE_CANDIDATES,
   THEME_DIR_LEVELS,
+  THEME_ID_RE,
   THEME_PARTS_SEGMENT
 } from '../constants.js';
 import { DEFAULT_THEME_DIR, DEFAULT_THEME_MANIFEST, THEME_DIR_ENV_KEY, THEME_PACKAGES_SUBDIR, THEME_VIEWS_SUBDIR } from './dir.js';
@@ -212,6 +213,12 @@ function scan(dir: string): ScanResult {
   const result: ScanResult = { packages: [], colors: [], styles: [], views: [], parts: [], decls: [], skips: [] };
 
   for (const pkg of subdirs(packagesDir)) {
+    // 🔴 包名过白名单（与注册表 packageFromKey 同口径）：非法目录名（大写/下划线/中文）
+    //    会裸进 packages/colors 表的键，注册表侧会拒、但扫描侧不该收集 —— 对齐「不合规静默跳过」。
+    if (pkg.startsWith('.') || !THEME_ID_RE.test(pkg)) {
+      result.skips.push({ path: `themes/${pkg}`, reason: `包名「${pkg}」不合规（只允许 [a-z0-9-]），跳过` });
+      continue;
+    }
     const pkgDir = join(packagesDir, pkg);
     // 包定义：index.ts 优先，纯 JS 宿主可 index.js（键带实际文件名，解析侧同步认）
     const pkgDef = pickDefFile(pkgDir);
@@ -274,6 +281,14 @@ function walk(base: string, segments: string[], result: ScanResult): void {
     }
     const colorsDir = join(base, THEME_COLORS_SEGMENT);
     for (const color of subdirs(colorsDir)) {
+      // 🔴 配色 id 过白名单（与注册表 themeIdOk 同口径）。
+      if (color.startsWith('.') || !THEME_ID_RE.test(color)) {
+        result.skips.push({
+          path: './' + [...segments, THEME_COLORS_SEGMENT, color].join('/'),
+          reason: `配色 id「${color}」不合规（只允许 [a-z0-9-]），跳过`
+        });
+        continue;
+      }
       const colorDir = join(colorsDir, color);
       // 键以 `./` 开头（相对主题包目录），段间单斜杠：`./<包>/<设备>/<页面>/colors/<配色>`
       const keyBase = './' + [...segments, THEME_COLORS_SEGMENT, color].join('/');
@@ -309,6 +324,16 @@ function walk(base: string, segments: string[], result: ScanResult): void {
       collectParts(join(base, name), segments, result);
       continue;
     }
+    // 🔴 取值段（设备/页面）目录名过白名单：与注册表 themeIdOk 同口径，非法目录名
+    //    （大写/下划线/中文）静默跳过 —— 否则会裸进 themeViews 分组键与产物键，造成
+    //    「组件扫得到、同目录配色注册不了」的脱节。
+    if (!THEME_ID_RE.test(name)) {
+      result.skips.push({
+        path: './' + [...segments, name].join('/'),
+        reason: `目录名「${name}」不合规（只允许 [a-z0-9-]），跳过`
+      });
+      continue;
+    }
     walk(join(base, name), [...segments, name], result);
   }
 }
@@ -326,6 +351,14 @@ function walk(base: string, segments: string[], result: ScanResult): void {
 function collectParts(partsDir: string, segments: string[], result: ScanResult): void {
   const [pkg, device] = segments;
   for (const partId of subdirs(partsDir)) {
+    // 🔴 部件 id 过白名单（与页面目录同口径）：非法名会裸进 themeParts 分组键。
+    if (partId.startsWith('.') || !THEME_ID_RE.test(partId)) {
+      result.skips.push({
+        path: './' + [...segments, THEME_PARTS_SEGMENT, partId].join('/'),
+        reason: `部件 id「${partId}」不合规（只允许 [a-z0-9-]），跳过`
+      });
+      continue;
+    }
     const partDir = join(partsDir, partId);
 
     // 部件实现：`parts/<id>/index.vue`（default 包 eager，其余惰性——与页面版式同口径）
@@ -349,6 +382,14 @@ function collectParts(partsDir: string, segments: string[], result: ScanResult):
     // 键是部件形状（多一个 parts 段），注册表用 parts 解析器识别
     const colorsDir = join(partDir, THEME_COLORS_SEGMENT);
     for (const color of subdirs(colorsDir)) {
+      // 🔴 部件配色 id 过白名单（与页面配色同口径）。
+      if (color.startsWith('.') || !THEME_ID_RE.test(color)) {
+        result.skips.push({
+          path: './' + [...segments, THEME_PARTS_SEGMENT, partId, THEME_COLORS_SEGMENT, color].join('/'),
+          reason: `配色 id「${color}」不合规（只允许 [a-z0-9-]），跳过`
+        });
+        continue;
+      }
       const colorDir = join(colorsDir, color);
       const keyBase =
         './' + [...segments, THEME_PARTS_SEGMENT, partId, THEME_COLORS_SEGMENT, color].join('/');
@@ -373,7 +414,11 @@ function collectParts(partsDir: string, segments: string[], result: ScanResult):
 function toSpecifier(abs: string, root: string): string {
   const absolute = resolve(abs);
   const base = resolve(root);
-  if (absolute.startsWith(base + sep)) {
+  // 🔴 盘符大小写归一（与 configureServer 的 normPrefix 同口径）：Windows 上 resolve()
+  //    返回的盘符大小写取决于输入/process.cwd() 写法，不一致会让 startsWith 把 root 内
+  //    文件误判成 root 外、生成绝对路径说明符（产物形态随盘符写法漂移）。比较用 toLowerCase，
+  //    切片仍用原始 absolute 保大小写。
+  if (absolute.toLowerCase().startsWith(base.toLowerCase() + sep)) {
     return assertSafeModuleSpec('/' + absolute.slice(base.length + 1).split(sep).join('/'));
   }
   return assertSafeModuleSpec(absolute.split(sep).join('/'));
@@ -382,8 +427,9 @@ function toSpecifier(abs: string, root: string): string {
 /**
  * 模块说明符安全断言（纵深防御）：说明符会以 `import(<spec>)` 形式进入生成的
  * 虚拟模块代码。路径来自本插件构建期对宿主仓内主题目录的扫描，`JSON.stringify`
- * 已做字面量转义；这层断言锁定形态 —— 引号 / 反引号 / 反斜杠 / 尖括号 / 控制字符
- * 一律拒绝，杜绝任何把路径变成可执行载荷的可能。
+ * 已做字面量转义；这层断言是**黑名单**（拒绝已知危险字符）——引号 / 反引号 /
+ * 反斜杠 / 尖括号 / 控制字符一律拒绝，杜绝任何把路径变成可执行载荷的可能。
+ * （说明符含盘符 `C:`、空格等合法字符，改白名单会误拒，故用黑名单。）
  */
 function assertSafeModuleSpec(spec: string): string {
   if (/["'`\\<>]|\r|\n|\u0000/.test(spec)) {
@@ -436,8 +482,8 @@ function renderLoaderTable<T extends { key: string; file: string; pkg: string }>
         lines.push(`    ${JSON.stringify(entry.key)}: () => __${tag}${idx},`);
       } else {
         // 值是本插件构建期扫描宿主仓主题目录得到的文件路径，JSON.stringify 做的是
-        // 字符串字面量转义（codegen 的正确编码），且 toSpecifier 内有白名单断言。
-        const spec = JSON.stringify(toSpecifier(entry.file, root)); // codeql[js/bad-code-sanitization] 构建期自扫描路径+字面量转义+白名单断言，非外部输入
+        // 字符串字面量转义（codegen 的正确编码），且 toSpecifier 内有黑名单断言。
+        const spec = JSON.stringify(toSpecifier(entry.file, root)); // codeql[js/bad-code-sanitization] 构建期自扫描路径+字面量转义+黑名单断言，非外部输入
         lines.push(`    ${JSON.stringify(entry.key)}: () => import(${spec}),`);
       }
     });
@@ -483,7 +529,7 @@ function render(result: ScanResult, root: string, manifestSpec: string | null, v
 
   lines.push('export const styles = {');
   result.styles.forEach((entry, index) => {
-    const spec = JSON.stringify(toSpecifier(entry.file, root) + '?inline'); // codeql[js/bad-code-sanitization] 构建期自扫描路径+字面量转义+白名单断言，非外部输入
+    const spec = JSON.stringify(toSpecifier(entry.file, root) + '?inline'); // codeql[js/bad-code-sanitization] 构建期自扫描路径+字面量转义+黑名单断言，非外部输入
     lines.push(
       `  ${JSON.stringify(entry.key)}: () => import(${spec}).then(__m${index} => __m${index}.default),`
     );

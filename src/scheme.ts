@@ -79,9 +79,13 @@ export function normalizeRemoteThemeConfig(data: unknown): RemoteThemeConfig | n
     // 边界逐键过滤：只保留 string 值，产出真正符合 ThemeTokenOverrides（Record<string,string>）
     // 的值。此前 `as ThemeTokenOverrides` 裸断言只验「是对象」，可能让 { primary: 123 } 这类
     // 非 string 值穿过边界（下游 sanitizeOverrides 会兜，但契约应在边界就成立）。
+    // 🔴 同时跳过原型链危险键（__proto__/constructor/prototype）：JSON 里出现同名键时，
+    //    `tokens['__proto__']=v` 会静默丢键（试图改原型），与 param-audit 同口径收口。
     const tokens: Record<string, string> = {};
     for (const [k, v] of Object.entries(raw.tokens)) {
-      if (typeof v === 'string') tokens[k] = v;
+      if (typeof v === 'string' && k !== '__proto__' && k !== 'constructor' && k !== 'prototype') {
+        tokens[k] = v;
+      }
     }
     out.tokens = tokens;
   }

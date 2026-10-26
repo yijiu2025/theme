@@ -74,8 +74,8 @@ watch(() => props.device, id => store.setActiveDevice(id), { immediate: true });
  * 先发出的 A 可能后返回）。🔴 必须同时盯住 packageId：换了包但解析出的 id 字符串没变
  * （两边同名）时渲染的组件其实换了一整套。
  */
-const builtin = pageObj.views.builtin(props.device);
-const activeView = shallowRef<Component | null>(builtin);
+const builtinRaw = pageObj.views.builtin(props.device);
+const activeView = shallowRef<Component | null>(builtinRaw ? markRaw(builtinRaw) : null);
 let viewEpoch = 0;
 watch(
   // 🔴 把 props.device 纳入依赖：切换设备后 builtin 与 load 都要按新设备重算。
@@ -84,7 +84,8 @@ watch(
   [viewId, () => store.packageId, () => props.device],
   ([id, pkg, device]) => {
     // 每次（含 device 变化）按当前 device 重算 builtin，避免 setup 一次性求值后落后
-    const builtinNow = pageObj.views.builtin(device);
+    const builtinNowRaw = pageObj.views.builtin(device);
+    const builtinNow = builtinNowRaw ? markRaw(builtinNowRaw) : null;
     const epoch = ++viewEpoch;
     void pageObj.views.load(id, pkg, device).then(loaded => {
       if (epoch !== viewEpoch) return;

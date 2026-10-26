@@ -34,7 +34,7 @@ export const useThemeStore = defineStore('theme', () =>
 | `defaultPage` | `''` | 无路由播种：`activePage` 初始值（token 从首帧可解析） |
 | `remoteParams` | 无 | 拉远程主题配置的身份参数 provider（键名宿主定；发请求前才取值） |
 
-返回的 store 公开面（`ThemeStoreLike` 结构契约）：`devices` / `themeId` / `mode` / `isDark` / `activeTone` / `packageId` / `activeDevice` / `activePage` / `activeView` / `deviceViewOf` / `viewFor` / `themeRecordFor` / `setActiveDevice` / `setActivePageView` / `setDeviceView` / `clearDeviceViewOverride` / `setTheme` / `setMode` / `cycleMode` / `toggleTheme` / `applyTheme` / `applyThemeConfig` / `themes` / `lightColor` / `darkColor` / `themeTokens` / `externalTokens` / `dispose()`。
+`createThemeState` 的返回面（完整成员；其中 `ThemeStoreLike` 是宿主容器/组件注入用的 16 个核心成员契约）：`devices` / `themeId` / `mode` / `isDark` / `activeTone` / `packageId` / `activeDevice` / `activePage` / `activeView` / `deviceViewOf` / `viewFor` / `themeRecordFor` / `setActiveDevice` / `setActivePageView` / `setDeviceView` / `clearDeviceViewOverride` / `setTheme` / `setMode` / `cycleMode` / `toggleTheme` / `applyTheme` / `applyThemeConfig` / `themes` / `lightColor` / `darkColor` / `themeTokens` / `externalTokens` / `dispose()`。
 
 `dispose()` 收全副作用：query watch、调试探针与角标、intent 的 3 watch + 系统偏好监听、runtime 的 3 watch、postMessage 监听、在途远程 fetch（abort）。
 

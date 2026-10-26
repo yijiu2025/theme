@@ -35,6 +35,11 @@
 #     npm 会回退去找 token，然后以 401 收场，报错信息完全指不到真正的原因。
 #     宁可在这里红，也不要让它走到 npm publish。
 #
+# 🔴 provenance（SLSA 声明）：发布脚本检测到 OIDC 环境时自动加 `npm publish --provenance`
+#   （publish-and-sync.mjs 第 2 步按 ACTIONS_ID_TOKEN_REQUEST_URL 条件加）——CI 发布会产出
+#   provenance 声明，本地 token 发布不带（provenance 仅在 OIDC 下可生成）。验证只看
+#   publish 日志的 provenance 两行（有 = OIDC 真生效；无 = 回退到了 token 通道）。
+#
 # 触发方式：推 tag（`git tag v0.7.1 && git push origin v0.7.1`）；
 #   手动重跑用 workflow_dispatch 并填 tag 名 —— 脚本会校验 tag 与 package.json
 #   版本一致，不一致直接红（防止 tag 与源码版本漂移，这是本流程最该守住的一条）。

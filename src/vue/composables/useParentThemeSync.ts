@@ -44,6 +44,10 @@ export function useParentThemeSync(options: ParentThemeSyncOptions): () => void 
     // 顶层窗口无父，忽略（非 iframe 场景）
     if (!(window.parent && window.parent !== window)) return;
 
+    // 来源校验：只接受「父窗口」发来的消息。origin 白名单挡不了「同 origin 的
+    // 兄弟 iframe / 同源任意窗口」伪造 THEME_CHANGE —— 必须再锁 event.source 是父。
+    if (event.source !== window.parent) return;
+
     // origin 校验：只接受白名单父应用的消息（防恶意嵌入伪造主题切换）
     if (!options.isAllowedOrigin(event.origin)) return;
 

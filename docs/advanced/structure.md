@@ -28,7 +28,7 @@ kernel 内部 ──→ constants / types（叶子）
 | --- | --- |
 | `index.ts` | 内核**桶出口**：显式具名导出（不用 `export *`），本表即公开面承诺 |
 | `constants.ts` | 目录契约常量：`THEME_ID_RE` 白名单、四段目录层、`colors` 字面段、默认包/配色、定义文件候选 |
-| `types.ts` | 全部公开**契约类型**：`MauthThemeMeta/Package/Color/Record`、`DeviceVocab`、`ThemeTokenOverrides/Layers`、`VirtualThemeModule` 等——文档注释即规格 |
+| `types.ts` | 全部公开**契约类型**：`MauthThemeMeta/Package/Color/Record`、`DeviceVocab`、`ThemeTokenOverrides/Layers` 等——文档注释即规格（虚拟模块形态在 `vite/theme.d.ts` 声明） |
 | `scheme.ts` | **明暗 mode**（`system/light/dark`）与**色系 tone**（`light/dark`）——「明暗 ≡ 色系」的两半 + 远程配置归一 |
 | `tokens.ts` | CSS 变量**安全校验**：名字白名单、取值白名单、`sanitizeOverrides`（逐条丢弃 + rejected 回执）——防 CSS 注入与外发请求 |
 | `manifest.ts` | 主题域清单 `theme.config.ts` 的契约与解析：`defineThemeManifest` / `resolveThemeManifest` / `isThemeDebugVisible` |

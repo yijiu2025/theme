@@ -9,18 +9,29 @@
  * （mkdtemp 唯一），互相不串。主题域建在 `<root>/src/theme`（= DEFAULT_THEME_DIR），
  * 与真实宿主同构，toSpecifier 产出 `/src/theme/...` 说明符可如实断言。
  */
-import test from 'node:test';
+import test, { after } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { themeAssets, DEFAULT_THEME_DIR } from '../dist/vite/index.js';
 
 const VIRTUAL = '\0virtual:theme';
 
+/** 收集运行期生成的临时目录，测试结束后统一清理（否则每次 npm test 在 %TEMP% 累积残留） */
+const tempDirs = [];
+function makeTempDir(prefix) {
+  const dir = mkdtempSync(join(tmpdir(), prefix));
+  tempDirs.push(dir);
+  return dir;
+}
+after(() => {
+  for (const dir of tempDirs) rmSync(dir, { recursive: true, force: true });
+});
+
 /** 建一个最小可扫主题域；put(rel, content) 相对主题根写文件（自动建目录） */
 function makeProject() {
-  const root = mkdtempSync(join(tmpdir(), 'skinsuite-vite-'));
+  const root = makeTempDir('skinsuite-vite-');
   const base = join(root, DEFAULT_THEME_DIR);
   const put = (rel, content = '') => {
     const file = join(base, rel);
@@ -71,7 +82,7 @@ test('env 缺席：回落默认目录 src/theme（同一 fixture 直接命中）
 });
 
 test('目录不存在：EMPTY_MODULE —— 空表但装配副作用完整，应用照常起', () => {
-  const root = mkdtempSync(join(tmpdir(), 'skinsuite-empty-'));
+  const root = makeTempDir('skinsuite-empty-');
   const out = drive({ root, env: { VITE_THEME_DIR: 'no-such-dir' } }).load(VIRTUAL);
   assert.match(out.code, /export const packages = \{\};/);
   assert.match(out.code, /installThemeRegistry\(buildThemeRegistry\(\{ packages, colors, styles \}\)\);/);

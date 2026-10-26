@@ -118,9 +118,18 @@ export function viewParamsSnapshot(
   return out;
 }
 
+/** 快照值等价：标量用 ===，数组（重复键 `?th=a&th=b`）做元素级比较 —— 引用比较会恒 false */
+function valueEq(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (Array.isArray(a) && Array.isArray(b)) {
+    return a.length === b.length && a.every((v, i) => v === b[i]);
+  }
+  return false;
+}
+
 /** 两个 `th*` 快照是否等价（键集合 + 各键原始值都相同） */
 export function sameViewSnapshot(a: Record<string, unknown>, b: Record<string, unknown>): boolean {
   const ka = Object.keys(a);
   if (ka.length !== Object.keys(b).length) return false;
-  return ka.every(k => a[k] === b[k]);
+  return ka.every(k => valueEq(a[k], b[k]));
 }

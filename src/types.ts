@@ -13,7 +13,6 @@
  */
 import type { ThemeTone } from './scheme.js';
 import type { ThemeTokenOverrides } from './tokens.js';
-import type { ResolvedThemeManifest } from './manifest.js';
 
 /** 设备维度取值：宿主的词汇表，内核只认「[a-z0-9-] 字符串」这条形态约定 */
 type ThemeDevice = string;
@@ -105,18 +104,4 @@ export interface DeviceVocab {
   label: string;
   /** URL 参数后缀（?th_<urlKey> / ?th_color_<urlKey>）；缺省回落 id */
   urlKey?: string;
-}
-
-/**
- * 虚拟模块 virtual:theme 的形态（类型声明见 src/vite/theme.d.ts，随 skinsuite/vite 发布）
- */
-export interface VirtualThemeModule {
-  /** 包定义：./<包>/index.ts */
-  packages: Record<string, { default: MauthThemePackage }>;
-  /** 配色元信息 + tokens：./<包>/<设备>/<页面>/colors/<配色>/index.ts */
-  colors: Record<string, { default: MauthThemeColor }>;
-  /** 附加样式（惰性，取编译后的 CSS 字符串）：.../theme.scss */
-  styles: Record<string, () => Promise<string>>;
-  /** 主题域清单；目录里没有 theme.config.ts 时为 null */
-  manifest: ResolvedThemeManifest | null;
 }

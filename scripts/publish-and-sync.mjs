@@ -13,7 +13,7 @@
  *
  * === 用法 ===
  *   node scripts/publish-and-sync.mjs                  # 完整链（默认宿主 = ../../oauth21）
- *   node scripts/publish-and-sync.mjs --dry-run        # 不发布；⚠️ 但**仍会真实落盘改宿主** package.json/lock（演练同步，非无副作用）
+ *   node scripts/publish-and-sync.mjs --dry-run        # 不发布、不落盘：只预演宿主同步（4/5 步算补丁但跳过写盘，6 步自证跳过）
  *   node scripts/publish-and-sync.mjs --skip-publish   # 已发布过：只同步宿主
  *   node scripts/publish-and-sync.mjs --host <path>    # 覆盖宿主仓路径
  *   node scripts/publish-and-sync.mjs --publish-only   # CI 形态：只发布+自证，不同步宿主
@@ -136,7 +136,8 @@ const GIT = 'git';
  *
  * 🔴 Windows 上 npm 是 `npm.cmd`：Node 22 起（CVE-2024-27980 修复）直接 spawn .cmd
  *    会 EINVAL，必须 `shell: true`。git 是 git.exe，不需要 shell。
- *    本脚本的 npm/git 参数都不含空格（宿主路径只进 Node 侧、不进命令行），shell 安全。
+ *    本脚本的 npm/git 参数都不含空格：宿主路径只进 Node 侧，唯一进命令行的路径是第 6 步
+ *    的 `--prefix <相对路径>`（`relative()` 归一后的宿主相对路径，不含空格），shell 安全。
  */
 function run(cmd, args, opts = {}) {
   const useShell = process.platform === 'win32' && cmd === NPM;
@@ -187,7 +188,9 @@ async function main() {
   console.log(`skinsuite 发布同步：${PKG_NAME}@${VERSION}${DRY_RUN ? '（dry-run：不发布）' : ''}`);
 
   // 宿主仓：默认 <core>/../../oauth21（packages/theme-core 是 submodule，宿主在根仓）
-  const HOST = HOST_ARG ? join(CORE_ROOT, HOST_ARG) : join(CORE_ROOT, '..', '..', 'oauth21');
+  // 用 resolve 而非 join：--host 给绝对路径时 join 会把绝对路径当子段拼到 CORE_ROOT 下，
+  // 产生错误路径、存在性检查误报「宿主仓不存在」；resolve 对绝对路径原样返回。
+  const HOST = HOST_ARG ? resolve(CORE_ROOT, HOST_ARG) : join(CORE_ROOT, '..', '..', 'oauth21');
   const REPO_ROOT = join(HOST, '..'); // 根仓（npm ci --dry-run 必须从这里跑）
   if (PUBLISH_ONLY) {
     console.log('--publish-only：只发布 + 自证，不碰宿主（宿主同步需本地 --skip-publish 续跑）');
@@ -266,10 +269,15 @@ async function main() {
   if (SKIP_PUBLISH) {
     console.log('  跳过（--dry-run / --skip-publish）');
   } else {
-    const { code, stdout, stderr } = run(NPM, ['publish'], { cwd: CORE_ROOT });
+    // 🔴 provenance（SLSA 声明）只在 OIDC 环境（GitHub Actions）下可生成 —— 本地
+    //    npm login 的 token 发布会因「provenance requires OIDC」失败。所以按 OIDC
+    //    环境变量条件加 --provenance：CI 带声明，本地 token 发布不带（照旧可用）。
+    const oidc = !!process.env.ACTIONS_ID_TOKEN_REQUEST_URL;
+    const publishArgs = oidc ? ['publish', '--provenance'] : ['publish'];
+    const { code, stdout, stderr } = run(NPM, publishArgs, { cwd: CORE_ROOT });
     const tail = (stdout + stderr).split('\n').filter(Boolean).slice(-4).join('\n');
     if (code !== 0) fail(`npm publish 失败：\n${tail}`);
-    console.log(`  已发布 ${PKG_NAME}@${VERSION} ✅\n${tail.split('\n').map(l => '  ' + l).join('\n')}`);
+    console.log(`  已发布 ${PKG_NAME}@${VERSION}${oidc ? '（含 provenance 声明）' : '（本地 token 发布，无 provenance）'} ✅\n${tail.split('\n').map(l => '  ' + l).join('\n')}`);
   }
 
   /* ---- 3. 等 registry 传播，拿 integrity ----------------------------------- */
@@ -317,10 +325,14 @@ async function main() {
   const hostPkgPath = join(HOST, 'package.json');
   const hostPkgText = readFileSync(hostPkgPath, 'utf8');
   const patched = patchPackageJsonSpec(hostPkgText, VERSION);
-  if (patched.text !== hostPkgText) {
+  if (patched.text === hostPkgText) {
+    console.log(`  "skinsuite": "${patched.oldSpec}"（无变化）`);
+  } else if (DRY_RUN) {
+    console.log(`  [dry-run 不落盘] 将把 "skinsuite": "${patched.oldSpec}" → "^${VERSION}"`);
+  } else {
     writeFileSync(hostPkgPath, patched.text, 'utf8');
+    console.log(`  "skinsuite": "${patched.oldSpec}" → "^${VERSION}" ✅`);
   }
-  console.log(`  "skinsuite": "${patched.oldSpec}" → "^${VERSION}"${patched.text === hostPkgText ? '（无变化，未落盘）' : ''} ✅`);
 
   /* ---- 5. 补丁宿主 package-lock.json -------------------------------------- */
   step('5/6 补丁宿主 package-lock.json（CRLF 安全）');
@@ -328,17 +340,20 @@ async function main() {
   if (!existsSync(lockPath)) fail(`宿主 lock 不存在：${lockPath}`);
   const lockBuf = readFileSync(lockPath);
   const lockPatched = patchLockfile(lockBuf, patched.oldSpec, VERSION, integrity, tarball);
-  if (!lockPatched.buf.equals(lockBuf)) {
+  if (lockPatched.buf.equals(lockBuf)) {
+    console.log(`  node_modules/skinsuite: ${lockPatched.oldVersion}（无变化）`);
+  } else if (DRY_RUN) {
+    console.log(`  [dry-run 不落盘] 将把 node_modules/skinsuite: ${lockPatched.oldVersion} → ${VERSION}（version/resolved/integrity）`);
+  } else {
     writeFileSync(lockPath, lockPatched.buf);
+    console.log(`  node_modules/skinsuite: ${lockPatched.oldVersion} → ${VERSION}（version/resolved/integrity）✅`);
   }
-  console.log(
-    `  node_modules/skinsuite: ${lockPatched.oldVersion} → ${VERSION}（version/resolved/integrity）` +
-      `${lockPatched.buf.equals(lockBuf) ? '（无变化，未落盘）' : ''} ✅`
-  );
 
   /* ---- 6. dry-run 自证（从根仓跑） ---------------------------------------- */
   step('6/6 npm ci --dry-run 自证（从根仓跑）');
-  {
+  if (DRY_RUN) {
+    console.log('  跳过（dry-run：未落盘，无需自证）');
+  } else {
     const prefix = relative(REPO_ROOT, HOST).split(sep).join('/');
     const { code, stdout, stderr } = run(NPM, ['ci', '--dry-run', '--prefix', prefix], { cwd: REPO_ROOT });
     const tail = (stdout + stderr).split('\n').filter(Boolean).slice(-3).join('\n');
@@ -346,14 +361,23 @@ async function main() {
     console.log(`  ${tail} ✅`);
   }
 
-  console.log(`
+  if (DRY_RUN) {
+    console.log(`
 ════════════════════════════════════════
-  全链完成：${PKG_NAME}@${VERSION} ${DRY_RUN ? '（dry-run：未发布，仅演练同步）' : '已发布'}，宿主依赖已同步并自证
+  dry-run 完成：${PKG_NAME}@${VERSION} 未发布、未落盘，仅预演了宿主同步（4/5 步补丁计算）
+  真实同步请用 --skip-publish 续跑：
+    node scripts/publish-and-sync.mjs --skip-publish
+════════════════════════════════════════`);
+  } else {
+    console.log(`
+════════════════════════════════════════
+  全链完成：${PKG_NAME}@${VERSION} 已发布，宿主依赖已同步并自证
   宿主改动（未提交，交给你审）：
     ${hostPkgPath}
     ${lockPath}
   下一步：git add/commit/push 宿主仓；库仓记得 commit + tag v${VERSION} + push
 ════════════════════════════════════════`);
+  }
   process.exit(0);
 }
 

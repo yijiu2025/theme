@@ -50,6 +50,8 @@ export function installThemeDebug(scope: ThemeScope, intent: ThemeIntent): () =>
   let current: string[] = [];
   let probeMounted = false;
   let badge: HTMLDivElement | null = null;
+  /** 本实例挂载的探针对象引用：dispose 时仅当全局键仍指向它才删（防误删后挂载实例） */
+  let probe: object | null = null;
 
   function auditContext(): WarningContext {
     const registry = scope.activePage.value ? pageOf(scope.activePage.value)?.views : undefined;
@@ -85,7 +87,7 @@ export function installThemeDebug(scope: ThemeScope, intent: ThemeIntent): () =>
 
   function mountProbe(): void {
     probeMounted = true;
-    (window as unknown as Record<string, unknown>).__MAUTH_STORE__ = {
+    probe = {
       // ---- store 内部状态（2026-10-19 起在 create-theme-state；#5 收拢到本模块单点维护）----
       get themeId() { return scope.themeId.value; },
       get deviceTheme() { return { ...scope.deviceTheme.value }; },
@@ -106,6 +108,7 @@ export function installThemeDebug(scope: ThemeScope, intent: ThemeIntent): () =>
       /** 当前存在的问题（每次刷新重算） */
       get warnings() { return current; }
     };
+    (window as unknown as Record<string, unknown>).__MAUTH_STORE__ = probe;
     // 右下角角标：调试期一眼看到 设备/页/版式/包 + 警告计数（红 = 当前有问题）
     badge = document.createElement('div');
     badge.dataset.themeDebugBadge = '';
@@ -181,6 +184,12 @@ export function installThemeDebug(scope: ThemeScope, intent: ThemeIntent): () =>
     badge?.remove();
     badge = null;
     probeMounted = false;
-    delete (window as unknown as Record<string, unknown>).__MAUTH_STORE__;
+    // 🔴 仅当全局键仍指向本实例挂载的探针才删：多 store 实例并存（HMR/单测交叠）时，
+    //    后挂载会覆盖先挂载，先 dispose 若无条件 delete 会误删后者的探针。
+    const w = window as unknown as Record<string, unknown>;
+    if (probe !== null && w.__MAUTH_STORE__ === probe) {
+      delete w.__MAUTH_STORE__;
+    }
+    probe = null;
   };
 }

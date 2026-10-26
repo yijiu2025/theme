@@ -22,7 +22,12 @@
  */
 import { readdirSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+// 🔴 相对路径不依赖 cwd：脚本可能从 package 根外被 `node scripts/run-tests.mjs` 直接调用，
+//    那时 `test` / `.test-dist` 相对的是调用方目录、找不到文件。用脚本自身位置锚定 package 根。
+const PKG_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 /** 列目录里指定后缀的顶层测试文件（不递归） */
 function testFiles(dir, suffix) {
@@ -38,8 +43,8 @@ function testFiles(dir, suffix) {
 }
 
 const targets = [
-  ...testFiles('test', '.test.mjs'),
-  ...testFiles('.test-dist', '.test.js')
+  ...testFiles(join(PKG_ROOT, 'test'), '.test.mjs'),
+  ...testFiles(join(PKG_ROOT, '.test-dist'), '.test.js')
 ];
 
 if (targets.length === 0) {

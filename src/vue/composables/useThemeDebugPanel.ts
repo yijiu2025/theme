@@ -162,11 +162,12 @@ export function useThemeDebugPanel(): {
       store.setMode(mode);
     },
 
-    /** 一键回默认：清掉落盘的配色与明暗偏好 */
+    /** 一键回默认：清掉落盘的明暗偏好 */
     reset() {
+      // 🔴 只清明暗意图：setMode('system') 会经 mode watch 触发 syncColorToTone，配色
+      //    自动校正到匹配 system 明暗的系别。不要调 setTheme —— setTheme 会按配色的
+      //    tone 把 mode 重写回 light/dark（把刚设的 'system' 顶掉），破坏「恢复默认」。
       store.setMode('system');
-      const first = colors.value[0];
-      if (first) store.setTheme(first.id);
     }
   };
 

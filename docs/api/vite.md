@@ -20,6 +20,7 @@ export default defineConfig({
 | `dir` | env `VITE_THEME_DIR` → `src/theme` | 主题**根目录**（相对 Vite root 或绝对路径）。省略时插件在 `configResolved` 用 Vite 已加载的 env 自解析——无 `process.cwd()` 陷阱 |
 | `moduleId` | `'virtual:theme'` | 虚拟模块 id |
 | `manifestFile` | `'theme.config.ts'` | 清单文件名；设空串则不注入清单 |
+| `vue` | `true` | 是否装配 Vue 绑定层（`themeViews`/`themeParts` 加载表 + `installThemeViews`/`installThemeParts`）。纯 React / Node 宿主传 `false`，避免被迫加载 Vue 运行时（内核零框架耦合） |
 
 ### 插件行为
 
@@ -38,7 +39,7 @@ declare module 'virtual:theme' {
   export const themeViews: Record<string, Record<string, Loader>>;     // 按页面分组
   export const themeParts: Record<string, Record<string, Loader>>;     // 按部件 id 分组
   export const themeManifest: ResolvedThemeManifest;                   // 恒非 null
-  type Loader = () => { default: Component } | Promise<{ default: Component }>;
+  type Loader = () => { default: unknown } | Promise<{ default: unknown }>;  // 组件类型由 vue 层自行收窄
 }
 ```
 

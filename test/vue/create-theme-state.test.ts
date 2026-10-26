@@ -12,6 +12,7 @@
  */
 import { after, before, test } from 'node:test';
 import assert from 'node:assert/strict';
+import { nextTick } from 'vue';
 import { Window } from 'happy-dom';
 // 🔴 必须从**源码相对路径** import（随本测试一起打包）——bundle 内的 createThemeState
 //    读的是被打包的 registry 单例；从 'skinsuite'（dist）装表装的是另一个实例，两不相通。
@@ -65,8 +66,9 @@ test('defaultPage 播种：无 ThemeView 也首帧解析 token', async () => {
     assert.equal(state.activeDevice.value, '');
     state.setActiveDevice('standard');
     assert.equal(state.activeDevice.value, 'standard');
-    // vue watch 默认 flush 'pre' 异步调度：等一个宏任务让 watcher 队列跑完
-    await new Promise(resolve => setTimeout(resolve, 50));
+    // vue watch 默认 flush 'pre' 异步调度：nextTick 等待 watcher 队列跑完（比固定 50ms 睡眠确定，
+    // 慢 CI 上不会因调度抖动 flaky）
+    await nextTick();
     // 生效记录 = getThemeRecord({ id:'default', device:'standard', pkg:'default', page:'app' })
     // 回退链 → 该范围兜底色 white → tokens 注入 html 根
     assert.deepEqual([...getInjectedTokenNames()].sort(), ['--mauth-bg', '--mauth-text']);

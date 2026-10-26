@@ -21,11 +21,16 @@ npm run publish:sync          # = node scripts/publish-and-sync.mjs
 常用变体：
 
 ```bash
-node scripts/publish-and-sync.mjs --dry-run       # 不发布，只演练同步 + 自证（要求 registry 上已有该版本）
-node scripts/publish-and-sync.mjs --skip-publish  # 发布成功但同步失败后重跑同步
-node scripts/publish-and-sync.mjs --host <path>   # 换宿主仓
-node scripts/publish-and-sync.mjs --allow-dirty   # 放行未提交改动（不推荐）
+node scripts/publish-and-sync.mjs --dry-run        # 不发布、不落盘：只预演宿主同步（4/5 步算补丁不写盘）
+node scripts/publish-and-sync.mjs --skip-publish   # 发布成功但同步失败后重跑同步
+node scripts/publish-and-sync.mjs --host <path>    # 换宿主仓（可绝对路径）
+node scripts/publish-and-sync.mjs --allow-dirty    # 放行未提交改动（不推荐）
+node scripts/publish-and-sync.mjs --publish-only   # CI 形态：只发布 + 自证，跳过宿主同步（跨仓提交留给本地）
+node scripts/publish-and-sync.mjs --publish-only --tag v0.7.1  # 手动重跑（tag 优先于 GITHUB_REF）
 ```
+
+> `--publish-only` 是 CI 形态：除跳过宿主同步外，也**跳过「工作区必须干净」**检查（CI 的
+> `npm install` 必生成未跟踪 lock，那是产物不是漏提交）；本地完整链这条检查照旧生效。
 
 ## CI 发布（推 tag 即发）
 

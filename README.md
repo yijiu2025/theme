@@ -316,7 +316,7 @@ CSS custom properties directly alter rendering. Unvalidated `setProperty` hands 
 
 ## Singleton semantics (micro-frontends)
 
-`installThemeRegistry` / `installThemeManifest` / `installThemeViews` are module-level singletons; token injection writes to `document.documentElement`. Contract: **one JS realm + one document = one theme domain.** SPAs, iframes, and per-request SSR renders are independent. Micro-frontends sharing one module instance will overwrite each other (last registration wins, tokens cleared cross-app) — isolate modules per sub-app, or use the pure kernel and manage injection yourself. Same-origin apps share the `th` / `th_color` param namespace and localStorage keys — disambiguate via `storageKeys` / `colorParam` / `viewParam`.
+`installThemeRegistry` / `installThemeManifest` / `installThemeViews` / `installThemeParts` are module-level singletons; token injection writes to `document.documentElement`. Contract: **one JS realm + one document = one theme domain.** SPAs, iframes, and per-request SSR renders are independent. Micro-frontends sharing one module instance will overwrite each other (last registration wins, tokens cleared cross-app) — isolate modules per sub-app, or use the pure kernel and manage injection yourself. Same-origin apps share the `th` / `th_color` param namespace and localStorage keys — disambiguate via `storageKeys` / `colorParam` / `viewParam`.
 
 ---
 
@@ -324,7 +324,7 @@ CSS custom properties directly alter rendering. Unvalidated `setProperty` hands 
 
 ```bash
 npm run typecheck   # tsc + vue-tsc
-npm run build       # tsc → dist/
+npm run build       # 先清 dist（去残留死产物），再 tsc 内核 + vite 层
 npm test            # build + node:test (kernel .mjs + compiled vue tests)
 ```
 
@@ -356,8 +356,6 @@ If skinsuite has helped you, coffee is appreciated:
 | <img src=".github/assets/sponsor-wechat.png" width="180" alt="WeChat QR"> | <img src=".github/assets/sponsor-alipay.png" width="180" alt="Alipay QR"> |
 
 Every contribution goes a long way.
-
-**About the official account (柒染靓月)**: the author's WeChat channel — release notes and technical write-ups for CoreFlow, skinsuite and other open-source projects land there first. Beyond sponsoring, **following along is the simplest way to support**: never miss a new version or feature.
 
 ## Related Projects
 

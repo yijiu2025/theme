@@ -19,7 +19,9 @@ if (!version) {
 }
 
 const lines = readFileSync(new URL('../CHANGELOG.md', import.meta.url), 'utf8').split('\n');
-const start = lines.findIndex(line => line.startsWith(`## ${version}`));
+// 精确匹配版本标题：`## <版本>` 或 `## <版本> `（后跟日期/说明）。加边界是为了
+// 不让 `0.11.1` 误命中 `## 0.11.10` / `## 0.11.1-rc`（startsWith 无边界会串到更靠前的段落）。
+const start = lines.findIndex(line => line === `## ${version}` || line.startsWith(`## ${version} `));
 if (start < 0) {
   console.error(`CHANGELOG.md 里没有 ${version} 的段落 —— 先补 CHANGELOG 再发版`);
   process.exit(1);

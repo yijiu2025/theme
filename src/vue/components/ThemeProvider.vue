@@ -11,7 +11,7 @@
  *
  * 作用域 = tokens-only：theme.scss 与基线 html.dark 块不进作用域。
  */
-import { computed, onUnmounted, ref } from 'vue';
+import { computed, onBeforeUnmount, ref } from 'vue';
 import { resolveScopedRecord, useScopedTheme } from '../composables/use-scoped-theme';
 
 const props = defineProps<{
@@ -42,7 +42,9 @@ const record = computed(() =>
 
 /** 注入 + cleanup（组件卸载时精确摘除自己写过的变量 / 属性 / 类） */
 const disposeScoped = useScopedTheme(record, rootEl);
-onUnmounted(disposeScoped);
+// 🔴 onBeforeUnmount 而非 onUnmounted：onUnmounted 触发时模板 ref 已被 Vue 置 null，
+//    cleanup 里的 DOM 清理（clearThemeTokens / 摘类 / 摘属性）会拿到 null 而失效。
+onBeforeUnmount(disposeScoped);
 </script>
 
 <template>

@@ -312,7 +312,7 @@ CSS 自定义属性能直接改变渲染。未校验的 `setProperty` 等于交�
 
 ## 单例语义（微前端必读）
 
-`installThemeRegistry` / `installThemeManifest` / `installThemeViews` 是模块级单例；token 注入写 `document.documentElement`。承诺形态：**每个 JS realm + 每份 document = 一个主题域。** SPA、iframe、SSR 每次渲染各自独立。微前端共享同一模块实例会互相覆盖（后注册整体生效、token 注入互清）——子应用要模块隔离，或只用纯内核自管注入。同源多应用共享 `th` / `th_color` 参数与 localStorage 键——用 `storageKeys` / `colorParam` / `viewParam` 细分。
+`installThemeRegistry` / `installThemeManifest` / `installThemeViews` / `installThemeParts` 是模块级单例；token 注入写 `document.documentElement`。承诺形态：**每个 JS realm + 每份 document = 一个主题域。** SPA、iframe、SSR 每次渲染各自独立。微前端共享同一模块实例会互相覆盖（后注册整体生效、token 注入互清）——子应用要模块隔离，或只用纯内核自管注入。同源多应用共享 `th` / `th_color` 参数与 localStorage 键——用 `storageKeys` / `colorParam` / `viewParam` 细分。
 
 ---
 
@@ -320,7 +320,7 @@ CSS 自定义属性能直接改变渲染。未校验的 `setProperty` 等于交�
 
 ```bash
 npm run typecheck   # tsc + vue-tsc
-npm run build       # tsc → dist/
+npm run build       # 先清 dist（去残留死产物），再 tsc 内核 + vite 层
 npm test            # 构建 + node:test（内核 .mjs + vue 层编译产物）
 ```
 

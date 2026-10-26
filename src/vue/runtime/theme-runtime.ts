@@ -14,7 +14,7 @@
 import { ref, watch } from 'vue';
 import { getDefaultThemeId, getThemeRecord, resolveThemeId, toneOfAnyScope } from '../../registry';
 import type { ThemeTokenOverrides } from '../../tokens';
-import { applyThemeLayers } from './token-runtime';
+import { applyThemeLayers, clearThemeTokens } from './token-runtime';
 import { useThemeSources } from '../composables/useThemeSources';
 import type { ThemeScope } from '../store/theme-scope';
 import type { ThemeIntent } from '../store/theme-intent';
@@ -57,6 +57,8 @@ export function useThemeRuntime(
    * 失败静默：附加样式拿不到只是少个背景图，绝不能挡住登录。
    */
   let styleEpoch = 0;
+  /** dispose 标志：销毁后在途的 loadThemeStyle 不得再写 DOM（epoch 只挡「切换」不挡「销毁」） */
+  let disposed = false;
   async function loadThemeStyle(id: string, pkg: string, device: string, page: string): Promise<void> {
     const epoch = ++styleEpoch;
     const loader = getThemeRecord({ id, device, pkg, page }).loadStyle;
@@ -67,7 +69,7 @@ export function useThemeRuntime(
     }
     try {
       const css = await loader();
-      if (epoch !== styleEpoch) return; // 期间又切了主题，丢弃本次结果
+      if (disposed || epoch !== styleEpoch) return; // 销毁或期间又切了主题，丢弃本次结果
       let node = document.getElementById(STYLE_ELEMENT_ID) as HTMLStyleElement | null;
       if (!node) {
         node = document.createElement('style');
@@ -152,14 +154,23 @@ export function useThemeRuntime(
 
   /**
    * 清理本层全部副作用（HMR / 单测反复建 store 场景）：3 个 watcher + 来源同步
-   * （postMessage 监听、进行中的远程 fetch）。watch 的 stop 句柄收全，
+   * （postMessage 监听、进行中的远程 fetch）+ 全局 DOM 痕迹（inline token / dark 类 /
+   * data-mauth-theme / 附加样式节点）。watch 的 stop 句柄收全，
    * dispose 半途而废比没有 dispose 更误导排查。
    */
   function dispose(): void {
+    disposed = true;
+    styleEpoch++; // 使在途 loadThemeStyle 的 epoch 检查失效（双保险，配合 disposed）
     stopInject();
     stopRecord();
     stopViewReset();
     disposeSources();
+    // 🔴 清理全局 DOM 痕迹：HMR 反复建 store 会残留上一实例注入的 inline 变量 /
+    //    dark 类 / data-mauth-theme 属性 / 附加样式节点。
+    clearThemeTokens();
+    document.documentElement.classList.remove('dark');
+    delete document.documentElement.dataset.mauthTheme;
+    document.getElementById(STYLE_ELEMENT_ID)?.remove();
   }
 
   return { themeTokens, externalTokens, applyThemeConfig, dispose };

@@ -21,6 +21,8 @@ import type { ThemeDebugColor } from '../types';
 
 const TITLE = '主题调试';
 const HINT = '?debug=theme';
+/** 生产构建不渲染「?debug=theme」入口提示：url 档是线上排查的隐性通道，页脚明文挂入口会把它摆到明面上 */
+const isDev = import.meta.env.DEV;
 
 const { model, actions } = useThemeDebugPanel();
 
@@ -221,7 +223,7 @@ const MODES = ['system', 'light', 'dark'] as const;
 
       <div class="tdp-foot">
         <button type="button" class="tdp-chip" @click="actions.reset()">恢复默认</button>
-        <span class="tdp-note">{{ HINT }}</span>
+        <span v-if="isDev" class="tdp-note">{{ HINT }}</span>
       </div>
     </div>
   </div>

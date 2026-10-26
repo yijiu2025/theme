@@ -22,7 +22,7 @@
 git clone https://github.com/yijiu2025/theme.git
 cd theme
 npm install
-npm run typecheck   # tsc 全量类型闸门
+npm run typecheck   # tsc + vue-tsc 全量类型闸门
 npm test            # 先构建，再针对 dist 产物跑 node --test 行为测试
 ```
 
@@ -30,8 +30,8 @@ npm test            # 先构建，再针对 dist 产物跑 node --test 行为测
 
 | 命令                | 作用                                                              |
 | ------------------- | ----------------------------------------------------------------- |
-| `npm run typecheck` | `tsc -p tsconfig.json` 全量类型检查（含测试文件）                  |
-| `npm run build`     | `tsc -p tsconfig.build.json` 产出 `dist/`（ESM + d.ts，NodeNext）  |
+| `npm run typecheck` | `tsc -p tsconfig.json` + `vue-tsc -p tsconfig.vue.json` 全量类型检查 |
+| `npm run build`     | `tsc -p tsconfig.build.json` + `tsc -p tsconfig.vite.json` 产出 `dist/`（ESM + d.ts，NodeNext） |
 | `npm test`          | 构建 + `node --test`，针对**产物**跑行为测试                      |
 | `npm run prepack`   | 发布前自动构建（`npm publish` 时触发）                            |
 
@@ -43,7 +43,7 @@ npm test            # 先构建，再针对 dist 产物跑 node --test 行为测
 - 🔴 **不碰 DOM / 构建器 / 路由**：新增 `document` / `window` / `import.meta.glob` / `import.meta.env` / vue-router 引用即越界
 - 🔴 **显式具名导出**：公开 API 面以 README 的表为准，`export *` 会破坏 tree-shaking 与契约稳定性
 - 🔴 **鸭子类型判据必须由接口派生**（如 `Record<keyof T, …>` 再遍历）：手抄成员名会让判据静默落后于类型
-- 🔴 **改包源码必须同步发版**：CI 验的是 npm 发布版，下游家族按版本消费；发版权重逢根仓 `docs/standards/git-release-rules.md`
+- 🔴 **改包源码必须同步发版**：CI 验的是 npm 发布版，下游家族按版本消费；发版权重见 [CoreFlow `docs/standards/git-release-rules.md`](https://github.com/yijiu2025/CoreFlow/blob/main/docs/standards/git-release-rules.md)
 - 注释里的跨仓引用用完整 GitHub URL（外部用户没有 CoreFlow 上下文）
 
 ## 四、提交与 PR

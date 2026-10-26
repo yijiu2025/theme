@@ -151,7 +151,13 @@ export function parseThemeParams(
  * @param urlKey 设备缩写名（未声明缩写的设备回落 id，与设备词汇解析同口径）
  */
 export function effectiveViewRaw(params: ThemeUrlParams, urlKey: string): string | null {
-  return params.scoped[urlKey] ?? params.th ?? null;
+  // hasOwnProperty 防护：scoped 是普通对象，urlKey 若命中 Object.prototype 成员名
+  // （toString/valueOf/...），`scoped[urlKey]` 会拿到原型方法而非 null，`?? th` 就
+  // 吞不掉、返回了函数。先判自有属性，无自有属性才回落通用键。
+  const own = Object.prototype.hasOwnProperty.call(params.scoped, urlKey)
+    ? params.scoped[urlKey]
+    : undefined;
+  return own ?? params.th ?? null;
 }
 
 /** 版式值警告文案（带「可换成」建议 —— 机检要说缺什么，不只是说错了） */

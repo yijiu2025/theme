@@ -16,9 +16,12 @@
  *    vue-tsc / Vite 转译检查 —— 因为 `virtual:theme` 是构建期产物，不在纯内核里。
  */
 declare module 'virtual:theme' {
-  import type { Component } from 'vue';
   import type { MauthThemeColor, MauthThemePackage, ResolvedThemeManifest } from 'skinsuite';
 
+  // 🔴 版式/部件组件类型用 unknown 而非 `import type { Component } from 'vue'`：
+  //    vue 是 optional peer，非 Vue 宿主（themeAssets({ vue:false })）消费 skinsuite/vite
+  //    的类型时会因缺 vue 类型报 TS 错误 —— 与「内核零框架耦合」硬约束冲突。这里只声明
+  //    虚拟模块的形状，具体组件类型由 vue 层（ThemeView/ThemePart）在使用处自行收窄。
   /** 包定义：`./<包>/index.ts` */
   export const packages: Record<string, { default: MauthThemePackage }>;
   /** 配色元信息 + tokens：`./<包>/<设备>/<页面>/colors/<配色>/index.ts` */
@@ -34,7 +37,7 @@ declare module 'virtual:theme' {
    */
   export const themeViews: Record<
     string,
-    Record<string, () => { default: Component } | Promise<{ default: Component }>>
+    Record<string, () => { default: unknown } | Promise<{ default: unknown }>>
   >;
 
   /**
@@ -46,7 +49,7 @@ declare module 'virtual:theme' {
    */
   export const themeParts: Record<
     string,
-    Record<string, () => { default: Component } | Promise<{ default: Component }>>
+    Record<string, () => { default: unknown } | Promise<{ default: unknown }>>
   >;
 
   /**

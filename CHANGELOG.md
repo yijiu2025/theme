@@ -6,7 +6,7 @@
 
 ### 文档与社区设施（代码零变化 —— `src/` / `test/` 自 0.11.2 零 diff；发版目的 = npm 主页 README 刷新）
 
-- **赞助与关注分流**：README 双语「赞助支持」只留微信收款码（扫码直接转账）与支付宝（两列表格）；公众号「柒染靓月」二维码拆出为独立「关注公众号」区块（二维码 + 引导文案，置于三入口表之后）——关注归关注、赞助归赞助；FUNDING.yml custom 指向 README「#赞助支持」锚点（爱发电已停服，收款码直贴不依赖第三方平台），仓库页 Sponsor 按钮直达二维码
+- **赞助与关注分流**：README 双语「赞助支持」只留微信收款码（扫码直接转账）与支付宝（两列表格）；公众号「柒染靓月」二维码拆出为独立「关注公众号」区块（二维码 + 引导文案，置于三入口表之后）——关注归关注、赞助归赞助；FUNDING.yml custom 指向 README「#sponsor」锚点（爱发电已停服，收款码直贴不依赖第三方平台），仓库页 Sponsor 按钮直达二维码
 - **设备侧与主题侧分离口径定稿**：设备清单文件（`view/devices.ts`）**零主题库 import**——机制收在宿主 `src/device/`（`createDeviceModule` + `pageContainers`）；主题侧注入的不是整份清单，而是**词汇投影**（`DEVICES.map(({ id, label, urlKey }) => …)`，containers 等设备侧事实不进主题，两侧唯一耦合点）；分发器经设备侧清单选容器。README 双语 step2/4/7、guide 三篇、api/vue 同步，旧手搓 helper 样例（containerMap / deviceIds / fallbackDevice / resolveContainerOf）全仓清除
 - **设备机制层参考示例（新 guide 页）**：`docs/guide/device-layer.md` —— types / tools（pageContainers）/ runtime（createDeviceModule）三件最小实现 + 判定接线（纯函数 / useRenderDevice / 分发器装配）+ 与主题侧的边界表；侧边栏与 README 双语互链
 - 公开面：**无任何变化**（0.x patch）

@@ -16,7 +16,7 @@
  * （eager）。都没有：渲染缺省 + dev 警告（显式失败，不静默白屏）。
  * 行为放宿主的行为容器（唯一一份）；部件实现只吃 ctx、只调 ctx.actions。
  */
-import { computed, inject, markRaw, onUnmounted, ref, shallowRef, watch } from 'vue';
+import { computed, inject, markRaw, onBeforeUnmount, ref, shallowRef, watch } from 'vue';
 import type { Component } from 'vue';
 import { DEFAULT_THEME_PACKAGE } from '../../constants';
 import { themePartsFor } from '../registry/theme-parts';
@@ -64,7 +64,9 @@ const builtin = computed<Component | null>(() => {
   const loader = loaders.value[partKeyOf(DEFAULT_THEME_PACKAGE, device.value)];
   if (!loader) return null;
   const mod = loader();
-  return mod instanceof Promise ? null : (mod.default ?? null); // default 包 eager 同步形态
+  // markRaw 与异步接管分支（下方 activePart.value = markRaw(mod.default)）同口径：
+  // 组件对象不该被 Vue 响应化代理。
+  return mod instanceof Promise ? null : (mod.default ? markRaw(mod.default) : null); // default 包 eager 同步形态
 });
 const activePart = shallowRef<Component | null>(builtin.value);
 let partEpoch = 0;
@@ -117,7 +119,8 @@ const scopedRecord = computed(() =>
 );
 // 未钉死（record = null）时 watch 走"清理并继承全局 token"档（useScopedTheme 的 null 分支）
 const disposeScoped = useScopedTheme(scopedRecord, rootEl);
-onUnmounted(disposeScoped);
+// 🔴 onBeforeUnmount 而非 onUnmounted：后者触发时 rootEl 已被 Vue 置 null，清理失效。
+onBeforeUnmount(disposeScoped);
 </script>
 
 <template>
