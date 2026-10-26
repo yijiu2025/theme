@@ -68,10 +68,13 @@ export function useScopedTheme(
   record: Ref<MauthThemeRecord | null>,
   el: Ref<HTMLElement | null>
 ): () => void {
+  // 🔴 同时监听 record 与 el：setup 期 el.value 恒为 null（模板 ref 要 mount 才绑定），
+  //    只 watch record 的话 immediate 回调在 setup 期直接 return，之后 record 不变
+  //    就永远不注入 —— 钉死配色（ThemeProvider / ThemePart）首屏失效。监听 el 后
+  //    mount 绑定 el 会再触发一次，此时 node 就绪，正确注入。
   const stop = watch(
-    record,
-    rec => {
-      const node = el.value;
+    [record, el],
+    ([rec, node]) => {
       if (!node) return;
       if (!rec || !rec.tokens) {
         // 未钉死 / 记录无 token：清干净自己写过的痕迹，回到"继承全局"档

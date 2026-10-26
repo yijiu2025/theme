@@ -76,7 +76,14 @@ export function normalizeRemoteThemeConfig(data: unknown): RemoteThemeConfig | n
   if (mode) out.mode = mode;
 
   if (raw.tokens && typeof raw.tokens === 'object' && !Array.isArray(raw.tokens)) {
-    out.tokens = raw.tokens as ThemeTokenOverrides;
+    // 边界逐键过滤：只保留 string 值，产出真正符合 ThemeTokenOverrides（Record<string,string>）
+    // 的值。此前 `as ThemeTokenOverrides` 裸断言只验「是对象」，可能让 { primary: 123 } 这类
+    // 非 string 值穿过边界（下游 sanitizeOverrides 会兜，但契约应在边界就成立）。
+    const tokens: Record<string, string> = {};
+    for (const [k, v] of Object.entries(raw.tokens)) {
+      if (typeof v === 'string') tokens[k] = v;
+    }
+    out.tokens = tokens;
   }
 
   return out.theme || out.mode || out.tokens ? out : null;

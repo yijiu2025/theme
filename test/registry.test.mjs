@@ -78,7 +78,10 @@ test('buildThemeRegistry：meta.id 一律以目录名为准（写错 meta.id 也
   const rec = registry.get('default/mobile/login/white');
   assert.ok(rec, '按目录名登记');
   assert.equal(rec.meta.id, 'white'); // 纠正为目录名，wrong-id 不外泄
-  // 按目录名查询得到纠正后的 id；按写错的 id 查询查不到
+  // 🔴 先把本用例刚构建的表装进单例，再按目录名/写错 id 查询：此前这两个断言
+  //    读的是**上一个用例 installFixture() 装的旧单例**，与本用例的 registry 解耦，
+  //    既不验证纠正行为（假绿），单独运行还因单例为空而红。
+  installThemeRegistry(registry);
   assert.equal(resolveThemeId('white'), 'white');
   assert.equal(resolveThemeId('wrong-id'), null);
 });

@@ -179,8 +179,13 @@ export function useThemeScope(
    *
    * isDark / activeTone / packageId 三个派生值共用这一份 computed：一次状态变化
    * 只解析一次，其余派生读缓存。不导出：公开面按 index.ts 的显式清单哲学不扩大。
+   *
+   * 🔴 用 `activeView` 作为 pkg 解析（view ≡ pkg）：与 runtime 层 `theme-runtime.ts`
+   *    的 `pkg: view` 注入口径一致。此前恒按 default 包解析，导致非默认包（如
+   *    compact）下 packageId 恒 'default'、isDark 恒按 default 判定（黑系配色不挂
+   *    .dark 类）、viewFor 只读 default 包声明 —— 三处连锁错误。
    */
-  const activeRecord = computed(() => themeRecordFor());
+  const activeRecord = computed(() => themeRecordFor(activeView.value));
 
   /** 最终是否深色 = 当前**生效配色**的系别（明暗 ≡ 色系） */
   const isDark = computed(() => activeRecord.value.tone === 'dark');

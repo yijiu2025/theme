@@ -89,7 +89,13 @@ const MODES = ['system', 'light', 'dark'] as const;
   >
     <!-- 头部：标题 + 当前状态 + 折叠/关闭 -->
     <div class="tdp-header">
-      <button type="button" class="tdp-toggle" @click="collapsed = !collapsed">
+      <button
+        type="button"
+        class="tdp-toggle"
+        :aria-expanded="!collapsed"
+        aria-controls="tdp-body"
+        @click="collapsed = !collapsed"
+      >
         <span class="tdp-caret">{{ collapsed ? '▸' : '▾' }}</span>
         <span class="tdp-title">{{ TITLE }}</span>
         <span class="tdp-state">{{ headerState }}</span>
@@ -97,6 +103,7 @@ const MODES = ['system', 'light', 'dark'] as const;
       <button
         type="button"
         class="tdp-close"
+        aria-label="收起面板"
         title="收起面板（URL 参数仍在，刷新会回来）"
         @click="dismissed = true"
       >
@@ -104,15 +111,16 @@ const MODES = ['system', 'light', 'dark'] as const;
       </button>
     </div>
 
-    <div v-if="!collapsed" class="tdp-body">
+    <div id="tdp-body" v-if="!collapsed" class="tdp-body">
       <!-- 设备：同一台电脑上预览另一端（不必真去开移动端路由） -->
       <div class="tdp-row">
-        <span class="tdp-label">设备</span>
-        <div class="tdp-seg">
+        <span class="tdp-label" id="tdp-device-label">设备</span>
+        <div class="tdp-seg" role="group" aria-labelledby="tdp-device-label">
           <button
             type="button"
             class="tdp-seg-item"
             :class="{ 'is-on': model.deviceOverride === null }"
+            :aria-pressed="model.deviceOverride === null"
             data-device="auto"
             :title="`跟随页面（当前 ${deviceLabel(model.device)}）`"
             @click="actions.pickDevice(null)"
@@ -125,6 +133,7 @@ const MODES = ['system', 'light', 'dark'] as const;
             type="button"
             class="tdp-seg-item"
             :class="{ 'is-on': model.deviceOverride === d }"
+            :aria-pressed="model.deviceOverride === d"
             :data-device="d"
             @click="actions.pickDevice(d)"
           >
@@ -148,6 +157,7 @@ const MODES = ['system', 'light', 'dark'] as const;
             type="button"
             class="tdp-chip"
             :class="{ 'is-on': model.view === id }"
+            :aria-pressed="model.view === id"
             :data-view-id="id"
             :title="`切到版式 ${id}`"
             @click="actions.pickView(id)"
@@ -173,6 +183,8 @@ const MODES = ['system', 'light', 'dark'] as const;
             type="button"
             class="tdp-swatch"
             :class="{ 'is-on': model.color === c.id }"
+            :aria-pressed="model.color === c.id"
+            :aria-label="`${c.name}（${c.id} · ${TONE_LABELS[c.tone]}）`"
             :data-color-pick="c.id"
             :data-color-active="model.color === c.id ? c.id : undefined"
             :data-tone="c.tone"
@@ -190,14 +202,15 @@ const MODES = ['system', 'light', 'dark'] as const;
 
       <!-- ③ 明暗（切明暗会**单向**联动配色系别；点颜色不改明暗） -->
       <div class="tdp-mode">
-        <span class="tdp-label">明暗</span>
-        <div class="tdp-seg">
+        <span class="tdp-label" id="tdp-mode-label">明暗</span>
+        <div class="tdp-seg" role="group" aria-labelledby="tdp-mode-label">
           <button
             v-for="m in MODES"
             :key="m"
             type="button"
             class="tdp-seg-item"
             :class="{ 'is-on': model.mode === m }"
+            :aria-pressed="model.mode === m"
             :data-mode="m"
             @click="actions.pickMode(m)"
           >

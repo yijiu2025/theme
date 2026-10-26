@@ -1,3 +1,4 @@
 # GitHub Sponsors：需先在 https://github.com/sponsors/accounts 开通赞助档案。
-# custom 指向 README 的「赞助支持」锚点（微信二维码）——不依赖任何第三方平台。
-custom: ['https://github.com/yijiu2025/theme#赞助支持']
+# custom 指向 README 的「Sponsor」锚点（英文 README 是仓库主页渲染的那份；微信/支付宝收款码）
+# —— 不依赖任何第三方平台。
+custom: ['https://github.com/yijiu2025/theme#sponsor']

@@ -397,9 +397,11 @@ export function resolveThemeId(
   if (device === undefined && page === undefined && pkg === undefined) return id;
   return candidates.some(
     r =>
-      (!device || r.device === device) &&
-      (!page || r.page === page) &&
-      (!pkg || r.pkg === pkg)
+      // 🔴 用 === undefined 判「未限定」：空串是「必须匹配（匹配不上）」而非「不限定」。
+      //    此前 `!device` 把空串当通配，与 getThemeRecord 里 device/page 必填的口径冲突。
+      (device === undefined || r.device === device) &&
+      (page === undefined || r.page === page) &&
+      (pkg === undefined || r.pkg === pkg)
   )
     ? id
     : null;

@@ -58,6 +58,17 @@ export interface ThemeAssetsPluginOptions {
   moduleId?: string;
   /** 清单文件名，缺省 `theme.config.ts`；设为空串则**不**注入清单 */
   manifestFile?: string;
+  /**
+   * 是否生成 Vue 绑定层的装配代码（`installThemeViews` / `installThemeParts`）与
+   * 版式/部件加载表（themeViews / themeParts，会 import `.vue` 组件）。
+   *
+   * 纯 React / 非 Vue 宿主（只用内核注册表 + 清单扫描）传 `false`：虚拟模块不再
+   * `import 'skinsuite/vue'`、不 import 任何 `.vue` 组件，只装 `installThemeRegistry`
+   * + `installThemeManifest` —— 避免被迫解析并加载 Vue 运行时（vue 是 optional peer）。
+   *
+   * 默认 `true`：Vue 宿主零改动。
+   */
+  vue?: boolean;
 }
 
 interface ScanEntry {
@@ -124,21 +135,24 @@ const DEFAULT_MODULE_ID = 'virtual:theme';
  */
 const warnedSkips = new Set<string>();
 
-/** 目录不存在 / 没有清单时的产出：空注册表 + 空清单（import 本模块即自动装配） */
-const EMPTY_MODULE = [
-  "import { installThemeRegistry, buildThemeRegistry, resolveThemeManifest, installThemeManifest } from 'skinsuite';",
-  "import { installThemeViews, installThemeParts } from 'skinsuite/vue';",
-  'export const packages = {};',
-  'export const colors = {};',
-  'export const styles = {};',
-  'export const themeViews = {};',
-  'export const themeParts = {};',
-  'installThemeViews(themeViews);',
-  'installThemeParts(themeParts);',
-  'installThemeRegistry(buildThemeRegistry({ packages, colors, styles }));',
-  'export const themeManifest = resolveThemeManifest(null);',
-  'installThemeManifest(themeManifest);'
-].join('\n');
+/** 目录不存在 / 没有清单时的产出：空注册表 + 空清单（import 本模块即自动装配）
+ *  `vue: false` 时不含 Vue 绑定层装配（见 ThemeAssetsPluginOptions.vue）。 */
+function renderEmptyModule(vue: boolean): string {
+  const lines = [
+    "import { installThemeRegistry, buildThemeRegistry, resolveThemeManifest, installThemeManifest } from 'skinsuite';",
+    ...(vue ? ["import { installThemeViews, installThemeParts } from 'skinsuite/vue';"] : []),
+    'export const packages = {};',
+    'export const colors = {};',
+    'export const styles = {};',
+    'export const themeViews = {};',
+    'export const themeParts = {};',
+    ...(vue ? ['installThemeViews(themeViews);', 'installThemeParts(themeParts);'] : []),
+    'installThemeRegistry(buildThemeRegistry({ packages, colors, styles }));',
+    'export const themeManifest = resolveThemeManifest(null);',
+    'installThemeManifest(themeManifest);'
+  ];
+  return lines.join('\n');
+}
 
 /** 是否为目录；不存在或不可读一律 false（扫描全程"读不到就跳过"） */
 function isDir(path: string): boolean {
@@ -432,13 +446,15 @@ function renderLoaderTable<T extends { key: string; file: string; pkg: string }>
   lines.push('};');
 }
 
-/** 生成虚拟模块源码 */
-function render(result: ScanResult, root: string, manifestSpec: string | null): string {
+/** 生成虚拟模块源码
+ *  `vue: false` 时不生成 Vue 绑定层装配（import 'skinsuite/vue' + themeViews/themeParts
+ *  加载表），只装内核注册表 + 清单 —— 纯 React/Node 宿主不被迫加载 Vue 运行时。 */
+function render(result: ScanResult, root: string, manifestSpec: string | null, vue: boolean): string {
   const lines: string[] = [
     // 装配依赖（纯内核机制）：本模块被 import 时自动装注册表 + 解析清单单例
     "import { installThemeRegistry, buildThemeRegistry, resolveThemeManifest, installThemeManifest } from 'skinsuite';",
     // 版式/部件加载表单例（Vue 绑定层）：本模块体把 themeViews / themeParts 装进内核单例
-    "import { installThemeViews, installThemeParts } from 'skinsuite/vue';",
+    ...(vue ? ["import { installThemeViews, installThemeParts } from 'skinsuite/vue';"] : []),
     manifestSpec
       ? `import { default as __manifest } from ${JSON.stringify(manifestSpec)};`
       : 'const __manifest = null;',
@@ -477,12 +493,20 @@ function render(result: ScanResult, root: string, manifestSpec: string | null): 
   // ---- themeViews / themeParts：组件加载表（按页面 / 部件 id 分组；内置包 eager、其余惰性）----
   // 🔴 内置包用**同步返回**（`() => __viewN`，eager 静态 import 的模块命名空间），
   //    这样 `ViewRegistry.builtin()` 才能首帧同步拿到内置包版式（零请求、不闪屏）。
-  renderLoaderTable(lines, result.views, entry => entry.page, 'themeViews', 'view', root);
-  renderLoaderTable(lines, result.parts, entry => entry.partId, 'themeParts', 'part', root);
+  if (vue) {
+    renderLoaderTable(lines, result.views, entry => entry.page, 'themeViews', 'view', root);
+    renderLoaderTable(lines, result.parts, entry => entry.partId, 'themeParts', 'part', root);
+  } else {
+    // 非 Vue 宿主：空加载表（不 import 任何 .vue 组件）
+    lines.push('export const themeViews = {};');
+    lines.push('export const themeParts = {};');
+  }
 
   // ---- 装配副作用 + 清单单例（import 本模块即自动装版式/部件加载表 + 注册表 + 清单）----
-  lines.push('installThemeViews(themeViews);');
-  lines.push('installThemeParts(themeParts);');
+  if (vue) {
+    lines.push('installThemeViews(themeViews);');
+    lines.push('installThemeParts(themeParts);');
+  }
   lines.push('installThemeRegistry(buildThemeRegistry({ packages, colors, styles }));');
   lines.push('export const themeManifest = resolveThemeManifest(__manifest);');
   lines.push('installThemeManifest(themeManifest);');
@@ -507,6 +531,8 @@ export function themeAssets(options: ThemeAssetsPluginOptions = {}): Plugin {
   const moduleId = options.moduleId ?? DEFAULT_MODULE_ID;
   const virtualId = '\0' + moduleId;
   const manifestFile = options.manifestFile ?? DEFAULT_THEME_MANIFEST;
+  // 是否生成 Vue 绑定层装配（默认 true 保持向后兼容）
+  const vue = options.vue ?? true;
   let root = process.cwd();
   // dev server / vitest 下 command === 'serve'：跳过警告只在开发期喊，构建期零噪音
   let dev = false;
@@ -548,7 +574,7 @@ export function themeAssets(options: ThemeAssetsPluginOptions = {}): Plugin {
       if (id !== virtualId) return null;
       const dir = resolveDir();
       // 根目录不存在 = 还没建主题，给**空注册表 + 空清单**而不是让应用起不来
-      if (!isDir(dir)) return { code: EMPTY_MODULE, map: null };
+      if (!isDir(dir)) return { code: renderEmptyModule(vue), map: null };
 
       const manifestPath = manifestFile ? join(dir, manifestFile) : '';
       const manifestSpec = manifestPath && existsSync(manifestPath)
@@ -559,7 +585,7 @@ export function themeAssets(options: ThemeAssetsPluginOptions = {}): Plugin {
       warnSkips(scanned.skips);
       // 返回 { code, map } 形态（而非裸字符串）：map 显式为 null = 声明「无 sourcemap」，
       // 虚拟模块内的运行时报错行号不再参与任何 map 推断；将来要挂真 map 也不用改契约。
-      return { code: render(scanned, root, manifestSpec), map: null };
+      return { code: render(scanned, root, manifestSpec, vue), map: null };
     },
 
     configureServer(server) {

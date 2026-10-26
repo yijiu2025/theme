@@ -43,13 +43,26 @@ export function isSafeTokenName(name: unknown): name is string {
   return typeof name === 'string' && TOKEN_NAME_RE.test(name);
 }
 
-/** 校验 token 取值：命中白名单且不含危险片段（字体栈特例见 isSafeTokenEntry） */
-export function isSafeTokenValue(value: unknown): value is string {
-  if (typeof value !== 'string') return false;
+/**
+ * 取值公共校验核（名字无关的部分）：类型 / trim / 长度 / 危险片段。
+ * 返回 trim 后的值（合法）或 null（非法）。名字相关的白名单（字体栈特例）由调用方补。
+ */
+function validateValueCore(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
   const v = value.trim();
-  if (v.length === 0 || v.length > MAX_VALUE_LENGTH) return false;
-  if (FORBIDDEN_RE.test(v)) return false;
-  return VALUE_PATTERNS.some(re => re.test(v));
+  if (v.length === 0 || v.length > MAX_VALUE_LENGTH) return null;
+  if (FORBIDDEN_RE.test(v)) return null;
+  return v;
+}
+
+/**
+ * 校验 token 取值：命中白名单且不含危险片段。
+ * ⚠️ 只判「值本身」，**不含字体栈特例**（`Inter, sans-serif` 会拒绝）——字体栈需要
+ * 名字上下文（是不是 `--mauth-font-family`）才能判断，见 `isSafeTokenEntry`。
+ */
+export function isSafeTokenValue(value: unknown): value is string {
+  const v = validateValueCore(value);
+  return v !== null && VALUE_PATTERNS.some(re => re.test(v));
 }
 
 /**
@@ -58,10 +71,8 @@ export function isSafeTokenValue(value: unknown): value is string {
  */
 export function isSafeTokenEntry(name: unknown, value: unknown): boolean {
   if (!isSafeTokenName(name)) return false;
-  if (typeof value !== 'string') return false;
-  const v = value.trim();
-  if (v.length === 0 || v.length > MAX_VALUE_LENGTH) return false;
-  if (FORBIDDEN_RE.test(v)) return false;
+  const v = validateValueCore(value);
+  if (v === null) return false;
   if (name === FONT_FAMILY_TOKEN) return FONT_VALUE_RE.test(v);
   return VALUE_PATTERNS.some(re => re.test(v));
 }

@@ -32,7 +32,8 @@
     "README.md",
     "README.zh-CN.md",
     "CHANGELOG.md",
-    "LICENSE"
+    "LICENSE",
+    ".github/assets"
   ],
   "sideEffects": false,
   "engines": {

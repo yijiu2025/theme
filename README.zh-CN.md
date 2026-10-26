@@ -264,6 +264,7 @@ const activeComponent = computed(
 | `?th_mobile=<包>` | 单设备版式意图 | 同链，按设备各一条 |
 | `?th_color=<配色>` | 配色意图，全设备 | `th_color_<urlKey>` → `th_color` → 落盘偏好 → 作用域默认 |
 | `?th_color_std=<配色>` | 单设备配色意图 | 同链，按设备各一条 |
+| `?device=<id>` | 设备锁定（宿主分发器词汇） | 锁定到该设备；未知 id 落末条兜底设备 |
 
 示例：`/login?th=compact`、`/login?th_mobile=default&th_std=compact`（各端各一套包）、`/login?th_color=blue`。非法值不会锁死任何东西——dev 下警告后沿链回落。
 
@@ -351,6 +352,16 @@ npm test            # 构建 + node:test（内核 .mjs + vue 层编译产物）
 | <img src=".github/assets/sponsor-wechat.png" width="180" alt="微信二维码"> | <img src=".github/assets/sponsor-alipay.png" width="180" alt="支付宝收款码"> |
 
 收到的每一笔都会记在心里。
+
+## 其他项目
+
+| 项目 | 定位 |
+| --- | --- |
+| [CoreFlow](https://github.com/yijiu2025/CoreFlow) | 全栈 Node.js 后端（账号与授权服务） |
+| [oauth-web](https://github.com/yijiu2025/oauth-web) | 企业统一身份认证前端（OAuth 2.1 登录 / 授权），skinsuite 的宿主之一 |
+| [RetroWeb](https://github.com/yijiu2025/retroweb) | 逆合成工作台前端（同栈 + SSO 嵌入） |
+| [retro](https://github.com/yijiu2025/retro) | 逆合成后端（Python + rdchiral / RDKit） |
+| [wb-logkit](https://github.com/yijiu2025/log) | 零依赖日志库 |
 
 ## License
 

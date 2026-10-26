@@ -78,13 +78,18 @@ const builtin = pageObj.views.builtin(props.device);
 const activeView = shallowRef<Component | null>(builtin);
 let viewEpoch = 0;
 watch(
-  [viewId, () => store.packageId],
-  ([id, pkg]) => {
+  // 🔴 把 props.device 纳入依赖：切换设备后 builtin 与 load 都要按新设备重算。
+  //    此前只盯 [viewId, packageId]，device 变化不触发，同容器复用切换设备时
+  //    fallback 仍是旧设备实现（注释 L67 明说 device 理论可变）。
+  [viewId, () => store.packageId, () => props.device],
+  ([id, pkg, device]) => {
+    // 每次（含 device 变化）按当前 device 重算 builtin，避免 setup 一次性求值后落后
+    const builtinNow = pageObj.views.builtin(device);
     const epoch = ++viewEpoch;
-    void pageObj.views.load(id, pkg, props.device).then(loaded => {
+    void pageObj.views.load(id, pkg, device).then(loaded => {
       if (epoch !== viewEpoch) return;
       // null = 用内置包版式（首屏零请求那条路径）
-      activeView.value = loaded ? markRaw(loaded) : builtin;
+      activeView.value = loaded ? markRaw(loaded) : builtinNow;
     });
   },
   { immediate: true }

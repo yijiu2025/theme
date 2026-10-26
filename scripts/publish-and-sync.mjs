@@ -13,7 +13,7 @@
  *
  * === 用法 ===
  *   node scripts/publish-and-sync.mjs                  # 完整链（默认宿主 = ../../oauth21）
- *   node scripts/publish-and-sync.mjs --dry-run        # 不发布：只演练同步 + dry-run 自证
+ *   node scripts/publish-and-sync.mjs --dry-run        # 不发布；⚠️ 但**仍会真实落盘改宿主** package.json/lock（演练同步，非无副作用）
  *   node scripts/publish-and-sync.mjs --skip-publish   # 已发布过：只同步宿主
  *   node scripts/publish-and-sync.mjs --host <path>    # 覆盖宿主仓路径
  *   node scripts/publish-and-sync.mjs --publish-only   # CI 形态：只发布+自证，不同步宿主
@@ -99,8 +99,13 @@ export function patchLockfile(buf, oldSpec, newVersion, integrity, tarball) {
   if (!blockMatch) {
     throw new Error(`lock 里找不到 node_modules/${PKG_NAME} 块（version/resolved/integrity）`);
   }
-  if (blockStr.split(blockMatch[0]).length - 1 !== 1) {
-    throw new Error(`lock 里 node_modules/${PKG_NAME} 块不唯一`);
+  // 🔴 用全局正则匹配**所有** skinsuite 块开头计数：此前 split(blockMatch[0]) 只匹配
+  //    第一个版本的具体块文本，lock 里有两个不同版本的 skinsuite 块时（文本不同）
+  //    split 计数仍为 1 —— 守卫形同虚设，只补第一个、其余漏补。
+  const blockHeadRe = new RegExp(`"(?:node_modules/)?${PKG_NAME}":\\s*\\{`, 'g');
+  const blockCount = blockStr.match(blockHeadRe)?.length ?? 0;
+  if (blockCount !== 1) {
+    throw new Error(`lock 里 node_modules/${PKG_NAME} 块不唯一（命中 ${blockCount} 个，期望 1）`);
   }
   const oldVersion = /"version": "([^"]*)"/.exec(blockMatch[0])[1];
   const newBlock = blockMatch[0]

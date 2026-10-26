@@ -268,6 +268,7 @@ Format is unified with underscores; device-specific keys win over generic keys; 
 | `?th_mobile=<pkg>` | view intent for one device | same chain, per device |
 | `?th_color=<id>` | color intent, all devices | `th_color_<urlKey>` → `th_color` → stored preference → scope default |
 | `?th_color_std=<id>` | color intent for one device | same chain, per device |
+| `?device=<id>` | device lock (host dispatcher vocabulary) | locked to that device; unknown id falls back to the last device |
 
 Examples: `/login?th=compact`, `/login?th_mobile=default&th_std=compact` (each device its own package), `/login?th_color=blue`. Invalid values never lock anything — they are dropped with a dev warning and fall back down the chain.
 
@@ -357,6 +358,16 @@ If skinsuite has helped you, coffee is appreciated:
 Every contribution goes a long way.
 
 **About the official account (柒染靓月)**: the author's WeChat channel — release notes and technical write-ups for CoreFlow, skinsuite and other open-source projects land there first. Beyond sponsoring, **following along is the simplest way to support**: never miss a new version or feature.
+
+## Related Projects
+
+| Project | What it is |
+| --- | --- |
+| [CoreFlow](https://github.com/yijiu2025/CoreFlow) | Full-stack Node.js backend — the account & authorization service |
+| [oauth-web](https://github.com/yijiu2025/oauth-web) | Enterprise identity frontend (OAuth 2.1 login / authorization), one of skinsuite's hosts |
+| [RetroWeb](https://github.com/yijiu2025/retroweb) | Retrosynthesis workbench frontend (same stack, SSO-embedded) |
+| [retro](https://github.com/yijiu2025/retro) | Retrosynthesis backend (Python + rdchiral / RDKit) |
+| [wb-logkit](https://github.com/yijiu2025/log) | Zero-dependency logging library |
 
 ## License
 

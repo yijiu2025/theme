@@ -51,6 +51,11 @@ export async function fetchRemoteThemeConfig(
   } catch {
     return null; // endpoint 写了个非法 URL
   }
+  // 只放行 http/https：阻止 javascript:/data:/file: 等危险协议被当「取数端点」执行。
+  // （endpoint 来自宿主构建期 env，半可信，但纵深防御不贵——一行拦截危险协议面。）
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+    return null;
+  }
   for (const [key, value] of Object.entries(options.params ?? {})) {
     if (typeof value === 'string' && value !== '') url.searchParams.set(key, value);
   }

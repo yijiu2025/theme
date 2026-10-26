@@ -85,16 +85,15 @@ export function readUrlViewIntent(
   /** 空串 / 纯空白视为**未指定** —— 与上面 `isPresent()` 同一口径（但不收数组，见上） */
   const present = (raw: unknown): string | null =>
     typeof raw === 'string' && raw.trim() !== '' ? raw : null;
-  try {
-    const anyScope = present(query?.[viewParam]);
-    for (const device of devices) {
-      const scoped = present(query?.[`${viewParam}_${device.urlKey ?? device.id}`]);
-      if (scoped !== null) deviceView[device.id] = scoped;
-    }
-    return { deviceView, viewIntent: anyScope };
-  } catch {
-    return { deviceView, viewIntent: null };
+  // query 是普通对象、present 只做 typeof 判断，正常不会抛 —— 不需要 try/catch。
+  // 此前 try/catch 吞全部异常并返回半成品（deviceView 部分填充 + viewIntent 置 null），
+  // 真实错误被静默掩盖、结果不自洽。
+  const anyScope = present(query?.[viewParam]);
+  for (const device of devices) {
+    const scoped = present(query?.[`${viewParam}_${device.urlKey ?? device.id}`]);
+    if (scoped !== null) deviceView[device.id] = scoped;
   }
+  return { deviceView, viewIntent: anyScope };
 }
 
 /**

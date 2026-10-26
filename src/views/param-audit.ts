@@ -108,6 +108,10 @@ export function parseThemeParams(
   options: ParseThemeParamsOptions = {}
 ): ThemeUrlParams {
   const debugQuery = options.debugQuery ?? 'debug';
+  // 🔴 危险键清单：key 来自 `th_<urlKey>` 的 `key.slice(3)`，恶意 query（`?th___proto__=x`）
+  //    会把这些键当自有属性写入。`__proto__` 赋 string 会被静默忽略（键丢失）、
+  //    `constructor`/`prototype` 会覆盖继承成员并让 Object.entries 多出脏键 —— 显式跳过。
+  const DANGEROUS_SCOPED_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
   const scoped: Record<string, string | null> = {};
   const repeated: RepeatedParam[] = [];
 
@@ -120,7 +124,10 @@ export function parseThemeParams(
     if (Array.isArray(value) && (isWhitelistKey(key, debugQuery) || isScopedViewKey(key))) {
       repeated.push({ key, first: present(value[0]) });
     }
-    if (isScopedViewKey(key)) scoped[key.slice(3)] = present(value);
+    if (isScopedViewKey(key)) {
+      const scopedKey = key.slice(3);
+      if (!DANGEROUS_SCOPED_KEYS.has(scopedKey)) scoped[scopedKey] = present(value);
+    }
   }
 
   const debugRaw = query[debugQuery];

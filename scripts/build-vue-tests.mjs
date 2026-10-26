@@ -19,7 +19,7 @@
  */
 import { build } from 'esbuild';
 import { readdirSync } from 'node:fs';
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, rmSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -27,6 +27,9 @@ const PKG_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SRC_DIR = join(PKG_ROOT, 'test', 'vue');
 const OUT_DIR = join(PKG_ROOT, '.test-dist');
 
+// 🔴 先清空旧产物再重建：删除/重命名 test/vue/ 下的测试文件后，旧的
+//    .test-dist/<名>.test.js 残留会测过期代码（假绿）或引用已删代码（误红）。
+rmSync(OUT_DIR, { recursive: true, force: true });
 mkdirSync(OUT_DIR, { recursive: true });
 
 const entries = readdirSync(SRC_DIR)
@@ -34,8 +37,10 @@ const entries = readdirSync(SRC_DIR)
   .map(name => join(SRC_DIR, name));
 
 if (entries.length === 0) {
-  console.log('[build-vue-tests] test/vue/ 下没有 *.test.ts，跳过');
-  process.exit(0);
+  // 🔴 空目录不再静默成功：静默 exit(0) 会让 Vue 测试整体被跳过（白名单为空假绿）。
+  //    目录被误删/改名时应显式失败，而非让 CI 绿着漏测。
+  console.error('[build-vue-tests] test/vue/ 下没有 *.test.ts —— 疑似目录被误删/改名，拒绝静默跳过');
+  process.exit(1);
 }
 
 await build({
