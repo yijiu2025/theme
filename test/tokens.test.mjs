@@ -39,6 +39,7 @@ test('isSafeTokenName：只放行 --mauth- 前缀的小写短横线命名', () =
     '--background', // 非主题命名空间（会误伤全局 shadcn 变量）
     'mauth-bg', // 缺 --
     '--mauth-', // 空名
+    '--mauth-' + 'a'.repeat(65), // 超长后缀（限长 64，超长 DoS 面）
     '',
     undefined,
     null,
@@ -89,6 +90,10 @@ test('isSafeTokenValue：拒绝颜色名、url() 与注入形态', () => {
     '  ', // 全空白
     '',
     'x'.repeat(121), // 超长
+    '\\75rl(https://evil.test/x.png)', // unicode 转义 url(（反斜杠被 FORBIDDEN_RE 拦）
+    '#fff\\u0000;url(https://evil.test/x.png)', // null 字节注入
+    '#fff\\n;background:url(https://evil.test/x.png)', // 换行闭合规则
+    '#fff\\r;color:red', // 回车闭合
     undefined,
     null,
     42
@@ -105,6 +110,9 @@ test('isSafeTokenEntry：字体族是唯一放宽的特例（允许空格/逗号
   // 含括号就写不出任何 CSS 函数包括 url()
   assert.equal(isSafeTokenEntry('--mauth-font-family', 'url(https://evil.test/f.woff2)'), false);
   assert.equal(isSafeTokenEntry('--mauth-font-family', `Inter, sans-serif; background: url(evil)`), false);
+  // 引号闭合：FONT_VALUE_RE 允许引号，但分号/花括号被 FORBIDDEN_RE 兜住，写不出规则闭合
+  assert.equal(isSafeTokenEntry('--mauth-font-family', '"PingFang SC"; }'), false);
+  assert.equal(isSafeTokenEntry('--mauth-font-family', `"A"; background: url(evil)`), false);
 });
 
 test('sanitizeOverrides：逐条过滤而非整体拒绝，并把被拒项回给调用方', () => {

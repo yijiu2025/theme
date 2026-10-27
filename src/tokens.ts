@@ -9,8 +9,8 @@
  * tokens 是一组扁平值、不分明暗档（深浅就是两种颜色配置，各建一个目录）。
  */
 
-/** token 名白名单：只放行 --mauth- 命名空间（避免误伤其它全局 CSS 变量） */
-const TOKEN_NAME_RE = /^--mauth-[a-z0-9-]+$/;
+/** token 名白名单：只放行 --mauth- 命名空间（避免误伤其它全局 CSS 变量）；后缀限长防超长名 DoS */
+const TOKEN_NAME_RE = /^--mauth-[a-z0-9-]{1,64}$/;
 
 /** 单条取值长度上限：超长基本是要撑爆样式表 */
 const MAX_VALUE_LENGTH = 120;

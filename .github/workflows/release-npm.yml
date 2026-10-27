@@ -112,11 +112,12 @@ jobs:
 
           if (!ge(npmV, [11, 5, 1])) {
             if (!inCI) {
-              console.error('::error::npm ' + npmV + ' < 11.5.1（OIDC 要求）。本机不做自动升级，请自行 npm i -g npm@latest');
+              console.error('::error::npm ' + npmV + ' < 11.5.1（OIDC 要求）。本机不做自动升级，请自行 npm i -g npm@11.5.1');
               process.exit(1);
             }
             console.log('npm ' + npmV + ' 不满足 OIDC 要求，就地升级…');
-            execSync('npm i -g npm@latest', { stdio: 'inherit' });
+            // 🔴 pin 具体版本而非 @latest：latest 是可变标签，被劫持会装到恶意 npm CLI
+            execSync('npm i -g npm@11.5.1', { stdio: 'inherit' });
             npmV = execSync('npm -v').toString().trim();
           }
           if (!ge(npmV, [11, 5, 1])) {

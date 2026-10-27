@@ -367,6 +367,11 @@ async function main() {
     console.log('  跳过（dry-run：未落盘，无需自证）');
   } else {
     const prefix = relative(REPO_ROOT, HOST).split(sep).join('/');
+    // 🔴 prefix 会进 shell 命令行（Windows 下 shell:true），含空格/元字符（`C:\Program Files\…`）
+    //    会拆参甚至被 cmd 元字符解释。加白名单校验，不合规即 fail（宿主路径含空格时换无空格路径）。
+    if (!/^[a-zA-Z0-9._/-]+$/.test(prefix)) {
+      fail(`宿主相对路径含 shell 不安全字符：${prefix} —— 用 --host 给无空格/无元字符路径`);
+    }
     const { code, stdout, stderr } = run(NPM, ['ci', '--dry-run', '--prefix', prefix], { cwd: REPO_ROOT });
     const tail = (stdout + stderr).split('\n').filter(Boolean).slice(-3).join('\n');
     if (code !== 0) fail(`npm ci --dry-run 未通过（lock 可能没补对）：\n${tail}`);

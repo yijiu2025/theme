@@ -17,6 +17,11 @@
  *   `off`    永不出现（产物里也不下载面板）
  *   `url`    带触发参数才出现 —— 生产缺省：真机没有 DevTools，线上排查时能切主题看效果
  *   `always` 首次渲染就出现（演示 / 联调环境）
+ *
+ * ⚠️ 安全含义：`url` / `always` 档在**生产构建同样可达**（探针/角标已被 `import.meta.env.DEV`
+ *   早退，但面板本身不随 DEV 消失）。面板内容仅主题名 / 色值 / 设备清单（id+label），
+ *   actions 只改写客户端 store 与 localStorage，**不碰服务器与用户数据**。若部署方对
+ *   「生产可打开调试面板」有合规顾虑，显式传 `debug: { enabled: 'off' }` 关闭。
  */
 export type ThemeDebugMode = 'off' | 'url' | 'always';
 
@@ -59,6 +64,13 @@ export function defineThemeManifest(manifest: ThemeManifest = {}): ResolvedTheme
   const value = debug.value ?? 'theme';
   if (!query.trim() || !value.trim()) {
     throw new Error('[theme] debug.query / debug.value 必须是非空字符串。');
+  }
+  // 🔴 长度上限：query/value 用于按键取值与严格比较，超长只会带来比较/日志/内存的无谓开销
+  //    （且是配置笔误的信号）——启动即炸，而不是静默接受。
+  if (query.length > 64 || value.length > 64) {
+    throw new Error(
+      `[theme] debug.query / debug.value 长度不能超过 64（收到 ${query.length} / ${value.length}）。`
+    );
   }
 
   return { debug: { enabled, query, value } };
