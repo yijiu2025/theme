@@ -266,6 +266,8 @@ const activeComponent = computed(
 | `?th_color_std=<配色>` | 单设备配色意图 | 同链，按设备各一条 |
 | `?device=<id>` | 设备锁定（宿主分发器词汇） | 锁定到该设备；未知 id 落末条兜底设备 |
 
+`<urlKey>` 是设备清单里声明的缩写（缺省回落设备 id）。⚠️ 不能是 `color`、不能以 `color_` 开头——它们是配色键（`?th_color` / `?th_color_<urlKey>`）的固定形态，占用后版式键（`?th_<urlKey>`）会与配色键互相顶掉。
+
 示例：`/login?th=compact`、`/login?th_mobile=default&th_std=compact`（各端各一套包）、`/login?th_color=blue`。非法值不会锁死任何东西——dev 下警告后沿链回落。
 
 明暗**没有** URL 入口（设计如此）——它是用户偏好，落 localStorage（`mauth:mode` / `mauth:theme`；0.7.x 的旧裸键有一次性读迁移）。

@@ -55,7 +55,7 @@ export const device = createDeviceModule({ devices: DEVICES });
 | --- | --- |
 | `id` | 设备 id = 主题包内的目录名（`[a-z0-9-]`） |
 | `label` | 显示名（调试面板 / 日志用） |
-| `urlKey?` | URL 参数后缀（`?th_<urlKey>` / `?th_color_<urlKey>`）；缺省回落 `id` |
+| `urlKey?` | URL 参数后缀（`?th_<urlKey>` / `?th_color_<urlKey>`）；缺省回落 `id`。🔴 不能是 `color`、不能以 `color_` 开头（配色键的固定形态，占用后版式键会与配色键互相顶掉） |
 
 ::: tip 设备机制层怎么写
 `createDeviceModule` / `pageContainers` 这一层的最小参考实现（types / tools / runtime 三件 + 判定接线 + 分发器装配）见[设备机制层（宿主示例）](/guide/device-layer)。

@@ -272,6 +272,8 @@ Format is unified with underscores; device-specific keys win over generic keys; 
 
 Examples: `/login?th=compact`, `/login?th_mobile=default&th_std=compact` (each device its own package), `/login?th_color=blue`. Invalid values never lock anything — they are dropped with a dev warning and fall back down the chain.
 
+`<urlKey>` is the device abbreviation from the injected device list (falls back to `id`). ⚠️ It must not be `color` or start with `color_` — those are the fixed shapes of the color keys (`?th_color` / `?th_color_<urlKey>`) and would collide with the view keys (`?th_<urlKey>`).
+
 Mode (light/dark) has **no** URL entry by design — it is a user preference, persisted in localStorage (`mauth:mode` / `mauth:theme`; legacy bare keys from 0.7.x are read-migrated once).
 
 ## Modes and tones

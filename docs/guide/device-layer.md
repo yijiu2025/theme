@@ -32,7 +32,7 @@ export interface HostDeviceInput {
   id: string;
   /** 显示名（调试面板 / 日志用） */
   label: string;
-  /** URL 参数后缀（?th_<urlKey> / ?th_color_<urlKey>）；缺省回落 id */
+  /** URL 参数后缀（?th_<urlKey> / ?th_color_<urlKey>）；缺省回落 id；🔴 不能是 color / color_ 开头（配色键固定形态） */
   urlKey?: string;
   /** 页面 → 容器加载器。函数形态 = 惰性构建，模块求值期不扫 glob */
   containers: () => ReadonlyMap<string, DeviceContainerLoader>;

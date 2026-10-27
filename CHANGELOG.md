@@ -2,6 +2,13 @@
 
 本包遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)：0.x 阶段的次要版本允许重命名与结构调整（公开出口是显式具名导出，改名即 semver-minor）。
 
+## 0.11.4 — 2026-10-27
+
+### 文档与注释（代码零变化）
+
+- **urlKey 保留字说明**：`urlKey` 不能是 `color`、不能以 `color_` 开头——它们是配色键（`?th_color` / `?th_color_<urlKey>`）的固定形态，占用后版式键（`?th_<urlKey>`）会与配色键互相顶掉、无从归因。同步位置：`types.ts` 契约注释、README 双语 URL 参数表、`guide/url-params`、`guide/devices`、`guide/device-layer`。
+- 公开面：**无任何变化**（0.x patch）
+
 ## 0.11.3 — 2026-10-25
 
 ### 文档与社区设施（代码零变化 —— `src/` / `test/` 自 0.11.2 零 diff；发版目的 = npm 主页 README 刷新）

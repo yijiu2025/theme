@@ -102,6 +102,11 @@ export interface DeviceVocab {
   id: string;
   /** 显示名（调试面板 / 日志用） */
   label: string;
-  /** URL 参数后缀（?th_<urlKey> / ?th_color_<urlKey>）；缺省回落 id */
+  /**
+   * URL 参数后缀（`?th_<urlKey>` / `?th_color_<urlKey>`）；缺省回落 id。
+   * 🔴 保留字：不能是 `color`、不能以 `color_` 开头 —— 它们分别是配色通用键
+   *    （`?th_color`）与配色设备键（`?th_color_<urlKey>`）的固定形态，占用后版式键
+   *    （`?th_<urlKey>`）会与配色键互相顶掉，无从归因。
+   */
   urlKey?: string;
 }

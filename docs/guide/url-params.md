@@ -13,6 +13,13 @@
 
 `<urlKey>` 是设备清单里声明的缩写（缺省回落设备 id）。
 
+::: warning urlKey 保留字
+`urlKey` 不能是 `color`、不能以 `color_` 开头——`?th_color`（配色通用键）与
+`?th_color_<urlKey>`（配色设备键）是**配色键的固定形态**，占用后版式键
+（`?th_<urlKey>`）会与配色键互相顶掉。例如设备缩写叫 `color` 时，`?th_color=blue`
+到底是「配色意图」还是「color 设备的版式意图」就说不清了——避免这类系统关键字。
+:::
+
 示例：
 
 ```
