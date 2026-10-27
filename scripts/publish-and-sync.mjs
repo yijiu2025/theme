@@ -157,6 +157,18 @@ function step(msg) {
   console.log(`\n── ${msg}`);
 }
 
+/**
+ * 解析 `npm view --json` 输出（try/catch）：exit 0 但 stdout 非 JSON（registry 返回
+ * HTML 错误页 / 代理注入）时，给可归因报错而非裸 SyntaxError 崩掉进程。
+ */
+function parseNpmViewJson(stdout) {
+  try {
+    return JSON.parse(stdout);
+  } catch (err) {
+    fail(`npm view --json 返回非 JSON（registry 错误页 / 代理注入？）：${String(err && err.message)}\n${String(stdout).slice(0, 400)}`);
+  }
+}
+
 /* ---------------------------------------------------------------------------
  * 主流程（仅直接运行时执行；导入本模块只拿纯函数）
  * ------------------------------------------------------------------------- */
@@ -287,13 +299,13 @@ async function main() {
     // dry-run：registry 上必须已有这个版本（发布过的），直接取
     const { code, stdout, stderr } = run(NPM, ['view', `${PKG_NAME}@${VERSION}`, 'dist.integrity', 'dist.tarball', '--json']);
     if (code !== 0) fail(`dry-run 需要 registry 上已有 ${PKG_NAME}@${VERSION}（npm view 失败）：\n${stderr.trim()}`);
-    dist = JSON.parse(stdout);
+    dist = parseNpmViewJson(stdout);
   } else {
     const deadline = Date.now() + POLL_TIMEOUT_MS;
     for (;;) {
       const { code, stdout } = run(NPM, ['view', `${PKG_NAME}@${VERSION}`, 'dist.integrity', 'dist.tarball', '--json']);
       if (code === 0) {
-        dist = JSON.parse(stdout);
+        dist = parseNpmViewJson(stdout);
         break;
       }
       if (Date.now() >= deadline) {

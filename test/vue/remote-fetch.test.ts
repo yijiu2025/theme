@@ -140,6 +140,28 @@ test('公网绝对 URL 不被误拦', async () => {
   assert.deepEqual(config, { theme: 'blue' });
 });
 
+test('SSRF 绕过向量：协议相对 //host、DNS rebinding、IPv4-mapped IPv6 均被拦', async () => {
+  const bypassEndpoints = [
+    '//169.254.169.254/latest/meta-data', // 协议相对 URL（不带 scheme，此前漏判）
+    '//127.0.0.1/theme',
+    'http://127.0.0.1.nip.io/theme',      // DNS rebinding
+    'http://10.0.0.1.sslip.io/theme',
+    'http://[::ffff:127.0.0.1]/theme',    // IPv4-mapped IPv6
+    'http://[::ffff:169.254.169.254]/theme'
+  ];
+  for (const endpoint of bypassEndpoints) {
+    lastUrl = null;
+    const config = await fetchRemoteThemeConfig({ endpoint });
+    assert.equal(config, null, `${endpoint} 应被拦（SSRF 绕过向量）`);
+    assert.equal(lastUrl, null, `${endpoint} 不该发请求`);
+  }
+});
+
+test('redirect:error：fetch 调用带 redirect=error（拒绝重定向防 SSRF）', async () => {
+  await fetchRemoteThemeConfig({ endpoint: '/api/theme' });
+  assert.equal((lastInit as { redirect?: string } | null)?.redirect, 'error');
+});
+
 test('非 200：静默返回 null', async () => {
   respond = () => Promise.resolve({ ok: false, json: async () => ({}) });
   const config = await fetchRemoteThemeConfig({ endpoint: '/api/theme' });

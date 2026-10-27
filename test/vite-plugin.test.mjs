@@ -166,3 +166,23 @@ test('.ts 与 .js 并存时 .ts 优先（清单序即优先级）', () => {
   assert.match(code, /"\.\/both\/mobile\/login\/colors\/white\/index\.ts": __colors\d+/);
   assert.doesNotMatch(code, /colors\/white\/index\.js/);
 });
+
+test('恶意目录名（大写/中文/点开头）被跳过，不进产物', () => {
+  const { root, put } = makeProject();
+  put('themes/BadPkg/index.ts', 'export default {};');
+  put('themes/BadPkg/mobile/login/index.vue', '<template/>');
+  put('themes/包名/index.ts', 'export default {};');
+  put('themes/.hidden/index.ts', 'export default {};');
+  put('themes/default/MOBILE/login/index.vue', '<template/>');
+  const code = drive({ root, env: {} }).load(VIRTUAL).code;
+  assert.doesNotMatch(code, /BadPkg|包名|\.hidden|MOBILE/);
+  assert.match(code, /"\.\/default\/index\.ts"/); // 合法包 default 仍正常
+});
+
+test("views 非法文件名（含单引号，会触发说明符黑名单）被跳过、不抛错", () => {
+  const { root, put } = makeProject();
+  put("views/evil'quote.ts", 'export const x = 1;');
+  const code = drive({ root, env: {} }).load(VIRTUAL).code;
+  assert.doesNotMatch(code, /evil/); // 非法文件名不进 decls
+  assert.match(code, /devices\.ts/); // 合法声明正常收集
+});

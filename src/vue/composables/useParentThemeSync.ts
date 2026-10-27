@@ -14,6 +14,7 @@
  *
  * origin 白名单是宿主参数（哪些父应用可信是部署事实），本模块只调用 isAllowedOrigin。
  */
+import { normalizeRemoteThemeConfig } from '../../scheme';
 import type { RemoteThemeConfig } from '../../scheme';
 
 /** 宿主适配器 */
@@ -67,13 +68,11 @@ export function useParentThemeSync(options: ParentThemeSyncOptions): () => void 
     // 主题与组件级覆写（新协议）
     const wanted = typeof theme === 'string' ? theme : undefined;
     if (wanted !== undefined || (tokens && typeof tokens === 'object')) {
-      options.apply({
-        theme: wanted,
-        tokens:
-          tokens && typeof tokens === 'object'
-            ? (tokens as RemoteThemeConfig['tokens'])
-            : undefined
-      });
+      // 🔴 归一与远程取数路径同源（normalizeRemoteThemeConfig）：跳原型链危险键 + 只收
+      //    string 值 + theme 过配色 id 白名单——不裸透传 postMessage 载荷（纵深防御，避免
+      //    未来某路径绕过 sanitize 直接消费 tokens 时暴露原型链污染面）。
+      const normalized = normalizeRemoteThemeConfig({ theme: wanted, tokens });
+      if (normalized) options.apply(normalized);
     }
   }
 

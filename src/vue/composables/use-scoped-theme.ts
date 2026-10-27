@@ -86,7 +86,8 @@ export function useScopedTheme(
       // token 注入（差集清理只动自己写过的名字；rejected 非空 = 有不合规值，已在 sanitize 时丢弃）
       const rejected = applyThemeLayers({ theme: rec.tokens }, { target: node });
       if (rejected.length > 0) {
-        console.warn(`[theme] 作用域忽略了 ${rejected.length} 条不合规的主题变量：${rejected.join('、')}`);
+        // 🔴 rejected 内容来自外部载荷，作为参数传而非拼进首参，防 console 格式化串注入
+        console.warn('[theme] 作用域忽略了 %d 条不合规的主题变量：%s', rejected.length, rejected.join('、'));
       }
       // 配色标识：与全局同一属性名，但挂在本元素上（作用域内可用
       // `[data-mauth-theme='<id>']` 祖先选择器命中；`html[...]` 前缀契约的不进作用域）

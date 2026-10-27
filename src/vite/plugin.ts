@@ -23,7 +23,7 @@
  * 运行时走 dist/vite/index.js（vite.config 由 esbuild 预打包后交给 Node 执行），
  * 类型由 exports 的 types 直供源码 —— 宿主消费已发布的包不需要先构建工作区。
  */
-import { existsSync, readdirSync, statSync } from 'node:fs';
+import { lstatSync, readdirSync, statSync } from 'node:fs';
 import { join, resolve, sep } from 'node:path';
 import type { Plugin } from 'vite';
 import {
@@ -164,6 +164,23 @@ function isDir(path: string): boolean {
   }
 }
 
+/**
+ * 叶子文件存在性检查（构建期任意文件读取防线）
+ *
+ * 🔴 用 `lstatSync(...).isFile()` 而非 `existsSync`：`existsSync` 底层 `stat` 跟随符号链接，
+ *    恶意主题包（供应链依赖，`VITE_THEME_DIR` 指向 `node_modules/<恶意包>/theme`）可携带
+ *    `index.ts -> ~/.aws/credentials` 这类 symlink，诱导构建期把 root 外的敏感文件读进产物/
+ *    回显进报错。`lstat` 不跟随 symlink（symlink 的 `isFile()` 为 false），从根上拒绝叶子级逃逸。
+ *    目录级 symlink 已由 `subdirs` 的 `readdirSync({ withFileTypes })` + `isDirectory()` 过滤。
+ */
+function safeIsFile(path: string): boolean {
+  try {
+    return lstatSync(path).isFile();
+  } catch {
+    return false;
+  }
+}
+
 function subdirs(path: string): string[] {
   try {
     return readdirSync(path, { withFileTypes: true })
@@ -180,7 +197,15 @@ function tsFiles(path: string): string[] {
   try {
     return readdirSync(path, { withFileTypes: true })
       // 🔴 声明是 .ts 源文件不是 .js（曾误写成 .js 导致 decls 恒空、页面静默不注册）
-      .filter(entry => entry.isFile() && entry.name.endsWith('.ts') && !entry.name.endsWith('.d.ts'))
+      // 🔴 文件名白名单：views/*.ts 文件名若含 `"` `'` `` ` `` `<` `>` 等字符，会被
+      //    toSpecifier → assertSafeModuleSpec 命中黑名单抛错、构建期崩溃（与「fail-soft
+      //    跳过」矛盾）。这里按 [a-zA-Z0-9_-] 收口，非法文件名静默不收集。
+      .filter(entry =>
+        entry.isFile() &&
+        entry.name.endsWith('.ts') &&
+        !entry.name.endsWith('.d.ts') &&
+        /^[a-zA-Z0-9_-]+\.ts$/.test(entry.name)
+      )
       .map(entry => entry.name)
       .sort();
   } catch {
@@ -196,7 +221,7 @@ function tsFiles(path: string): string[] {
  */
 function pickDefFile(dir: string): string | undefined {
   for (const name of THEME_DEF_FILE_CANDIDATES) {
-    if (existsSync(join(dir, name))) return name;
+    if (safeIsFile(join(dir, name))) return name;
   }
   return undefined;
 }
@@ -266,7 +291,7 @@ function walk(base: string, segments: string[], result: ScanResult): void {
   if (segments.length === THEME_DIR_LEVELS.length - 1) {
     // 已到「包/设备/页面」层：版式组件（本页 index.vue）+ colors/ 配色
     const viewFile = join(base, VIEW_COMPONENT_FILE);
-    if (existsSync(viewFile)) {
+    if (safeIsFile(viewFile)) {
       result.views.push({
         pkg: segments[0],
         page: segments[2],
@@ -305,7 +330,7 @@ function walk(base: string, segments: string[], result: ScanResult): void {
           reason: `缺少 ${THEME_DEF_FILE_CANDIDATES.join(' / ')}（配色定义），该配色未注册`
         });
       }
-      if (existsSync(join(colorDir, THEME_COLOR_STYLE_FILE))) {
+      if (safeIsFile(join(colorDir, THEME_COLOR_STYLE_FILE))) {
         result.styles.push({
           key: `${keyBase}/${THEME_COLOR_STYLE_FILE}`,
           file: join(colorDir, THEME_COLOR_STYLE_FILE)
@@ -363,7 +388,7 @@ function collectParts(partsDir: string, segments: string[], result: ScanResult):
 
     // 部件实现：`parts/<id>/index.vue`（default 包 eager，其余惰性——与页面版式同口径）
     const partFile = join(partDir, PART_COMPONENT_FILE);
-    if (existsSync(partFile)) {
+    if (safeIsFile(partFile)) {
       result.parts.push({
         pkg,
         device,
@@ -400,7 +425,7 @@ function collectParts(partsDir: string, segments: string[], result: ScanResult):
           file: join(colorDir, colorDef)
         });
       }
-      if (existsSync(join(colorDir, THEME_COLOR_STYLE_FILE))) {
+      if (safeIsFile(join(colorDir, THEME_COLOR_STYLE_FILE))) {
         result.styles.push({
           key: `${keyBase}/${THEME_COLOR_STYLE_FILE}`,
           file: join(colorDir, THEME_COLOR_STYLE_FILE)
@@ -623,7 +648,7 @@ export function themeAssets(options: ThemeAssetsPluginOptions = {}): Plugin {
       if (!isDir(dir)) return { code: renderEmptyModule(vue), map: null };
 
       const manifestPath = manifestFile ? join(dir, manifestFile) : '';
-      const manifestSpec = manifestPath && existsSync(manifestPath)
+      const manifestSpec = manifestPath && safeIsFile(manifestPath)
         ? toSpecifier(manifestPath, root)
         : null;
 

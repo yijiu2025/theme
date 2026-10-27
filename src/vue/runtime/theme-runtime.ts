@@ -45,8 +45,10 @@ export function useThemeRuntime(
         theme: themeTokens.value,
         external: externalTokens.value
       });
+      // 🔴 rejected 内容来自外部载荷，作为**参数**传而非拼进首参——避免 console 格式化串注入
+      //    （攻击者可控的 %c/%o 序列伪造控制台输出）。
       if (rejected.length > 0) {
-        console.warn(`[theme] 忽略了 ${rejected.length} 条不合规的主题变量：${rejected.join('、')}`);
+        console.warn('[theme] 忽略了 %d 条不合规的主题变量：%s', rejected.length, rejected.join('、'));
       }
     },
     { immediate: true }
@@ -59,24 +61,30 @@ export function useThemeRuntime(
   let styleEpoch = 0;
   /** dispose 标志：销毁后在途的 loadThemeStyle 不得再写 DOM（epoch 只挡「切换」不挡「销毁」） */
   let disposed = false;
+  /**
+   * 自持的 style 节点引用（🔴 防 DOM Clobbering）：运行时判断用闭包引用而非
+   * `document.getElementById('mauth-theme-css')`——后者可被页面注入的同 id 元素污染
+   * （误判已存在、写错节点、dispose 删错元素）。id 仅保留作调试/外部定位。
+   */
+  let styleNode: HTMLStyleElement | null = null;
   async function loadThemeStyle(id: string, pkg: string, device: string, page: string): Promise<void> {
     const epoch = ++styleEpoch;
     const loader = getThemeRecord({ id, device, pkg, page }).loadStyle;
 
     if (!loader) {
-      document.getElementById(STYLE_ELEMENT_ID)?.remove();
+      styleNode?.remove();
+      styleNode = null;
       return;
     }
     try {
       const css = await loader();
       if (disposed || epoch !== styleEpoch) return; // 销毁或期间又切了主题，丢弃本次结果
-      let node = document.getElementById(STYLE_ELEMENT_ID) as HTMLStyleElement | null;
-      if (!node) {
-        node = document.createElement('style');
-        node.id = STYLE_ELEMENT_ID;
-        document.head.appendChild(node);
+      if (!styleNode) {
+        styleNode = document.createElement('style');
+        styleNode.id = STYLE_ELEMENT_ID;
+        document.head.appendChild(styleNode);
       }
-      node.textContent = css;
+      styleNode.textContent = css;
     } catch {
       /* 主题附加样式加载失败不影响登录 */
     }
@@ -170,7 +178,8 @@ export function useThemeRuntime(
     clearThemeTokens();
     document.documentElement.classList.remove('dark');
     delete document.documentElement.dataset.mauthTheme;
-    document.getElementById(STYLE_ELEMENT_ID)?.remove();
+    styleNode?.remove();
+    styleNode = null;
   }
 
   return { themeTokens, externalTokens, applyThemeConfig, dispose };

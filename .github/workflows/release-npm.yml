@@ -4,8 +4,8 @@
 # 命名：按家族 CI 规范（fullstack-rules → ci-conventions.md §六），发布族一律
 #       `release-<target>.yml`；本仓发布目标是 npm 包 ⇒ release-npm.yml。
 #
-# 为什么装依赖用 `npm install` 而不是 `npm ci`：
-#   库仓口径（规范 §七）—— 发布前现算依赖树，无 lock 复现需求。
+# 装依赖用 `npm ci`：package-lock.json 已跟踪入库（可复现、收紧供应链投毒面——`npm install`
+#   现算树可能在发布日把依赖升级到被投毒/不兼容版本）。
 #
 # 🔴 为什么这里只发布、不同步宿主：
 #   本仓是**独立仓**（yijiu2025/theme），CI checkout 里既没有 oauth21 也没有根仓，
@@ -72,6 +72,21 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
+      # 🔴 防 ref 注入：workflow_dispatch 的 inputs.tag 完全由触发者控制，直接拼进 checkout
+      #    ref 可检出任意分支/commit、在 npm install 阶段执行恶意 postinstall（runner 持
+      #    id-token:write）。在 checkout 之前（不依赖仓库代码）用纯 shell 校验 tag 形态。
+      #    用 env 传递 inputs.tag 而非直接拼 shell：避免命令替换注入。
+      - name: 校验 tag 名（防 ref 注入）
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          INPUT_TAG: ${{ inputs.tag }}
+        run: |
+          echo "$INPUT_TAG" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$' || {
+            echo "::error::inputs.tag 必须形如 v1.2.3，收到「$INPUT_TAG」——拒绝 checkout 任意 ref"
+            exit 1
+          }
+          echo "tag 形态合法：$INPUT_TAG"
+
       - uses: actions/checkout@v4
         with:
           # 手动重跑时 checkout 到指定 tag，保证源码版本 == 要发布的版本
@@ -116,14 +131,15 @@ jobs:
           }
 
           if (!process.env.ACTIONS_ID_TOKEN_REQUEST_URL) {
-            console.log('::warning::未检测到 OIDC 环境变量 —— 确认 permissions.id-token: write 已配置，否则 npm 会回退找 token');
+            console.error('::error::未检测到 OIDC 环境变量（ACTIONS_ID_TOKEN_REQUEST_URL）——permissions.id-token: write 缺失，npm 会静默回退 token 通道（不可审计）');
+            process.exit(1);
           }
 
           console.log('OIDC 前置 ✅ npm ' + npmV + ' / node ' + nodeV + ' / id-token=' + (process.env.ACTIONS_ID_TOKEN_REQUEST_URL ? '有' : '无'));
           "
 
-      - name: Install（库仓口径：现算依赖树）
-        run: npm install
+      - name: Install（npm ci：lock 已跟踪，可复现 + 收紧供应链投毒面）
+        run: npm ci
 
       - name: 类型检查 + 单测（npm test 内含构建）
         run: npm run typecheck && npm test

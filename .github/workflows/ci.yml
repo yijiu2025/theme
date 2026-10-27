@@ -5,7 +5,7 @@ name: CI
 #
 # 本文件是**唯一入口**（家族 CI 规范见 fullstack-rules → ci-conventions.md）：
 #   · 库仓自建门禁，不走前端家族共享门禁 ci-quality.yml（本仓是 npm 库，
-#     无 lint 框架、无 lock 复现需求，安装口径 `npm install` 现算树）；
+#     无 lint 框架、lock 已跟踪入库，安装口径 `npm ci`）；
 #   · 顺序口径仍按家族规范：类型 →（无规范层，本仓零依赖纯 TS 由 tsc 兜）→ 单测 → 构建；
 #   · Node 矩阵 [20, 22] 是**刻意**偏离家族统一 22 的一处：本仓 engines >= 18
 #     且对外发布，要在两条 LTS 上验产物可加载，避免单版本绿灯误导下游。
@@ -43,8 +43,8 @@ jobs:
         with:
           node-version: ${{ matrix.node }}
 
-      - name: Install（库仓口径：现算依赖树）
-        run: npm install
+      - name: Install（npm ci：lock 已跟踪）
+        run: npm ci
 
       - name: Type check
         run: npm run typecheck

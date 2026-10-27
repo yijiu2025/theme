@@ -41,24 +41,63 @@ export function isRemoteThemeEnabled(endpoint: string | undefined): boolean {
 }
 
 /**
+ * 私有 / 回环 IPv4 网段判断（点分十进制的四个字节；私有网段只由前两字节决定，后两字节保留作语义完整）
+ */
+function isPrivateIpv4(a: number, b: number, _c: number, _d: number): boolean {
+  if (a === 0 || a === 10 || a === 127) return true;
+  if (a === 169 && b === 254) return true; // 链路本地
+  if (a === 172 && b >= 16 && b <= 31) return true;
+  if (a === 192 && b === 168) return true;
+  return false;
+}
+
+/**
  * 判断主机名是否落在私有 / 回环 / 链路本地网段（SSRF 纵深防御）。
- * 覆盖 IPv4（0/10/127/169.254/172.16-31/192.168）与 IPv6（::/::1/fc00::/7/fe80::/10）
- * 及 localhost 家族。只做「网段判断」不做「公网可达性」判断。
+ *
+ * 覆盖（字符串层能可靠判断的全部形态）：
+ *   · IPv4 点分十进制（0/10/127/169.254/172.16-31/192.168）
+ *   · IPv6 回环/唯一本地/链路本地（::/::1/展开回环/fc00::/7/fe80::/10）
+ *   · localhost 家族
+ *   · DNS rebinding 服务后缀（nip.io/xip.io/sslip.io/lvh.me/localtest.me —— 把内网 IP
+ *     映射成公网域名再解析回内网，字符串上非私有、真实连接目标私有）
+ *   · IPv4-mapped IPv6（::ffff:127.0.0.1 → 剥出内嵌 IPv4 重判）
+ *   · 整数 / 十六进制 IP 字面量（2130706433 / 0x7f000001 → 归一成点分重判）
+ *
+ * 浏览器环境拿不到 DNS 解析结果，攻击者自建域名的 DNS rebinding 无法在字符串层识别；
+ * 那是「只允许与页面同源」才能根除的残余面，此处做到字符串层最严。
  */
 function isPrivateHost(hostname: string): boolean {
   const h = hostname.toLowerCase().replace(/^\[|\]$/g, ''); // 去 IPv6 方括号
   if (h === 'localhost' || h === 'localhost.localdomain' || h.endsWith('.localhost')) return true;
-  const ipv4 = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(h);
-  if (ipv4) {
-    const a = Number(ipv4[1]);
-    const b = Number(ipv4[2]);
-    if (a === 0 || a === 10 || a === 127) return true;
-    if (a === 169 && b === 254) return true;
-    if (a === 172 && b >= 16 && b <= 31) return true;
-    if (a === 192 && b === 168) return true;
-    return false;
+
+  // DNS rebinding 服务后缀
+  if (/\.(nip\.io|xip\.io|sslip\.io|lvh\.me|localtest\.me)$/.test(h)) return true;
+
+  // IPv4-mapped IPv6：::ffff:a.b.c.d 会被 URL 解析器归一成 ::ffff:XXXX:YYYY（十六进制），
+  //    两种形态都要剥出内嵌 IPv4 重判（XXXX = a*256+b，YYYY = c*256+d）。
+  const mapped = /^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/.exec(h);
+  if (mapped) {
+    const hi = parseInt(mapped[1], 16);
+    const lo = parseInt(mapped[2], 16);
+    return isPrivateIpv4((hi >> 8) & 0xff, hi & 0xff, (lo >> 8) & 0xff, lo & 0xff);
   }
+  const mappedDotted = /^::ffff:(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(h);
+  if (mappedDotted) return isPrivateIpv4(+mappedDotted[1], +mappedDotted[2], +mappedDotted[3], +mappedDotted[4]);
+
+  const ipv4 = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(h);
+  if (ipv4) return isPrivateIpv4(+ipv4[1], +ipv4[2], +ipv4[3], +ipv4[4]);
+
+  // 整数（2130706433 = 127.0.0.1）/ 十六进制（0x7f000001）IP 字面量：归一成点分重判
+  const intIp = /^0x([0-9a-f]+)$/.exec(h) ?? /^(\d+)$/.exec(h);
+  if (intIp) {
+    const n = h.startsWith('0x') ? parseInt(intIp[1], 16) : Number(intIp[1]);
+    if (Number.isSafeInteger(n) && n >= 0 && n <= 0xffffffff) {
+      return isPrivateIpv4((n >>> 24) & 0xff, (n >>> 16) & 0xff, (n >>> 8) & 0xff, n & 0xff);
+    }
+  }
+
   if (h === '::' || h === '::1') return true;
+  if (/^0(?::0){6}:1$/.test(h)) return true; // IPv6 回环展开形式 0:0:0:0:0:0:0:1
   if (/^f[cd][0-9a-f]{2}:/i.test(h)) return true; // fc00::/7 唯一本地
   if (/^fe[89ab][0-9a-f]:/i.test(h)) return true; // fe80::/10 链路本地
   return false;
@@ -87,10 +126,13 @@ export async function fetchRemoteThemeConfig(
   if (url.protocol !== 'http:' && url.protocol !== 'https:') {
     return null;
   }
-  // 绝对 URL 的 endpoint 才做主机校验：相对路径（`/api/theme`）resolve 到宿主自身
-  // origin，属同源，安全；绝对 URL 指向私有/回环网段时默认拒绝（防 SSRF）。
-  const isAbsolute = /^[a-z][a-z0-9+.-]*:/i.test(endpoint.trim());
-  if (isAbsolute && !options.allowPrivateHosts && isPrivateHost(url.hostname)) {
+  // 跨源才做主机校验：相对路径（`/api/theme`）与同源 `//host` resolve 到宿主自身 origin，
+  // 属同源安全；跨源才默认拒绝私有/回环网段（防 SSRF）。
+  // 🔴 不能用「原始 endpoint 带不带 scheme」判绝对 —— `//169.254.169.254/...` 不带 scheme
+  //    却解析成跨源 host，用 scheme 正则判会漏判整段跳过校验。以**解析后** url.hostname
+  //    是否等于页面 hostname 为准。
+  const isCrossOrigin = url.hostname.toLowerCase() !== window.location.hostname.toLowerCase();
+  if (isCrossOrigin && !options.allowPrivateHosts && isPrivateHost(url.hostname)) {
     return null;
   }
   for (const [key, value] of Object.entries(options.params ?? {})) {
@@ -106,7 +148,11 @@ export async function fetchRemoteThemeConfig(
     const res = await fetch(url.toString(), {
       signal: controller.signal,
       credentials: options.omitCredentials === false ? 'include' : 'omit',
-      headers: { Accept: 'application/json' }
+      headers: { Accept: 'application/json' },
+      // 🔴 拒绝重定向：初始 host 通过白名单后 `302 → http://169.254.169.254`，浏览器 fetch
+      //    默认自动跟随并发请求（盲 SSRF），主机校验只在初始 URL 做过一次。redirect:'error'
+      //    遇重定向即 reject（进 catch 静默 null）——主题配置端点通常不需要重定向。
+      redirect: 'error'
     });
     if (!res.ok) return null;
     return normalizeRemoteThemeConfig(await res.json());

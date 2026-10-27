@@ -6,6 +6,7 @@
  * 联动是单向的：切 mode 换到对应系别的配色（dark→黑系标配、light→白系标配，
  * 两侧各记一个会话级记忆槽）；点色卡不改 mode。
  */
+import { THEME_ID_RE } from './constants.js';
 import type { ThemeTokenOverrides } from './tokens.js';
 
 /* ---------------------------------------------------------------------------
@@ -70,7 +71,9 @@ export function normalizeRemoteThemeConfig(data: unknown): RemoteThemeConfig | n
   const raw = data as Record<string, unknown>;
   const out: RemoteThemeConfig = {};
 
-  if (typeof raw.theme === 'string') out.theme = raw.theme;
+  // 🔴 theme 是配色 id：边界就按配色 id 白名单（[a-z0-9-]）收口，非法/超长值丢弃——
+  //    不能裸透传任意字符串，否则下游非 resolveThemeId 的消费路径会留下注入面。
+  if (typeof raw.theme === 'string' && THEME_ID_RE.test(raw.theme)) out.theme = raw.theme;
 
   const mode = normalizeMode(raw.mode);
   if (mode) out.mode = mode;

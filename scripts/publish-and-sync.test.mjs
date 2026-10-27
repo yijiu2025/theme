@@ -127,3 +127,16 @@ test('patchLockfile：skinsuite 块缺失 → 抛错', () => {
   const broken = fakeLock('\n').replace(/"node_modules\/skinsuite": \{[\s\S]*?\},/, '');
   assert.throws(() => patchLockfile(Buffer.from(broken), OLD_SPEC, NEW_VERSION, INTEGRITY, TARBALL), /找不到/);
 });
+
+test('patchLockfile：lock 里有两个 skinsuite 块（不同版本）→ 抛「不唯一」', () => {
+  // 🔴 回归护栏：此前用 split(blockMatch[0]) 计数，两个不同版本块（文本不同）时计数仍为 1，
+  //    守卫形同虚设、只补第一个其余漏补。现已改 blockHeadRe 全局计数，此处锁定该修复。
+  const twoBlocks = fakeLock('\n').replace(
+    /"node_modules\/vue": \{/,
+    '"node_modules/skinsuite": {\n      "version": "0.5.0",\n      "resolved": "https://registry.npmjs.org/skinsuite/-/skinsuite-0.5.0.tgz",\n      "integrity": "sha512-OLD2=="\n    },\n    "node_modules/vue": {'
+  );
+  assert.throws(
+    () => patchLockfile(Buffer.from(twoBlocks), OLD_SPEC, NEW_VERSION, INTEGRITY, TARBALL),
+    /不唯一/
+  );
+});
