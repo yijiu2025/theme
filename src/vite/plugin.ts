@@ -70,6 +70,23 @@ export interface ThemeAssetsPluginOptions {
    * 默认 `true`：Vue 宿主零改动。
    */
   vue?: boolean;
+  /**
+   * **内置包**里哪些页面仍走 eager 静态 import（其余页面改惰性 `import()`）。
+   *
+   * 省略 = 全部 eager（默认，向后兼容）：内置包版式是首屏路径（login / 壳），
+   * 静态 import 能首帧同步拿到、不闪屏、不额外来一个请求。
+   *
+   * 但**后台内容页**不是首屏：它们各自还有一条懒加载路由 chunk，把 10 个页面的
+   * 模板与样式一起打进入口 chunk，等于让登录页为用户可能一辈子不访问的角色管理页
+   * 付流量（实测 scaffold 入口 176 kB → 约 400 kB）。这类宿主把首屏页面名写进
+   * 这个白名单（如 `['login', 'console']`）即可。
+   *
+   * 🔴 只影响内置包：非内置包本来就是惰性的。
+   * 🔴 惰性页面的 `builtin()` 返回 null（`ViewRegistry` 对 Promise 形态明确返回 null），
+   *    `<ThemeView>` 会先渲染空、等 chunk 到位再接管 —— 与"路由 chunk 未到"同一种
+   *    空窗，不再额外多一次闪烁。
+   */
+  eagerPages?: readonly string[];
 }
 
 interface ScanEntry {
@@ -467,8 +484,11 @@ function assertSafeModuleSpec(spec: string): string {
  * 渲染一张「按分组键组织的组件加载表」（themeViews / themeParts 共用同一形态）
  *
  * 形态契约（两表**逐字一致**，此前是两段近似重复的拼接代码，2026-10-24 收拢）：
- * - 内置包（DEFAULT_THEME_PACKAGE）的条目先做**静态 import**，表内用**同步返回**
- *   `` () => __<tag>N `` —— `ViewRegistry.builtin()` 要首帧零请求拿到内置包版式，不闪屏；
+ * - 内置包（DEFAULT_THEME_PACKAGE）**且**不在 `eagerPages` 白名单之外的条目，先做
+ *   **静态 import**，表内用**同步返回** `` () => __<tag>N `` —— `ViewRegistry.builtin()`
+ *   要首帧零请求拿到内置包版式，不闪屏；
+ * - `eagerPages` 给定时，内置包里**不在**白名单的页面按惰性处理（与第三方包同款），
+ *   用于把「后台内容页」挡在入口 chunk 之外（见 ThemeAssetsPluginOptions.eagerPages）；
  * - 其余包**惰性**：`() => import(spec)`，按需加载；
  * - 分组键 = 页面名（themeViews）/ 部件 id（themeParts），组内顺序 = 扫描顺序。
  *
@@ -485,9 +505,12 @@ function renderLoaderTable<T extends { key: string; file: string; pkg: string }>
   groupOf: (entry: T) => string,
   exportName: 'themeViews' | 'themeParts',
   tag: 'view' | 'part',
-  root: string
+  root: string,
+  eagerPages?: readonly string[]
 ): void {
-  const builtin = entries.filter(entry => entry.pkg === DEFAULT_THEME_PACKAGE);
+  const isEager = (entry: T): boolean =>
+    entry.pkg === DEFAULT_THEME_PACKAGE && (eagerPages === undefined || eagerPages.includes(groupOf(entry)));
+  const builtin = entries.filter(isEager);
   builtin.forEach((entry, index) => {
     lines.push(`import * as __${tag}${index} from ${JSON.stringify(toSpecifier(entry.file, root))};`);
   });
@@ -502,7 +525,7 @@ function renderLoaderTable<T extends { key: string; file: string; pkg: string }>
   for (const [group, grouped] of groups) {
     lines.push(`  ${JSON.stringify(group)}: {`);
     grouped.forEach(entry => {
-      if (entry.pkg === DEFAULT_THEME_PACKAGE) {
+      if (isEager(entry)) {
         const idx = builtin.indexOf(entry);
         lines.push(`    ${JSON.stringify(entry.key)}: () => __${tag}${idx},`);
       } else {
@@ -520,7 +543,13 @@ function renderLoaderTable<T extends { key: string; file: string; pkg: string }>
 /** 生成虚拟模块源码
  *  `vue: false` 时不生成 Vue 绑定层装配（import 'skinsuite/vue' + themeViews/themeParts
  *  加载表），只装内核注册表 + 清单 —— 纯 React/Node 宿主不被迫加载 Vue 运行时。 */
-function render(result: ScanResult, root: string, manifestSpec: string | null, vue: boolean): string {
+function render(
+  result: ScanResult,
+  root: string,
+  manifestSpec: string | null,
+  vue: boolean,
+  eagerPages?: readonly string[]
+): string {
   const lines: string[] = [
     // 装配依赖（纯内核机制）：本模块被 import 时自动装注册表 + 解析清单单例
     "import { installThemeRegistry, buildThemeRegistry, resolveThemeManifest, installThemeManifest } from 'skinsuite';",
@@ -565,8 +594,8 @@ function render(result: ScanResult, root: string, manifestSpec: string | null, v
   // 🔴 内置包用**同步返回**（`() => __viewN`，eager 静态 import 的模块命名空间），
   //    这样 `ViewRegistry.builtin()` 才能首帧同步拿到内置包版式（零请求、不闪屏）。
   if (vue) {
-    renderLoaderTable(lines, result.views, entry => entry.page, 'themeViews', 'view', root);
-    renderLoaderTable(lines, result.parts, entry => entry.partId, 'themeParts', 'part', root);
+    renderLoaderTable(lines, result.views, entry => entry.page, 'themeViews', 'view', root, eagerPages);
+    renderLoaderTable(lines, result.parts, entry => entry.partId, 'themeParts', 'part', root, eagerPages);
   } else {
     // 非 Vue 宿主：空加载表（不 import 任何 .vue 组件）
     lines.push('export const themeViews = {};');
@@ -656,7 +685,7 @@ export function themeAssets(options: ThemeAssetsPluginOptions = {}): Plugin {
       warnSkips(scanned.skips);
       // 返回 { code, map } 形态（而非裸字符串）：map 显式为 null = 声明「无 sourcemap」，
       // 虚拟模块内的运行时报错行号不再参与任何 map 推断；将来要挂真 map 也不用改契约。
-      return { code: render(scanned, root, manifestSpec, vue), map: null };
+      return { code: render(scanned, root, manifestSpec, vue, options.eagerPages), map: null };
     },
 
     configureServer(server) {

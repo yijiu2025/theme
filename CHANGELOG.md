@@ -2,6 +2,22 @@
 
 本包遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)：0.x 阶段的次要版本允许重命名与结构调整（公开出口是显式具名导出，改名即 semver-minor）。
 
+## 1.1.0 — 2026-11-15
+
+### 新增
+
+- **`themeAssets({ eagerPages })`**：让内置包里**指定页面**才走 eager 静态 import，其余页面
+  改惰性 `import()`。默认省略 = 保持原行为（全部 eager，`ViewRegistry.builtin()` 首帧零请求），
+  oauth21 这类「首屏只有登录页」的宿主零改动。
+- 为什么需要：内置包版式原本全部静态 import ⇒ 打进入口 chunk。后台类宿主的**内容页**
+  各自还有一条懒加载路由，把十来个页面的模板与样式一起塞进入口，等于让登录页为一个
+  可能永不访问的角色管理页付流量（scaffold 实测入口 176 kB → 约 400 kB）。
+  传 `['login', 'console']` 后入口回到基线，内容页版式跟着各自路由 chunk 走。
+- 惰性页面的 `builtin()` 返回 null（`ViewRegistry` 对 Promise 形态明确返回 null），
+  `<ThemeView>` 先渲染空、chunk 到位再接管 —— 与「路由 chunk 未到」同一种空窗，不额外闪。
+- 测试：`vite-plugin.test.mjs` 补两例（白名单内仍 eager / 白名单外不生成静态 import；
+  省略选项时行为不变），共 101 例全绿。
+
 ## 1.0.1 — 2026-11-15
 
 ### 修复

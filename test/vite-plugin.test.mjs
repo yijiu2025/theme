@@ -110,6 +110,50 @@ test('加载表形态：内置包 eager 同步返回、外置包惰性 import、
   assert.match(code, /\?inline"\)\.then\(__m\d+ => __m\d+\.default\)/);
 });
 
+test('eagerPages：内置包只有白名单页面走 eager，其余按惰性（后台内容页不进首屏）', () => {
+  const { root, put } = makeProject();
+  put('themes/default/mobile/console/index.vue', '<template/>');
+  const code = drive({ root, env: {}, options: { eagerPages: ['login'] } }).load(VIRTUAL).code;
+  // 白名单页面：静态 import + 同步返回（首屏零请求那条路径）
+  assert.match(code, /^ {4}"\.\/default\/mobile\/login\/index\.vue": \(\) => __view\d+,$/m);
+  // 不在白名单：与第三方包同款惰性 import
+  assert.match(code, /^ {4}"\.\/default\/mobile\/console\/index\.vue": \(\) => import\("/m);
+  // 关键：不能再为它生成静态 import —— 否则整页 DOM 照样被打进入口 chunk
+  assert.doesNotMatch(
+    code,
+    /^import \* as __view\d+ from "\/src\/theme\/themes\/default\/mobile\/console\/index\.vue";$/m
+  );
+});
+
+test('eagerPages 省略 = 内置包全部 eager（默认行为不变，oauth21 不受影响）', () => {
+  const { root, put } = makeProject();
+  put('themes/default/mobile/console/index.vue', '<template/>');
+  const code = drive({ root, env: {} }).load(VIRTUAL).code;
+  assert.match(code, /^ {4}"\.\/default\/mobile\/console\/index\.vue": \(\) => __view\d+,$/m);
+});
+
+test('eagerPages：内置包只有白名单页面走 eager，其余按惰性（后台内容页不进首屏）', () => {
+  const { root, put } = makeProject();
+  put('themes/default/mobile/console/index.vue', '<template/>');
+  const code = drive({ root, env: {}, options: { eagerPages: ['login'] } }).load(VIRTUAL).code;
+  // 白名单页面：静态 import + 同步返回（首屏零请求那条路径）
+  assert.match(code, /^ {4}"\.\/default\/mobile\/login\/index\.vue": \(\) => __view\d+,$/m);
+  // 不在白名单：与第三方包同款惰性 import
+  assert.match(code, /^ {4}"\.\/default\/mobile\/console\/index\.vue": \(\) => import\("/m);
+  // 关键：不能再为它生成静态 import —— 否则整页 DOM 照样被打进入口 chunk
+  assert.doesNotMatch(
+    code,
+    /^import \* as __view\d+ from "\/src\/theme\/themes\/default\/mobile\/console\/index\.vue";$/m
+  );
+});
+
+test('eagerPages 省略 = 内置包全部 eager（默认行为不变，oauth21 不受影响）', () => {
+  const { root, put } = makeProject();
+  put('themes/default/mobile/console/index.vue', '<template/>');
+  const code = drive({ root, env: {} }).load(VIRTUAL).code;
+  assert.match(code, /^ {4}"\.\/default\/mobile\/console\/index\.vue": \(\) => __view\d+,$/m);
+});
+
 test('写歪目录：dev(serve) 去重警告、build 零噪音', () => {
   const { root, base, put } = makeProject();
   // 写歪两处：配色只有 scss 没有定义文件；页面目录没有版式组件
