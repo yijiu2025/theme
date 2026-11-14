@@ -12,7 +12,14 @@
  *    极难定位。
  */
 import { ref, watch } from 'vue';
-import { getDefaultThemeId, getThemeRecord, resolveThemeId, toneOfAnyScope } from '../../registry';
+import { DEFAULT_THEME_COLOR, DEFAULT_THEME_DARK_COLOR } from '../../constants';
+import {
+  getDefaultThemeId,
+  getThemeRecord,
+  listColorIdsOfTone,
+  resolveThemeId,
+  toneOfAnyScope
+} from '../../registry';
 import type { ThemeTokenOverrides } from '../../tokens';
 import { applyThemeLayers, clearThemeTokens } from './token-runtime';
 import { useThemeSources } from '../composables/useThemeSources';
@@ -114,6 +121,12 @@ export function useThemeRuntime(
   /**
    * 切版式 → 自动重置配色（让用户立刻感受到新版的视觉特征）。
    * 守门：仅新版式触发、仅 activeView 真的变了、该设备被 URL 锁定时不动、不落盘、不动 mode/槽。
+   *
+   * 🔴 重置必须**落在当前明暗系别里**：只按"该包默认色"重置，会让「深色下换版式」
+   *    掉回白系（html 上的 .dark 随之消失，整站变白）—— 明暗是与版式正交的维度，
+   *    换版式不该改变它。做法：先在该包 × 该设备 × 该页面里找目标系别的配色，
+   *    找不到（该包确实没做深色）才退回 `getDefaultThemeId` 的兜底链 —— 那种情况下
+   *    变浅色才是对的。
    */
   const stopViewReset = watch(scope.activeView, (newView, oldView) => {
     if (!newView || newView === oldView) return;
@@ -121,7 +134,12 @@ export function useThemeRuntime(
     const currentPkg = scope.themeRecordFor(oldView, scope.activeDevice.value, scope.activePage.value).pkg;
     if (currentPkg === newView) return;
     if (scope.urlLockedThemeOf(scope.activeDevice.value)) return;
-    const fallback = getDefaultThemeId({ device: scope.activeDevice.value, page: scope.activePage.value, pkg: newView });
+    const tone = intent.mode.value === 'system' ? (intent.systemDark.value ? 'dark' : 'light') : intent.mode.value;
+    const toneIds = listColorIdsOfTone(scope.activeDevice.value, scope.activePage.value, newView, tone);
+    const standard = tone === 'dark' ? DEFAULT_THEME_DARK_COLOR : DEFAULT_THEME_COLOR;
+    const fallback =
+      (toneIds.includes(standard) ? standard : toneIds[0]) ??
+      getDefaultThemeId({ device: scope.activeDevice.value, page: scope.activePage.value, pkg: newView });
     if (!fallback || fallback === scope.themeId.value) return;
     scope.themeId.value = fallback;
   });
