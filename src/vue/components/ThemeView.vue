@@ -27,6 +27,21 @@ const props = defineProps<{
   device: string;
   /** 业务上下文（传进版式组件的 props） */
   ctx: object;
+  /**
+   * token 作用域：本页是否**自己锚定**配色归属
+   *
+   * - `'page'`（默认）：把 `(page, 版式id)` 写进 store，配色按「包 × 设备 × 本页」解析。
+   *   适用于**自成视觉作用域**的页面（登录页、授权页、应用壳、独立错误页）。
+   * - `'inherit'`：**不写** store 的 `activePage` —— 本页沿用上层已锚定的配色。
+   *   适用于**住在壳里的内容页**：壳已经把 `console` 那套 token 注入好了，内容页只是
+   *   换一块业务 DOM，不该再开一个新的配色作用域。
+   *
+   * 🔴 为什么必须有这个开关：配色记录是按「包 × 设备 × 页面」声明的，而主题包通常只给
+   *    `console` / `login` 这类**壳页**写配色。内容页若默认 `'page'`，`getThemeRecord`
+   *   查不到记录 → 返回空记录 → token 层被清空，页面上所有 `--mauth-*` 变成
+   *   「未定义」（2026-11-15 在 scaffold 上踩过：15 个页面全变无样式）。
+   */
+  scope?: 'page' | 'inherit';
 }>();
 
 const store = inject<ThemeStoreLike>(themeStoreKey);
@@ -56,7 +71,15 @@ const viewId = computed(() =>
 );
 
 /** 告知 store「当前是哪一页、哪套版式」（配色挂在版式下，token 注入依赖它） */
-watch(viewId, id => store.setActivePageView(props.page, id), { immediate: true });
+watch(
+  viewId,
+  id => {
+    // 内容页继承外壳的配色作用域：写了 activePage 就会把壳的 token 顶掉（见 props.scope）
+    if (props.scope === 'inherit') return;
+    store.setActivePageView(props.page, id);
+  },
+  { immediate: true }
+);
 
 /**
  * 告知 store「当前渲染在哪台设备上」—— **device prop 即告知**（2026-10-20）

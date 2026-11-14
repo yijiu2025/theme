@@ -102,6 +102,16 @@ export function useThemeRuntime(
    * 生效 id 按设备取 URL 覆盖（与 themeRecordFor 同口径）。
    * 仅当"该设备没有这套配色、用了回落档"（record.meta.id !== id）时才 delete 属性。
    */
+  /**
+   * 已经报过「该页没有配色记录」的作用域（包/设备/页）
+   *
+   * 这条 warn 是**静默失效**的唯一线索：缺记录 ⇒ token 层被清空 ⇒ 页面上所有
+   * `--mauth-*` 变成「未定义」，浏览器却一句错都不报，只看到"样式全没了"。
+   * （2026-11-15 scaffold 把 12 个内容页升格成页面域时踩过：主题包只给 console/login
+   *   写过配色，其余页面全裸奔。这类问题必须自己喊出来。）
+   */
+  const warnedEmptyScopes = new Set<string>();
+
   const stopRecord = watch(
     [scope.themeId, scope.deviceTheme, scope.activeDevice, scope.activePage, scope.activeView],
     ([, , device, page, view]) => {
@@ -111,6 +121,20 @@ export function useThemeRuntime(
       const root = document.documentElement;
       if (record.meta.id === id) root.dataset.mauthTheme = id;
       else delete root.dataset.mauthTheme;
+
+      // 空记录兜底（tokens 为空）= 该「包 × 设备 × 页面」一个配色都没声明，喊一次
+      if (!record.tokens && page) {
+        const scopeKey = `${view}/${device}/${page}`;
+        if (!warnedEmptyScopes.has(scopeKey)) {
+          warnedEmptyScopes.add(scopeKey);
+          console.warn(
+            `[theme] 主题包「${view}」在 ${device} 端的页面「${page}」没有任何配色记录：` +
+              '本次注入为空，该页所有 --mauth-* 都会是「未定义」。修法二选一：' +
+              `① 给 themes/${view}/${device}/${page}/colors/ 补一份配色；` +
+              '② 若本页只是壳里的内容页、应沿用壳的配色，改用 <ThemeView scope="inherit">。'
+          );
+        }
+      }
 
       themeTokens.value = record.tokens ?? null;
       void loadThemeStyle(id, view, device, page);
