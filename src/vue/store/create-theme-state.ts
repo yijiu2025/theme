@@ -143,6 +143,7 @@ export function createThemeState(options: ThemeStateOptions = {}) {
     // ---- 版式意图（store 化；与 themeId/deviceTheme 同形）----
     viewIntent: scope.viewIntent,
     deviceViewOf: scope.deviceViewOf,
+    persistedViewOf: scope.persistedViewOf,
     setDeviceView: scope.setDeviceView,
     clearDeviceViewOverride: scope.clearDeviceViewOverride,
     // ---- 来自 intent ----

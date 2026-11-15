@@ -13,7 +13,7 @@ import { computed, ref } from 'vue';
 import { DEFAULT_THEME_PACKAGE } from '../../constants';
 import { getThemeRecord, listThemes } from '../../registry';
 import { currentQuery } from '../device/device-domain';
-import { readInitialTheme, readInitialView, readUrlIntent, safeSet } from './theme-persistence';
+import { readInitialTheme, readInitialView, readUrlIntent, safeGet, safeSet } from './theme-persistence';
 import type { DeviceThemeIntent, ThemeStorageKeys } from './theme-persistence';
 import {
   DEFAULT_VIEW_PARAM,
@@ -121,14 +121,42 @@ export function useThemeScope(
    * 用户会觉得"选了不生效"。`setDeviceView` 负责写盘，所以任何显式选包都会被记住；
    * 守卫这类"早于渲染"的调用方也能通过 `deviceViewOf()` 读到它。
    */
-  const viewIntent = ref<string | null>(urlViewIntent.viewIntent ?? readInitialView(keys));
+  const viewIntent = ref<string | null>(urlViewIntent.viewIntent);
+
+  /**
+   * 某设备**用户显式选过**的版式（只读本地存储；不含 URL 一次性覆盖）
+   *
+   * @param device 设备名
+   * @returns 包 id；没选过返回 null
+   */
+  function persistedViewOf(device: string = activeDevice.value): string | null {
+    return readPersistedView(device);
+  }
 
   /**
    * 某设备**显式指定**的版式 id（专属键 > 通用键；都没有返回 null）
    * —— `<ThemeView>` 与调试面板的**唯一数据源**（取代原先每次渲染现读 route.query）。
    */
   function deviceViewOf(device: string = activeDevice.value): string | null {
-    return deviceView.value[device] ?? viewIntent.value;
+    return deviceView.value[device] ?? viewIntent.value ?? readPersistedView(device);
+  }
+
+  /**
+   * 读某设备**落盘**的版式（上次在这个设备上选的包）
+   *
+   * 按设备分开存（`mauth:view:<设备>`）：桌面与手机是两种屏幕、两种使用场景，
+   * 用户完全可能"桌面用珍珠玻璃、手机用口袋版"。共用一个键会让后写的覆盖前写的。
+   *
+   * 回退读旧键（1.3.0 的全局单值 `mauth:view`）：升级用户的选择不丢。
+   *
+   * @param device 设备名
+   * @returns 包 id；没存过返回 null
+   */
+  function readPersistedView(device: string): string | null {
+    const scoped = safeGet(`${keys.view}:${device}`);
+    if (scoped) return scoped;
+    // 旧版本只有全局一份，取它当"这台设备也用这个"
+    return readInitialView(keys);
   }
 
   /** 某设备的版式是否被 URL **专属键**显式指定 → 该设备"锁定" */
@@ -149,8 +177,8 @@ export function useThemeScope(
     const next = { ...deviceView.value };
     next[device] = id;
     deviceView.value = next;
-    // 用户选过的包要跨会话记住（否则切路由 / 刷新就回默认包）
-    safeSet(keys.view, id);
+    // 只落这台设备：桌面与手机的版式可以不同，共用一个键会互相覆盖
+    safeSet(`${keys.view}:${device}`, id);
   }
 
   /**
@@ -241,6 +269,7 @@ export function useThemeScope(
     deviceViewOf,
     setDeviceView,
     syncUrlViewIntent,
+    persistedViewOf,
     setActiveDevice,
     setActivePageView,
     themeRecordFor,
