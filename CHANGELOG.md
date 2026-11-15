@@ -2,6 +2,24 @@
 
 本包遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)：0.x 阶段的次要版本允许重命名与结构调整（公开出口是显式具名导出，改名即 semver-minor）。
 
+## 1.3.0 — 2026-11-15
+
+### 新增
+
+- **版式（主题包）持久化**：`ThemeStorageKeys` 新增 `view`（默认 `mauth:view`）。`setDeviceView()`
+  写盘，`viewIntent` 初始化时按「URL `?th` > 落盘的包 > 空」取值。
+  此前包只由 URL 决定：切一条路由 query 就没了、刷新回默认包，用户以为"选了不生效"。
+  顺带让**路由守卫**这类早于渲染的调用方也能用 `deviceViewOf()` 读到"上次选的包"。
+- **`listPackages()`**：把装配期扫描到的包定义（`meta` / `views` / `coverage`）暴露出来，
+  宿主不再需要手抄一份包清单（抄漏 = 加包后面板里看不到）。
+- **`MauthThemePackage.accent?: string`**：宿主联动项的载体（如"选中本包时切到配套主色"）。
+  内核不解释，原样带出 —— 让"加一个包"只改包自己。
+
+### 修复
+
+- `buildThemeRegistry()` 重建时**清空**包表：上一张表里的包不该残留在 `listPackages()` 里
+  （删掉的包还挂在选择器上，是同一类"两份真相"的毛病）。
+
 ## 1.2.0 — 2026-11-15
 
 ### 新增

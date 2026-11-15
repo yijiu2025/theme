@@ -52,6 +52,13 @@ export interface MauthThemePackage {
     pages?: string[];
     requiredColors?: string[];
   };
+  /**
+   * 宿主联动项（**内核不解释**，原样带出来给宿主用）
+   *
+   * 目前用于「选中这个包时顺手切到配套主色」：值是一个主色预设 id（宿主的词汇）。
+   * 放在包定义里而不是宿主的清单里，是为了"加包不用改第二处"。
+   */
+  accent?: string;
 }
 
 /**

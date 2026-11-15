@@ -15,6 +15,14 @@ export interface ThemeStorageKeys {
   mode: string;
   /** 配色 id 键 */
   theme: string;
+  /**
+   * 版式（= 主题包）id 键
+   *
+   * 与 mode / theme 同级：**用户在哪个包里，下次进来还在那个包**。
+   * 加这一维之前，包只由 URL `?th` 决定 —— 切一次路由 query 就没了，刷新回到默认包，
+   * 用户会觉得"选了不生效"（2026-11-15 反馈）。
+   */
+  view: string;
 }
 
 /**
@@ -29,7 +37,8 @@ export interface ThemeStorageKeys {
  */
 export const DEFAULT_STORAGE_KEYS: ThemeStorageKeys = {
   mode: 'mauth:mode',
-  theme: 'mauth:theme'
+  theme: 'mauth:theme',
+  view: 'mauth:view'
 };
 
 /**
@@ -38,7 +47,9 @@ export const DEFAULT_STORAGE_KEYS: ThemeStorageKeys = {
  */
 export const LEGACY_STORAGE_KEYS: ThemeStorageKeys = {
   mode: 'theme',
-  theme: 'theme-id'
+  theme: 'theme-id',
+  /** 旧版本没有版式持久化，只是占位（读了也永远为空） */
+  view: 'theme-view'
 };
 
 /**
@@ -98,6 +109,18 @@ export function readInitialMode(keys: ThemeStorageKeys = DEFAULT_STORAGE_KEYS): 
  */
 export function readInitialTheme(keys: ThemeStorageKeys = DEFAULT_STORAGE_KEYS): string {
   return resolveThemeId(readWithLegacyFallback(keys.theme, LEGACY_STORAGE_KEYS.theme)) ?? DEFAULT_THEME_ID;
+}
+
+/**
+ * 初始化版式（= 主题包）id
+ *
+ * 只做读取，合法性交给调用方（包可能已被删掉，那时回退默认包）。
+ *
+ * @param keys 存储键名集合
+ * @returns 落盘的包 id；从未选过返回 null
+ */
+export function readInitialView(keys: ThemeStorageKeys = DEFAULT_STORAGE_KEYS): string | null {
+  return readWithLegacyFallback(keys.view, LEGACY_STORAGE_KEYS.view);
 }
 
 /** URL 上按设备解析出的配色意图：只记"这台设备被**显式**指定了哪套色" */

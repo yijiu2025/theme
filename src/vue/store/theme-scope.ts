@@ -13,7 +13,7 @@ import { computed, ref } from 'vue';
 import { DEFAULT_THEME_PACKAGE } from '../../constants';
 import { getThemeRecord, listThemes } from '../../registry';
 import { currentQuery } from '../device/device-domain';
-import { readInitialTheme, readUrlIntent } from './theme-persistence';
+import { readInitialTheme, readInitialView, readUrlIntent, safeSet } from './theme-persistence';
 import type { DeviceThemeIntent, ThemeStorageKeys } from './theme-persistence';
 import {
   DEFAULT_VIEW_PARAM,
@@ -112,8 +112,16 @@ export function useThemeScope(
    */
   const deviceView = ref<DeviceViewIntent>({ ...urlViewIntent.deviceView });
 
-  /** 全局版式意图 = URL 通用键（`?th`）；debug 显式写它时不落盘、不写 URL */
-  const viewIntent = ref<string | null>(urlViewIntent.viewIntent);
+  /**
+   * 全局版式意图
+   *
+   * 来源优先级：URL 通用键（`?th`）> **落盘的包**（`mauth:view`）> 空（回退包声明/默认包）。
+   *
+   * 落盘这一档是**必须有**的：`?th` 只活一次，切条路由 query 就没了，刷新就回默认包 ——
+   * 用户会觉得"选了不生效"。`setDeviceView` 负责写盘，所以任何显式选包都会被记住；
+   * 守卫这类"早于渲染"的调用方也能通过 `deviceViewOf()` 读到它。
+   */
+  const viewIntent = ref<string | null>(urlViewIntent.viewIntent ?? readInitialView(keys));
 
   /**
    * 某设备**显式指定**的版式 id（专属键 > 通用键；都没有返回 null）
@@ -141,6 +149,8 @@ export function useThemeScope(
     const next = { ...deviceView.value };
     next[device] = id;
     deviceView.value = next;
+    // 用户选过的包要跨会话记住（否则切路由 / 刷新就回默认包）
+    safeSet(keys.view, id);
   }
 
   /**

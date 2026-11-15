@@ -133,6 +133,8 @@ export function buildThemeRegistry(
   const { packages: packageModules, colors: colorModules, styles: colorStyles } = modules;
 
   const registry = new Map<string, MauthThemeRecord>();
+  // 重建即重置：这张表就是"全部"，上一张表的包不该残留（否则删掉的包还挂在选择器里）
+  installedPackages.clear();
   /** 包名 → 包定义的版式声明（配色未自带声明时继承它；跨设备共用一份） */
   const packageViews = new Map<string, Record<string, string> | undefined>();
 
@@ -147,6 +149,8 @@ export function buildThemeRegistry(
     // 目录名不合规、或忘了 export default，都跳过而不是抛错：一个写坏的包不该让整页起不来。
     if (!pkg || !def || typeof def !== 'object' || !def.meta) continue;
     packageViews.set(pkg, def.views);
+    // 包 id 以**目录名**为准（`meta.id` 写错不该让选择器指向一个不存在的包）
+    installedPackages.set(pkg, { ...def, meta: { ...def.meta, id: pkg } });
   }
 
   // ② 各包下的配色 —— 每条记录都带 pkg + device + page 三段归属
@@ -209,6 +213,15 @@ export function buildThemeRegistry(
 
 /** 模块级注册表单例（宿主 `installThemeRegistry` 装入；未装入时为空表，查询走空兜底） */
 let themeRegistry: Map<string, MauthThemeRecord> = new Map();
+
+/**
+ * 包定义（装配期由 `buildThemeRegistry` 填充）
+ *
+ * 为什么要留这一份：宿主需要「有哪些包、分别叫什么」来做界面风格选择器，而配色记录
+ * 里只有 `pkg` 这个 id，没有显示名与描述。此前宿主在自己那边手抄一份清单
+ * （`theme/packages.ts`），结果**加包忘抄 = 面板里看不到**。留在这里就只有一个来源。
+ */
+const installedPackages = new Map<string, MauthThemePackage>();
 
 /** 装入一张已构建好的配色注册表（宿主在启动时调一次） */
 export function installThemeRegistry(registry: Map<string, MauthThemeRecord>): void {
@@ -323,6 +336,22 @@ function emptyRecord(device: string, page: string): MauthThemeRecord {
     views: undefined,
     loadStyle: undefined
   };
+}
+
+/**
+ * 列出全部主题包（= 版式），按包名排序
+ *
+ * 返回的就是各包 `index.ts` 的 `export default`（meta 里的 `id` 已校正为目录名）。
+ * 宿主用它渲染"界面风格"选择器 —— 加包只需建目录，**不用再同步任何清单**。
+ *
+ * ⚠️ 必须在 `installThemeRegistry(buildThemeRegistry(...))` 之后调用（虚拟模块装配期即完成）。
+ *
+ * @returns 包定义列表
+ */
+export function listPackages(): MauthThemePackage[] {
+  return [...installedPackages.entries()]
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+    .map(([, def]) => def);
 }
 
 /** 当前有哪些配色（可选按设备过滤；不传则返回全部） */

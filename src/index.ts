@@ -42,7 +42,7 @@ export type {
   MauthThemeRecord
 } from './types.js';
 
-export { buildThemeRegistry, installThemeRegistry } from './registry.js';
+export { buildThemeRegistry, installThemeRegistry, listPackages } from './registry.js';
 export type { ThemeAssetModules } from './registry.js';
 export {
   listThemes,

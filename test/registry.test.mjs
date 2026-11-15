@@ -24,6 +24,7 @@ import {
   listColorsOf,
   listColorViews,
   listThemes,
+  listPackages,
   resolveThemeId,
   toneOfAnyScope,
   toneOfColor
@@ -255,4 +256,22 @@ test('buildThemeRegistry：index.js 形态的键与 index.ts 同权（纯 JS 宿
   assert.ok(rec, 'index.js 的包/配色键应正常解析登记');
   assert.equal(rec.pkg, 'jspkg');
   assert.equal(rec.tone, 'light');
+});
+
+test('listPackages：包的定义只有一份来源（宿主不再手抄清单），id 以目录名为准', () => {
+  installThemeRegistry(buildThemeRegistry(fixtureModules()));
+  const pkgs = listPackages();
+  assert.deepEqual(
+    pkgs.map(p => p.meta.id),
+    ['compact', 'default'],
+    '应按包名排序，且 id 取自目录名'
+  );
+  assert.equal(pkgs.find(p => p.meta.id === 'default').meta.name, '默认包', '显示名来自包定义');
+
+  // 目录名与 meta.id 不一致时，以目录名为准（选择器不该指向一个不存在的包）
+  const modules = fixtureModules();
+  modules.packages['./typo/index.ts'] = { default: { meta: { id: 'wrong', name: '写错的包' } } };
+  installThemeRegistry(buildThemeRegistry(modules));
+  assert.ok(listPackages().some(p => p.meta.id === 'typo'), 'meta.id 写错不影响登记');
+  assert.ok(!listPackages().some(p => p.meta.id === 'wrong'));
 });
